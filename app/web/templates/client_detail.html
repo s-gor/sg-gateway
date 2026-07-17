@@ -59,9 +59,12 @@
           <span class="badge">{{ card.status }}</span>
         </div>
         <pre class="payload">{{ card.payload }}</pre>
+        <div class="qr-frame">
+          <img src="{{ card.qr_url }}" alt="QR {{ card.title }}">
+        </div>
         <div class="button-row">
           <a class="button primary" href="{{ card.export_url }}">{{ card.primary_action }}</a>
-          <button class="button" type="button">{{ card.secondary_action }}</button>
+          <a class="button" href="{{ card.qr_url }}" target="_blank" rel="noreferrer">{{ card.secondary_action }}</a>
         </div>
       </article>
     {% endfor %}

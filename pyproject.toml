@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 dependencies = [
     "flask>=3.0,<4",
     "waitress>=3.0,<4",
+    "qrcode>=7.4,<8",
 ]
 
 [project.optional-dependencies]

@@ -13,3 +13,4 @@ def test_build_access_cards_for_recommended_client(tmp_path, monkeypatch):
     assert "AmneziaWG" in titles
     assert "Xray Reality" in titles
     assert "SG Client" in titles
+    assert all(card.qr_url.startswith(f"/clients/{client_id}/qr/") for card in cards)

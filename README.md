@@ -30,6 +30,7 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Generated AmneziaWG client payloads
 - Generated Xray UUID payloads
 - Downloadable access exports
+- QR codes for access exports
 - Maintenance diagnostics
 - Local Windows development scripts
 

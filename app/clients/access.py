@@ -13,6 +13,7 @@ class AccessCard:
     primary_action: str
     secondary_action: str
     export_url: str
+    qr_url: str
     payload: str
 
 
@@ -27,9 +28,10 @@ def build_access_cards(client: Client) -> list[AccessCard]:
                 status=deployments["amneziawg"].status,
                 description="ÐžÑ‚Ð´ÐµÐ»ÑŒÐ½Ð°Ñ ÐºÐ¾Ð½Ñ„Ð¸Ð³ÑƒÑ€Ð°Ñ†Ð¸Ñ Ð´Ð»Ñ AmneziaWG-ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð°.",
                 primary_action="Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ ÐºÐ¾Ð½Ñ„Ð¸Ð³ÑƒÑ€Ð°Ñ†Ð¸ÑŽ",
-                secondary_action="ÐŸÐ¾ÐºÐ°Ð·Ð°Ñ‚ÑŒ QR",
+                secondary_action="QR",
                 export_url=f"/clients/{client.id}/exports/amneziawg",
-                payload=f"# SG-Gateway AmneziaWG placeholder for {client.name}",
+                qr_url=f"/clients/{client.id}/qr/amneziawg",
+                payload=f"# SG-Gateway AmneziaWG access for {client.name}",
             )
         )
 
@@ -40,9 +42,10 @@ def build_access_cards(client: Client) -> list[AccessCard]:
                 status=deployments["xray"].status,
                 description="Ð¡ÑÑ‹Ð»ÐºÐ° Ð´Ð»Ñ ÑÐ¾Ð²Ð¼ÐµÑÑ‚Ð¸Ð¼Ð¾Ð³Ð¾ Xray-ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð°.",
                 primary_action="Ð¡ÐºÐ¾Ð¿Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ ÑÑÑ‹Ð»ÐºÑƒ",
-                secondary_action="ÐŸÐ¾ÐºÐ°Ð·Ð°Ñ‚ÑŒ QR",
+                secondary_action="QR",
                 export_url=f"/clients/{client.id}/exports/xray",
-                payload=f"vless://placeholder-{client.id}@vpn.example.com:443#{client.name}",
+                qr_url=f"/clients/{client.id}/qr/xray",
+                payload=f"vless://client-{client.id}@configured-endpoint#{client.name}",
             )
         )
 
@@ -52,8 +55,9 @@ def build_access_cards(client: Client) -> list[AccessCard]:
             status="planned",
             description="Ð•Ð´Ð¸Ð½Ð°Ñ Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÐ° Ð¿Ð¾ÑÐ²Ð¸Ñ‚ÑÑ Ð¿Ð¾ÑÐ»Ðµ Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ Ð³ÐµÐ½ÐµÑ€Ð°Ñ‚Ð¾Ñ€Ð¾Ð² AWG Ð¸ Xray.",
             primary_action="Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÑƒ",
-            secondary_action="ÐŸÐ¾ÐºÐ°Ð·Ð°Ñ‚ÑŒ QR",
+            secondary_action="QR",
             export_url=f"/clients/{client.id}/exports/subscription",
+            qr_url=f"/clients/{client.id}/qr/subscription",
             payload=f"sg://client/{client.id}",
         )
     )

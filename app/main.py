@@ -2,6 +2,7 @@ from flask import Flask, Response, abort, jsonify, redirect, render_template, re
 
 from app.clients.access import build_access_cards
 from app.clients.exports import build_awg_config, build_subscription, build_xray_link
+from app.clients.qr import build_qr_svg
 from app.clients.repository import (
     count_clients,
     create_client,
@@ -65,8 +66,7 @@ def create_app() -> Flask:
             access_cards=build_access_cards(client),
         )
 
-    @app.get("/clients/<int:client_id>/exports/<kind>")
-    def export_client_access(client_id: int, kind: str):
+    def _build_export(client_id: int, kind: str):
         client = get_client(client_id)
         if client is None:
             abort(404)
@@ -80,12 +80,21 @@ def create_app() -> Flask:
         if builder is None:
             abort(404)
 
-        export = builder(client)
+        return builder(client)
+
+    @app.get("/clients/<int:client_id>/exports/<kind>")
+    def export_client_access(client_id: int, kind: str):
+        export = _build_export(client_id, kind)
         return Response(
             export.body,
             mimetype=export.media_type,
             headers={"Content-Disposition": f"attachment; filename={export.filename}"},
         )
+
+    @app.get("/clients/<int:client_id>/qr/<kind>")
+    def client_access_qr(client_id: int, kind: str):
+        export = _build_export(client_id, kind)
+        return Response(build_qr_svg(export.body), mimetype="image/svg+xml")
 
     @app.post("/clients/<int:client_id>/enable")
     def enable_client(client_id: int):
