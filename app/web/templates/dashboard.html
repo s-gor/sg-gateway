@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}SG-Gateway · Dashboard{% endblock %}
+
+{% block content %}
+  <header class="topbar">
+    <div>
+      <h1>Главная</h1>
+      <p>Один сервер, один список клиентов, два способа подключения.</p>
+    </div>
+    <div class="topbar-actions">
+      <button class="button primary" type="button">Создать клиента</button>
+      <button class="button" type="button">Проверить сервер</button>
+      <button class="button" type="button">Резервная копия</button>
+    </div>
+  </header>
+
+  <section class="status-grid" aria-label="Server status">
+    {% for item in status_items %}
+      <article class="status-card">
+        <div class="status-dot {{ item.state }}"></div>
+        <div>
+          <div class="status-label">{{ item.label }}</div>
+          <div class="status-value">{{ item.value }}</div>
+        </div>
+      </article>
+    {% endfor %}
+  </section>
+
+  <section class="connections">
+    <div class="section-heading">
+      <h2>Подключения</h2>
+      <p>В первом выпуске оставляем только базовые и понятные варианты.</p>
+    </div>
+
+    <div class="connection-list">
+      <article class="connection-row">
+        <div>
+          <h3>AmneziaWG</h3>
+          <p>UDP, отдельная конфигурация и QR для клиента.</p>
+        </div>
+        <span class="badge">Ожидает настройки</span>
+      </article>
+
+      <article class="connection-row">
+        <div>
+          <h3>Xray Reality</h3>
+          <p>VLESS Reality, ссылка подписки и QR для совместимых клиентов.</p>
+        </div>
+        <span class="badge">Ожидает настройки</span>
+      </article>
+    </div>
+  </section>
+{% endblock %}

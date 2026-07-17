@@ -1,0 +1,34 @@
+services:
+  panel:
+    build:
+      context: .
+      dockerfile: docker/panel/Dockerfile
+    container_name: sg-gateway-panel
+    restart: unless-stopped
+    read_only: true
+    environment:
+      SG_GATEWAY_ENV: production
+      SG_GATEWAY_HOST: 0.0.0.0
+      SG_GATEWAY_PORT: 8080
+      SG_GATEWAY_DATA_DIR: /var/lib/sg-gateway
+      SG_GATEWAY_LOG_DIR: /var/log/sg-gateway
+    volumes:
+      - sg_gateway_data:/var/lib/sg-gateway
+      - sg_gateway_logs:/var/log/sg-gateway
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  xray:
+    image: ghcr.io/xtls/xray-core:25.6.8
+    container_name: sg-gateway-xray
+    restart: unless-stopped
+    network_mode: host
+    read_only: true
+    volumes:
+      - sg_gateway_xray:/etc/xray:ro
+      - sg_gateway_logs:/var/log/sg-gateway
+
+volumes:
+  sg_gateway_data:
+  sg_gateway_logs:
+  sg_gateway_xray:
