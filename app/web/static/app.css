@@ -44,6 +44,20 @@ button:disabled {
   min-height: 100vh;
 }
 
+.recovery-shell {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.recovery-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 26px;
+}
+
 .sidebar {
   border-right: 1px solid var(--line);
   background: #14181d;
@@ -446,11 +460,13 @@ select {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .content {
+  .content,
+  .recovery-shell {
     padding: 22px;
   }
 
   .topbar,
+  .recovery-header,
   .connection-row,
   .client-form,
   .access-card-head {

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SG-Gateway Â· Recovery</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  </head>
+  <body>
+    <main class="recovery-shell">
+      <header class="recovery-header">
+        <div>
+          <div class="brand">
+            <div class="brand-mark">SG</div>
+            <div>
+              <div class="brand-name">SG-Gateway Recovery</div>
+              <div class="brand-note">ÐœÐ¸Ð½Ð¸Ð¼Ð°Ð»ÑŒÐ½Ð°Ñ Ð°Ð²Ð°Ñ€Ð¸Ð¹Ð½Ð°Ñ ÑÑ‚Ñ€Ð°Ð½Ð¸Ñ†Ð°</div>
+            </div>
+          </div>
+          <h1>Ð¡Ð¾ÑÑ‚Ð¾ÑÐ½Ð¸Ðµ: {{ health.upper() }}</h1>
+          <p>Ð­Ñ‚Ð° ÑÑ‚Ñ€Ð°Ð½Ð¸Ñ†Ð° Ð´Ð¾Ð»Ð¶Ð½Ð° Ð¾ÑÑ‚Ð°Ð²Ð°Ñ‚ÑŒÑÑ Ð¿Ñ€Ð¾ÑÑ‚Ð¾Ð¹: ÑÑ‚Ð°Ñ‚ÑƒÑ, Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÐ°, Ñ€ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ðµ ÐºÐ¾Ð¿Ð¸Ð¸ Ð¸ Ð±Ñ‹ÑÑ‚Ñ€Ñ‹Ð¹ Ð¿ÐµÑ€ÐµÑ…Ð¾Ð´ Ðº Ð¾Ð±ÑÐ»ÑƒÐ¶Ð¸Ð²Ð°Ð½Ð¸ÑŽ.</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="button primary" href="/maintenance">ÐžÐ±ÑÐ»ÑƒÐ¶Ð¸Ð²Ð°Ð½Ð¸Ðµ</a>
+          <a class="button" href="/maintenance/diagnostics.json">Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÑƒ</a>
+          <a class="button" href="/">ÐžÑ‚ÐºÑ€Ñ‹Ñ‚ÑŒ Ð¿Ð°Ð½ÐµÐ»ÑŒ</a>
+        </div>
+      </header>
+
+      <section class="table-panel section-block">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ÐŸÑ€Ð¾Ð²ÐµÑ€ÐºÐ°</th>
+              <th>Ð¡Ñ‚Ð°Ñ‚ÑƒÑ</th>
+              <th>Ð¡Ð¾Ð¾Ð±Ñ‰ÐµÐ½Ð¸Ðµ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for check in health_checks %}
+              <tr>
+                <td><strong>{{ check.name }}</strong></td>
+                <td>
+                  <span class="badge {{ 'success' if check.status == 'ok' else '' }}">
+                    {{ check.status }}
+                  </span>
+                </td>
+                <td>{{ check.message }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="table-panel">
+        {% if backups %}
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ÐŸÐ¾ÑÐ»ÐµÐ´Ð½Ð¸Ðµ Ñ€ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ðµ ÐºÐ¾Ð¿Ð¸Ð¸</th>
+                <th>Ð¡Ð¾Ð·Ð´Ð°Ð½Ð°</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for backup in backups %}
+                <tr>
+                  <td><strong>{{ backup.name }}</strong></td>
+                  <td>{{ backup.created_at }}</td>
+                  <td class="actions-cell">
+                    <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty-state">
+            <h2>Ð ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ñ… ÐºÐ¾Ð¿Ð¸Ð¹ Ð¿Ð¾ÐºÐ° Ð½ÐµÑ‚</h2>
+            <p>ÐŸÐ¾ÑÐ»Ðµ ÑÐ¾Ð·Ð´Ð°Ð½Ð¸Ñ backup Ð·Ð´ÐµÑÑŒ Ð¿Ð¾ÑÐ²ÑÑ‚ÑÑ Ð¿Ð¾ÑÐ»ÐµÐ´Ð½Ð¸Ðµ Ñ„Ð°Ð¹Ð»Ñ‹.</p>
+          </div>
+        {% endif %}
+      </section>
+    </main>
+  </body>
+</html>

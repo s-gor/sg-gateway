@@ -34,6 +34,7 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Maintenance diagnostics
 - Downloadable diagnostic report
 - Health checks
+- Recovery page
 - Database backup and restore
 - Operation log
 - Local Windows development scripts

@@ -16,7 +16,7 @@ from app.connections.settings import get_connection_settings, update_connection_
 from app.db import init_db
 from app.maintenance.backups import create_backup, get_backup, list_backups, restore_backup
 from app.maintenance.diagnostics import build_diagnostic_report, build_diagnostic_report_json
-from app.maintenance.health import collect_health_checks
+from app.maintenance.health import collect_health_checks, health_summary
 from app.maintenance.operations import list_operations
 from app.maintenance.service import collect_diagnostics
 
@@ -42,6 +42,15 @@ def create_app() -> Flask:
             {"label": "Backups", "value": str(len(list_backups())), "state": "idle"},
         ]
         return render_template("dashboard.html", active_page="dashboard", status_items=status_items)
+
+    @app.get("/recovery")
+    def recovery():
+        return render_template(
+            "recovery.html",
+            health=health_summary(),
+            health_checks=collect_health_checks(),
+            backups=list_backups()[:5],
+        )
 
     @app.get("/clients")
     def clients():
