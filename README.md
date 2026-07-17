@@ -79,6 +79,12 @@ Run checks:
 .\scripts\check.ps1
 ```
 
+Run the same local quality gate used before commits:
+
+```powershell
+.\scripts\ci-local.ps1
+```
+
 Docker development:
 
 ```powershell
