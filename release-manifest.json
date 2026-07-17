@@ -1,0 +1,18 @@
+{
+  "name": "sg-gateway",
+  "version": "0.17.0-mvp",
+  "channel": "mvp",
+  "images": {
+    "panel": "sg-gateway-panel:0.17.0-mvp",
+    "xray": "ghcr.io/xtls/xray-core:25.6.8"
+  },
+  "services": [
+    "panel",
+    "xray",
+    "sg-hostd"
+  ],
+  "rollback": {
+    "keep_previous_versions": 1,
+    "requires_backup": true
+  }
+}

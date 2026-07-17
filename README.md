@@ -41,6 +41,7 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - sg-hostd allow-listed command contract
 - Panel-side sg-hostd client
 - Dry-run installer
+- Release manifest and version endpoint
 - Local Windows development scripts
 
 ## Local Development on Windows

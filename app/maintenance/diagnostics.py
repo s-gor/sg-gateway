@@ -12,6 +12,7 @@ from app.hostd.client import hostd_health
 from app.maintenance.backups import list_backups
 from app.maintenance.health import collect_health_checks, health_summary
 from app.maintenance.operations import list_operations, log_operation
+from app.version import get_release_manifest, get_version
 
 
 def build_diagnostic_report() -> dict:
@@ -27,6 +28,8 @@ def build_diagnostic_report() -> dict:
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "service": "sg-gateway-panel",
+        "version": get_version(),
+        "release": get_release_manifest(),
         "environment": config.environment,
         "health": health_summary(),
         "hostd": {

@@ -9,6 +9,7 @@
       <p>ÐœÐ¸Ð½Ð¸Ð¼Ð°Ð»ÑŒÐ½Ð°Ñ Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÐ°, Ñ€ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ðµ ÐºÐ¾Ð¿Ð¸Ð¸ Ð±Ð°Ð·Ñ‹ Ð¸ Ð¶ÑƒÑ€Ð½Ð°Ð» Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¹.</p>
     </div>
     <div class="topbar-actions">
+      <a class="button" href="/api/version">Ð’ÐµÑ€ÑÐ¸Ñ</a>
       <a class="button" href="/api/status">JSON ÑÑ‚Ð°Ñ‚ÑƒÑ</a>
       <a class="button" href="/maintenance/diagnostics.json">Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÑƒ</a>
       <form method="post" action="/maintenance/backups">
@@ -27,6 +28,13 @@
         </div>
       </article>
     {% endfor %}
+  </section>
+
+  <section class="tool-panel">
+    <div class="section-heading">
+      <h2>Ð’ÐµÑ€ÑÐ¸Ñ</h2>
+      <p>{{ release.name }} {{ release.version }} Â· ÐºÐ°Ð½Ð°Ð» {{ release.channel }}</p>
+    </div>
   </section>
 
   <section class="table-panel section-block">

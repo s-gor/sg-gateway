@@ -19,6 +19,7 @@ from app.maintenance.diagnostics import build_diagnostic_report, build_diagnosti
 from app.maintenance.health import collect_health_checks, health_summary
 from app.maintenance.operations import list_operations
 from app.maintenance.service import collect_diagnostics
+from app.version import get_release_manifest, get_version
 
 
 def create_app() -> Flask:
@@ -29,6 +30,10 @@ def create_app() -> Flask:
     )
 
     init_db()
+
+    @app.context_processor
+    def inject_version():
+        return {"app_version": get_version()}
 
     @app.get("/")
     def dashboard():
@@ -183,6 +188,7 @@ def create_app() -> Flask:
             health_checks=collect_health_checks(),
             backups=list_backups(),
             operations=list_operations(),
+            release=get_release_manifest(),
         )
 
     @app.post("/maintenance/backups")
@@ -217,6 +223,7 @@ def create_app() -> Flask:
         return jsonify(
             {
                 "service": report["service"],
+                "version": report["version"],
                 "status": report["health"],
                 "environment": report["environment"],
                 "clients": report["summary"]["clients"],
@@ -226,11 +233,21 @@ def create_app() -> Flask:
             }
         )
 
+    @app.get("/api/version")
+    def api_version():
+        return jsonify(get_release_manifest())
+
     @app.get("/health")
     def health():
         report = build_diagnostic_report()
         status_code = 200 if report["health"] in {"ok", "warning"} else 503
-        return jsonify({"service": "sg-gateway-panel", "status": report["health"]}), status_code
+        return jsonify(
+            {
+                "service": "sg-gateway-panel",
+                "version": get_version(),
+                "status": report["health"],
+            }
+        ), status_code
 
     return app
 
