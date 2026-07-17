@@ -39,6 +39,7 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Operation log
 - Docker panel runtime
 - sg-hostd allow-listed command contract
+- Panel-side sg-hostd client
 - Local Windows development scripts
 
 ## Local Development on Windows

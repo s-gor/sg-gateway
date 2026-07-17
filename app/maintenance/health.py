@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from app.config import load_config
 from app.connections.settings import get_connection_settings
 from app.db import get_database_path
+from app.hostd.client import hostd_health, run_hostd_command
 from app.maintenance.backups import get_backup_dir
 
 
@@ -35,6 +36,7 @@ def collect_health_checks() -> list[HealthCheck]:
             status="ok" if config.data_dir.exists() else "warning",
             message=str(config.data_dir),
         ),
+        _hostd_check(),
     ]
 
     checks.extend(_connection_checks())
@@ -50,16 +52,26 @@ def health_summary() -> str:
     return "ok"
 
 
+def _hostd_check() -> HealthCheck:
+    result = hostd_health()
+    return HealthCheck(
+        name="sg-hostd",
+        status=result.status,
+        message=result.message,
+    )
+
+
 def _connection_checks() -> list[HealthCheck]:
     checks: list[HealthCheck] = []
 
     awg = get_connection_settings("amneziawg")
     awg_key = awg.config.get("server_public_key", "")
+    awg_host = run_hostd_command("awg.status")
     checks.append(
         HealthCheck(
             name="AmneziaWG settings",
-            status="warning" if "PLACEHOLDER" in awg_key else "ok",
-            message=f"{awg.host}:{awg.port}",
+            status="warning" if "PLACEHOLDER" in awg_key else awg_host.status,
+            message=f"{awg.host}:{awg.port}; hostd: {awg_host.message}",
         )
     )
 
@@ -67,11 +79,16 @@ def _connection_checks() -> list[HealthCheck]:
     xray_key = xray.config.get("public_key", "")
     xray_short_id = xray.config.get("short_id", "")
     xray_ready = "PLACEHOLDER" not in xray_key and "PLACEHOLDER" not in xray_short_id
+    xray_host = run_hostd_command("xray.status")
     checks.append(
         HealthCheck(
             name="Xray Reality settings",
-            status="ok" if xray_ready else "warning",
-            message=f"{xray.host}:{xray.port}, SNI {xray.config.get('server_name', 'not set')}",
+            status=xray_host.status if xray_ready else "warning",
+            message=(
+                f"{xray.host}:{xray.port}, "
+                f"SNI {xray.config.get('server_name', 'not set')}; "
+                f"hostd: {xray_host.message}"
+            ),
         )
     )
 

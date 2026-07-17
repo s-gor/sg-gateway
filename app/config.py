@@ -12,6 +12,7 @@ class AppConfig:
     port: int
     data_dir: Path
     log_dir: Path
+    hostd_url: str
 
 
 def load_config() -> AppConfig:
@@ -21,4 +22,5 @@ def load_config() -> AppConfig:
         port=int(os.getenv("SG_GATEWAY_PORT", "8080")),
         data_dir=Path(os.getenv("SG_GATEWAY_DATA_DIR", "data")),
         log_dir=Path(os.getenv("SG_GATEWAY_LOG_DIR", "logs")),
+        hostd_url=os.getenv("SG_GATEWAY_HOSTD_URL", "http://127.0.0.1:8090"),
     )

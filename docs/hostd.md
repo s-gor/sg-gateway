@@ -12,6 +12,16 @@ SG-Gateway.
 - Every future mutating command must validate inputs and return structured
   results.
 
+## Panel Connection
+
+The panel reads the host helper URL from:
+
+```text
+SG_GATEWAY_HOSTD_URL=http://127.0.0.1:8090
+```
+
+If `sg-hostd` is unavailable, the panel reports a warning but keeps running.
+
 ## MVP Command Contract
 
 ```text

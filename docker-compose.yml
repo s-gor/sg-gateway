@@ -12,6 +12,7 @@ services:
       SG_GATEWAY_PORT: 8080
       SG_GATEWAY_DATA_DIR: /var/lib/sg-gateway
       SG_GATEWAY_LOG_DIR: /var/log/sg-gateway
+      SG_GATEWAY_HOSTD_URL: http://127.0.0.1:8090
     tmpfs:
       - /tmp
     volumes:
