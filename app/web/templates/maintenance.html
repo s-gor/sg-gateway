@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}SG-Gateway Â· Maintenance{% endblock %}
+
+{% block content %}
+  <header class="topbar">
+    <div>
+      <h1>ÐžÐ±ÑÐ»ÑƒÐ¶Ð¸Ð²Ð°Ð½Ð¸Ðµ</h1>
+      <p>ÐœÐ¸Ð½Ð¸Ð¼Ð°Ð»ÑŒÐ½Ð°Ñ Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÐ°, ÑÐ¾ÑÑ‚Ð¾ÑÐ½Ð¸Ðµ Ð±Ð°Ð·Ñ‹ Ð¸ Ð±ÑƒÐ´ÑƒÑ‰Ð¸Ðµ Ð±ÐµÐ·Ð¾Ð¿Ð°ÑÐ½Ñ‹Ðµ Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¸.</p>
+    </div>
+    <div class="topbar-actions">
+      <a class="button" href="/api/status">JSON ÑÑ‚Ð°Ñ‚ÑƒÑ</a>
+    </div>
+  </header>
+
+  <section class="status-grid">
+    {% for item in diagnostics %}
+      <article class="status-card">
+        <div class="status-dot {{ item.state }}"></div>
+        <div>
+          <div class="status-label">{{ item.label }}</div>
+          <div class="status-value compact">{{ item.value }}</div>
+        </div>
+      </article>
+    {% endfor %}
+  </section>
+
+  <section class="tool-panel">
+    <div class="section-heading">
+      <h2>Ð¡Ð»ÐµÐ´ÑƒÑŽÑ‰Ð¸Ðµ Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¸</h2>
+      <p>Ð­Ñ‚Ð¸ ÐºÐ½Ð¾Ð¿ÐºÐ¸ Ð¿Ð¾ÑÐ²ÑÑ‚ÑÑ Ð¿Ð¾ÑÐ»Ðµ Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ Ñ€ÐµÐ°Ð»ÑŒÐ½Ð¾Ð³Ð¾ host helper Ð¸ Ð±ÐµÐ·Ð¾Ð¿Ð°ÑÐ½Ð¾Ð³Ð¾ rollback.</p>
+    </div>
+    <div class="button-row">
+      <button class="button" type="button" disabled>Ð¡Ð¾Ð·Ð´Ð°Ñ‚ÑŒ Ñ€ÐµÐ·ÐµÑ€Ð²Ð½ÑƒÑŽ ÐºÐ¾Ð¿Ð¸ÑŽ</button>
+      <button class="button" type="button" disabled>ÐŸÑ€Ð¾Ð²ÐµÑ€Ð¸Ñ‚ÑŒ ÑÐµÑ€Ð²ÐµÑ€</button>
+      <button class="button" type="button" disabled>Ð’ÐµÑ€Ð½ÑƒÑ‚ÑŒÑÑ Ðº Ñ€Ð°Ð±Ð¾Ñ‡ÐµÐ¹ Ð²ÐµÑ€ÑÐ¸Ð¸</button>
+    </div>
+  </section>
+{% endblock %}

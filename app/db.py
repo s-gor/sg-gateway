@@ -3,6 +3,8 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from app.config import load_config
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS clients (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,17 +26,14 @@ CREATE TABLE IF NOT EXISTS client_deployments (
 """
 
 
-def get_data_dir() -> Path:
-    return Path("data")
-
-
 def get_database_path() -> Path:
-    return get_data_dir() / "sg-gateway.sqlite"
+    return load_config().data_dir / "sg-gateway.sqlite"
 
 
 def connect() -> sqlite3.Connection:
-    get_data_dir().mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(get_database_path())
+    database_path = get_database_path()
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(database_path)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     return connection

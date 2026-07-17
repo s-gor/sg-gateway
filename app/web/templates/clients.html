@@ -46,7 +46,7 @@
           {% for client in clients %}
             <tr>
               <td>
-                <strong>{{ client.name }}</strong>
+                <a class="table-link" href="/clients/{{ client.id }}">{{ client.name }}</a>
                 <span class="subtle">ID {{ client.id }}</span>
               </td>
               <td>
@@ -57,15 +57,18 @@
               <td>{{ client.awg_status }}</td>
               <td>{{ client.xray_status }}</td>
               <td class="actions-cell">
-                {% if client.enabled %}
-                  <form method="post" action="/clients/{{ client.id }}/disable">
-                    <button class="button small" type="submit">ÐžÑ‚ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ</button>
-                  </form>
-                {% else %}
-                  <form method="post" action="/clients/{{ client.id }}/enable">
-                    <button class="button small" type="submit">Ð’ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ</button>
-                  </form>
-                {% endif %}
+                <div class="inline-actions">
+                  <a class="button small" href="/clients/{{ client.id }}">ÐžÑ‚ÐºÑ€Ñ‹Ñ‚ÑŒ</a>
+                  {% if client.enabled %}
+                    <form method="post" action="/clients/{{ client.id }}/disable">
+                      <button class="button small" type="submit">ÐžÑ‚ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ</button>
+                    </form>
+                  {% else %}
+                    <form method="post" action="/clients/{{ client.id }}/enable">
+                      <button class="button small" type="submit">Ð’ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ</button>
+                    </form>
+                  {% endif %}
+                </div>
               </td>
             </tr>
           {% endfor %}

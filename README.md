@@ -20,6 +20,26 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Docker is used for application services.
 - Host-level operations are delegated to a small, limited host helper.
 
+## Local Development on Windows
+
+Run:
+
+```powershell
+.\scripts\run-dev.ps1
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8080
+```
+
+Run tests:
+
+```powershell
+.\scripts\test.ps1
+```
+
 ## First Release Scope
 
 - AmneziaWG access
@@ -35,16 +55,17 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 
 ```text
 sg-gateway/
-├── app/             Web panel and product modules
-├── engines/         Engine adapters for AmneziaWG and Xray
-├── hostd/           Limited host helper service
-├── deploy/          Install, update, rollback, uninstall assets
-├── docker/          Container build files
-├── migrations/      Database migrations
-├── tests/           Automated tests
-└── docs/            Architecture and operator docs
+â”œâ”€â”€ app/             Web panel and product modules
+â”œâ”€â”€ engines/         Engine adapters for AmneziaWG and Xray
+â”œâ”€â”€ hostd/           Limited host helper service
+â”œâ”€â”€ deploy/          Install, update, rollback, uninstall assets
+â”œâ”€â”€ docker/          Container build files
+â”œâ”€â”€ migrations/      Database migrations
+â”œâ”€â”€ scripts/         Local development helpers
+â”œâ”€â”€ tests/           Automated tests
+â””â”€â”€ docs/            Architecture and operator docs
 ```
 
 ## Status
 
-Early project scaffold.
+Early MVP scaffold.
