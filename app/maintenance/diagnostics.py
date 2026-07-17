@@ -9,6 +9,7 @@ from app.config import load_config
 from app.connections.service import list_connections
 from app.db import get_database_path
 from app.maintenance.backups import list_backups
+from app.maintenance.health import collect_health_checks, health_summary
 from app.maintenance.operations import list_operations, log_operation
 
 
@@ -19,11 +20,13 @@ def build_diagnostic_report() -> dict:
     connections = list_connections()
     backups = list_backups()
     operations = list_operations(limit=50)
+    health_checks = collect_health_checks()
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "service": "sg-gateway-panel",
         "environment": config.environment,
+        "health": health_summary(),
         "runtime": {
             "python": platform.python_version(),
             "system": platform.system(),
@@ -40,6 +43,14 @@ def build_diagnostic_report() -> dict:
             "backups": len(backups),
             "operations": len(operations),
         },
+        "health_checks": [
+            {
+                "name": item.name,
+                "status": item.status,
+                "message": item.message,
+            }
+            for item in health_checks
+        ],
         "connections": [
             {
                 "name": item.name,

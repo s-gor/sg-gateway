@@ -7,6 +7,7 @@ from app.config import load_config
 from app.connections.service import list_connections
 from app.db import get_database_path
 from app.maintenance.backups import list_backups
+from app.maintenance.health import health_summary
 from app.maintenance.operations import count_operations
 
 
@@ -22,8 +23,10 @@ def collect_diagnostics() -> list[DiagnosticItem]:
     database_path = get_database_path()
     connections = list_connections()
     backups = list_backups()
+    health = health_summary()
 
     return [
+        DiagnosticItem("Health", health.upper(), "ok" if health == "ok" else "idle"),
         DiagnosticItem("Panel mode", config.environment, "ok"),
         DiagnosticItem("Database", "Ready" if database_path.exists() else "Will be created", "ok"),
         DiagnosticItem("Database path", str(database_path), "idle"),

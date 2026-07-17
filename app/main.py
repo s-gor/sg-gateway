@@ -11,12 +11,12 @@ from app.clients.repository import (
     list_clients,
     set_client_enabled,
 )
-from app.config import load_config
 from app.connections.service import list_connections
 from app.connections.settings import get_connection_settings, update_connection_settings
 from app.db import init_db
 from app.maintenance.backups import create_backup, get_backup, list_backups, restore_backup
 from app.maintenance.diagnostics import build_diagnostic_report, build_diagnostic_report_json
+from app.maintenance.health import collect_health_checks
 from app.maintenance.operations import list_operations
 from app.maintenance.service import collect_diagnostics
 
@@ -171,6 +171,7 @@ def create_app() -> Flask:
             "maintenance.html",
             active_page="maintenance",
             diagnostics=collect_diagnostics(),
+            health_checks=collect_health_checks(),
             backups=list_backups(),
             operations=list_operations(),
         )
@@ -207,22 +208,20 @@ def create_app() -> Flask:
         return jsonify(
             {
                 "service": report["service"],
-                "status": "ok",
+                "status": report["health"],
                 "environment": report["environment"],
                 "clients": report["summary"]["clients"],
                 "backups": report["summary"]["backups"],
                 "connections": report["connections"],
+                "health_checks": report["health_checks"],
             }
         )
 
     @app.get("/health")
     def health():
-        return jsonify(
-            {
-                "service": "sg-gateway-panel",
-                "status": "ok",
-            }
-        )
+        report = build_diagnostic_report()
+        status_code = 200 if report["health"] in {"ok", "warning"} else 503
+        return jsonify({"service": "sg-gateway-panel", "status": report["health"]}), status_code
 
     return app
 

@@ -30,6 +30,31 @@
   </section>
 
   <section class="table-panel section-block">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ÐŸÑ€Ð¾Ð²ÐµÑ€ÐºÐ°</th>
+          <th>Ð¡Ñ‚Ð°Ñ‚ÑƒÑ</th>
+          <th>Ð¡Ð¾Ð¾Ð±Ñ‰ÐµÐ½Ð¸Ðµ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for check in health_checks %}
+          <tr>
+            <td><strong>{{ check.name }}</strong></td>
+            <td>
+              <span class="badge {{ 'success' if check.status == 'ok' else '' }}">
+                {{ check.status }}
+              </span>
+            </td>
+            <td>{{ check.message }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="table-panel section-block">
     {% if backups %}
       <table class="data-table">
         <thead>
