@@ -2,15 +2,30 @@
 
 `sg-hostd` is the small host-side helper for SG-Gateway.
 
-It must expose only explicit, allow-listed operations, for example:
+It exposes only explicit, allow-listed operations. It must never provide
+arbitrary shell execution to the web panel.
 
-- AmneziaWG status
-- AmneziaWG apply
-- AmneziaWG restart
-- nftables apply
-- sysctl apply
-- certificate reload
-- backup create
-- diagnostics collect
+## Current MVP Commands
 
-It must never provide arbitrary shell execution to the web panel.
+- `awg.status`
+- `xray.status`
+- `nftables.status`
+- `system.diagnostics`
+
+## Local Run
+
+```powershell
+cd hostd
+python -m pip install -r requirements.txt
+waitress-serve --host=127.0.0.1 --port=8090 sg_hostd.app:app
+```
+
+## API
+
+```text
+GET  /health
+GET  /commands
+POST /commands/<allowed-command>
+```
+
+Unknown commands return `403`.

@@ -38,6 +38,7 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Database backup and restore
 - Operation log
 - Docker panel runtime
+- sg-hostd allow-listed command contract
 - Local Windows development scripts
 
 ## Local Development on Windows
