@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}SG-Gateway Â· Connections{% endblock %}
+
+{% block content %}
+  <header class="topbar">
+    <div>
+      <h1>ÐŸÐ¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ</h1>
+      <p>Ð”Ð²Ð° Ð¿Ð¾Ð½ÑÑ‚Ð½Ñ‹Ñ… ÑÐ¿Ð¾ÑÐ¾Ð±Ð° Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ Ð±ÐµÐ· ÑƒÐ·Ð»Ð¾Ð², ÐºÐ°ÑÐºÐ°Ð´Ð¾Ð² Ð¸ Ð»Ð¸ÑˆÐ½ÐµÐ¹ Ð¼Ð°Ñ€ÑˆÑ€ÑƒÑ‚Ð¸Ð·Ð°Ñ†Ð¸Ð¸.</p>
+    </div>
+  </header>
+
+  <section class="connection-list">
+    {% for connection in connections %}
+      <article class="connection-row detail">
+        <div>
+          <h3>{{ connection.label }}</h3>
+          <p>{{ connection.note }}</p>
+          <div class="meta-row">
+            <span>ÐŸÐ¾Ñ€Ñ‚: {{ connection.port }}</span>
+            <span>ÐšÐ»Ð¸ÐµÐ½Ñ‚Ð¾Ð²: {{ connection.clients }}</span>
+          </div>
+        </div>
+        <span class="badge">{{ connection.status }}</span>
+      </article>
+    {% endfor %}
+  </section>
+{% endblock %}

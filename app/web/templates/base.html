@@ -18,13 +18,13 @@
         </div>
 
         <nav class="nav">
-          <a class="nav-item active" href="/">Главная</a>
-          <a class="nav-item" href="#">Клиенты</a>
-          <a class="nav-item" href="#">Подключения</a>
-          <a class="nav-item" href="#">Правила трафика</a>
-          <a class="nav-item" href="#">Безопасность</a>
-          <a class="nav-item" href="#">Обслуживание</a>
-          <a class="nav-item" href="#">Справка</a>
+          <a class="nav-item {{ 'active' if active_page == 'dashboard' else '' }}" href="/">Ð“Ð»Ð°Ð²Ð½Ð°Ñ</a>
+          <a class="nav-item {{ 'active' if active_page == 'clients' else '' }}" href="/clients">ÐšÐ»Ð¸ÐµÐ½Ñ‚Ñ‹</a>
+          <a class="nav-item {{ 'active' if active_page == 'connections' else '' }}" href="/connections">ÐŸÐ¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ</a>
+          <a class="nav-item" href="#">ÐŸÑ€Ð°Ð²Ð¸Ð»Ð° Ñ‚Ñ€Ð°Ñ„Ð¸ÐºÐ°</a>
+          <a class="nav-item" href="#">Ð‘ÐµÐ·Ð¾Ð¿Ð°ÑÐ½Ð¾ÑÑ‚ÑŒ</a>
+          <a class="nav-item" href="#">ÐžÐ±ÑÐ»ÑƒÐ¶Ð¸Ð²Ð°Ð½Ð¸Ðµ</a>
+          <a class="nav-item" href="#">Ð¡Ð¿Ñ€Ð°Ð²ÐºÐ°</a>
         </nav>
       </aside>
 

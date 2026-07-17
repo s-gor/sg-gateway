@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway · Dashboard{% endblock %}
+{% block title %}SG-Gateway Â· Dashboard{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
-      <h1>Главная</h1>
-      <p>Один сервер, один список клиентов, два способа подключения.</p>
+      <h1>Ð“Ð»Ð°Ð²Ð½Ð°Ñ</h1>
+      <p>ÐžÐ´Ð¸Ð½ ÑÐµÑ€Ð²ÐµÑ€, Ð¾Ð´Ð¸Ð½ ÑÐ¿Ð¸ÑÐ¾Ðº ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð¾Ð², Ð´Ð²Ð° ÑÐ¿Ð¾ÑÐ¾Ð±Ð° Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ.</p>
     </div>
     <div class="topbar-actions">
-      <button class="button primary" type="button">Создать клиента</button>
-      <button class="button" type="button">Проверить сервер</button>
-      <button class="button" type="button">Резервная копия</button>
+      <a class="button primary" href="/clients">Ð¡Ð¾Ð·Ð´Ð°Ñ‚ÑŒ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð°</a>
+      <button class="button" type="button">ÐŸÑ€Ð¾Ð²ÐµÑ€Ð¸Ñ‚ÑŒ ÑÐµÑ€Ð²ÐµÑ€</button>
+      <button class="button" type="button">Ð ÐµÐ·ÐµÑ€Ð²Ð½Ð°Ñ ÐºÐ¾Ð¿Ð¸Ñ</button>
     </div>
   </header>
 
@@ -29,25 +29,25 @@
 
   <section class="connections">
     <div class="section-heading">
-      <h2>Подключения</h2>
-      <p>В первом выпуске оставляем только базовые и понятные варианты.</p>
+      <h2>ÐŸÐ¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ</h2>
+      <p>Ð’ Ð¿ÐµÑ€Ð²Ð¾Ð¼ Ð²Ñ‹Ð¿ÑƒÑÐºÐµ Ð¾ÑÑ‚Ð°Ð²Ð»ÑÐµÐ¼ Ñ‚Ð¾Ð»ÑŒÐºÐ¾ Ð±Ð°Ð·Ð¾Ð²Ñ‹Ðµ Ð¸ Ð¿Ð¾Ð½ÑÑ‚Ð½Ñ‹Ðµ Ð²Ð°Ñ€Ð¸Ð°Ð½Ñ‚Ñ‹.</p>
     </div>
 
     <div class="connection-list">
       <article class="connection-row">
         <div>
           <h3>AmneziaWG</h3>
-          <p>UDP, отдельная конфигурация и QR для клиента.</p>
+          <p>UDP, Ð¾Ñ‚Ð´ÐµÐ»ÑŒÐ½Ð°Ñ ÐºÐ¾Ð½Ñ„Ð¸Ð³ÑƒÑ€Ð°Ñ†Ð¸Ñ Ð¸ QR Ð´Ð»Ñ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð°.</p>
         </div>
-        <span class="badge">Ожидает настройки</span>
+        <span class="badge">ÐžÐ¶Ð¸Ð´Ð°ÐµÑ‚ Ð½Ð°ÑÑ‚Ñ€Ð¾Ð¹ÐºÐ¸</span>
       </article>
 
       <article class="connection-row">
         <div>
           <h3>Xray Reality</h3>
-          <p>VLESS Reality, ссылка подписки и QR для совместимых клиентов.</p>
+          <p>VLESS Reality, ÑÑÑ‹Ð»ÐºÐ° Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÐ¸ Ð¸ QR Ð´Ð»Ñ ÑÐ¾Ð²Ð¼ÐµÑÑ‚Ð¸Ð¼Ñ‹Ñ… ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð¾Ð².</p>
         </div>
-        <span class="badge">Ожидает настройки</span>
+        <span class="badge">ÐžÐ¶Ð¸Ð´Ð°ÐµÑ‚ Ð½Ð°ÑÑ‚Ñ€Ð¾Ð¹ÐºÐ¸</span>
       </article>
     </div>
   </section>
