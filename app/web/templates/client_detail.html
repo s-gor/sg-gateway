@@ -11,17 +11,14 @@
     <div class="topbar-actions">
       {% if client.enabled %}
         <form method="post" action="/clients/{{ client.id }}/disable">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <button class="button" type="submit">ÐžÑ‚ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ</button>
         </form>
       {% else %}
         <form method="post" action="/clients/{{ client.id }}/enable">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <button class="button primary" type="submit">Ð’ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ</button>
         </form>
       {% endif %}
       <form method="post" action="/clients/{{ client.id }}/delete">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button class="button danger" type="submit">Ð£Ð´Ð°Ð»Ð¸Ñ‚ÑŒ</button>
       </form>
     </div>

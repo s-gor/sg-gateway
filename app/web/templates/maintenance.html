@@ -13,7 +13,6 @@
       <a class="button" href="/api/status">JSON ÑÑ‚Ð°Ñ‚ÑƒÑ</a>
       <a class="button" href="/maintenance/diagnostics.json">Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÑƒ</a>
       <form method="post" action="/maintenance/backups">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button class="button primary" type="submit">Ð¡Ð¾Ð·Ð´Ð°Ñ‚ÑŒ Ñ€ÐµÐ·ÐµÑ€Ð²Ð½ÑƒÑŽ ÐºÐ¾Ð¿Ð¸ÑŽ</button>
       </form>
     </div>
@@ -84,7 +83,6 @@
                 <div class="inline-actions">
                   <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ</a>
                   <form method="post" action="/maintenance/backups/{{ backup.name }}/restore">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button class="button small" type="submit">Ð’Ð¾ÑÑÑ‚Ð°Ð½Ð¾Ð²Ð¸Ñ‚ÑŒ</button>
                   </form>
                 </div>
