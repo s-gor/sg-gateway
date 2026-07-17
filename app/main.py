@@ -28,7 +28,11 @@ from app.security.auth import (
     should_skip_auth,
     verify_password,
 )
+from app.security.csrf import get_csrf_token, validate_csrf
 from app.version import get_release_manifest, get_version
+
+
+CSRF_EXEMPT_ENDPOINTS = {"login_post"}
 
 
 def create_app() -> Flask:
@@ -46,15 +50,18 @@ def create_app() -> Flask:
     def protect_panel():
         if should_skip_auth(request.endpoint):
             return None
-        if is_authenticated():
-            return None
-        return redirect(url_for("login", next=request.path))
+        if not is_authenticated():
+            return redirect(url_for("login", next=request.path))
+        if request.method == "POST" and request.endpoint not in CSRF_EXEMPT_ENDPOINTS:
+            validate_csrf()
+        return None
 
     @app.context_processor
     def inject_globals():
         return {
             "app_version": get_version(),
             "is_authenticated": is_authenticated(),
+            "csrf_token": get_csrf_token() if is_authenticated() else "",
         }
 
     @app.get("/login")

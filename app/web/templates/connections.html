@@ -33,6 +33,7 @@
         <p>Ð­Ñ‚Ð¸ Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ñ Ð¿Ð¾Ð¿Ð°Ð´ÑƒÑ‚ Ð² Ð½Ð¾Ð²Ñ‹Ðµ ÐºÐ»Ð¸ÐµÐ½Ñ‚ÑÐºÐ¸Ðµ .conf.</p>
       </div>
       <form class="settings-form" method="post" action="/connections/amneziawg">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <label>
           Ð¥Ð¾ÑÑ‚
           <input name="host" value="{{ awg_settings.host }}" required>
@@ -59,6 +60,7 @@
         <p>Ð­Ñ‚Ð¸ Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ñ Ð¿Ð¾Ð¿Ð°Ð´ÑƒÑ‚ Ð² Ð½Ð¾Ð²Ñ‹Ðµ VLESS Reality ÑÑÑ‹Ð»ÐºÐ¸.</p>
       </div>
       <form class="settings-form" method="post" action="/connections/xray">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <label>
           Ð¥Ð¾ÑÑ‚
           <input name="host" value="{{ xray_settings.host }}" required>

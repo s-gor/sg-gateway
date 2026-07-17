@@ -30,6 +30,7 @@
 
         {% if is_authenticated %}
           <form class="logout-form" method="post" action="/logout">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button class="button small" type="submit">Ð’Ñ‹Ð¹Ñ‚Ð¸</button>
           </form>
         {% endif %}

@@ -34,3 +34,15 @@ Public endpoints:
 ## Recovery Principle
 
 If the panel fails, AmneziaWG and Xray should continue serving existing users.
+
+## CSRF
+
+Authenticated POST actions require a session CSRF token.
+
+Forms receive the token through the shared template context:
+
+```html
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+```
+
+API clients may pass the same token through `X-CSRF-Token` where needed.

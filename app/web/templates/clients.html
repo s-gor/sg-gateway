@@ -12,6 +12,7 @@
 
   <section class="tool-panel">
     <form class="client-form" method="post" action="/clients">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <label>
         Ð˜Ð¼Ñ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð°
         <input name="name" placeholder="ÐÐ°Ð¿Ñ€Ð¸Ð¼ÐµÑ€: Irina iPhone" required>
@@ -61,10 +62,12 @@
                   <a class="button small" href="/clients/{{ client.id }}">ÐžÑ‚ÐºÑ€Ñ‹Ñ‚ÑŒ</a>
                   {% if client.enabled %}
                     <form method="post" action="/clients/{{ client.id }}/disable">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                       <button class="button small" type="submit">ÐžÑ‚ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ</button>
                     </form>
                   {% else %}
                     <form method="post" action="/clients/{{ client.id }}/enable">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                       <button class="button small" type="submit">Ð’ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ</button>
                     </form>
                   {% endif %}
