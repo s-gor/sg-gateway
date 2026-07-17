@@ -42,6 +42,7 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Panel-side sg-hostd client
 - Dry-run installer
 - Release manifest and version endpoint
+- Local check script and CI workflow
 - Local Windows development scripts
 
 ## Local Development on Windows
@@ -62,6 +63,12 @@ Run tests:
 
 ```powershell
 .\scripts\test.ps1
+```
+
+Run checks:
+
+```powershell
+.\scripts\check.ps1
 ```
 
 Docker development:
