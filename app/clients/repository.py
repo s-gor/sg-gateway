@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.db import connect
+from app.engines.provisioning import build_engine_config
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,7 @@ class ClientDeployment:
     engine: str
     status: str
     engine_object_id: str | None
+    config_json: str | None
 
 
 def _row_to_client(row) -> Client:
@@ -84,7 +86,7 @@ def list_client_deployments(client_id: int) -> list[ClientDeployment]:
     with connect() as connection:
         rows = connection.execute(
             """
-            SELECT engine, status, engine_object_id
+            SELECT engine, status, engine_object_id, config_json
             FROM client_deployments
             WHERE client_id = ?
             ORDER BY engine
@@ -97,6 +99,7 @@ def list_client_deployments(client_id: int) -> list[ClientDeployment]:
             engine=row["engine"],
             status=row["status"],
             engine_object_id=row["engine_object_id"],
+            config_json=row["config_json"],
         )
         for row in rows
     ]
@@ -124,17 +127,24 @@ def create_client(name: str, access: str) -> int | None:
             "INSERT INTO clients (name, enabled) VALUES (?, 1)",
             (clean_name,),
         )
-        client_id = cursor.lastrowid
+        client_id = int(cursor.lastrowid)
         for engine in engines:
+            engine_object_id, config_json = build_engine_config(engine, client_id, clean_name)
             connection.execute(
                 """
-                INSERT INTO client_deployments (client_id, engine, status)
-                VALUES (?, ?, 'pending')
+                INSERT INTO client_deployments (
+                    client_id,
+                    engine,
+                    status,
+                    engine_object_id,
+                    config_json
+                )
+                VALUES (?, ?, 'generated', ?, ?)
                 """,
-                (client_id, engine),
+                (client_id, engine, engine_object_id, config_json),
             )
 
-    return int(client_id)
+    return client_id
 
 
 def set_client_enabled(client_id: int, enabled: bool) -> None:

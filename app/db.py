@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS client_deployments (
     engine TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     engine_object_id TEXT,
+    config_json TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(client_id, engine)
 );
@@ -39,6 +40,13 @@ def connect() -> sqlite3.Connection:
     return connection
 
 
+def _column_exists(connection: sqlite3.Connection, table: str, column: str) -> bool:
+    rows = connection.execute(f"PRAGMA table_info({table})").fetchall()
+    return any(row["name"] == column for row in rows)
+
+
 def init_db() -> None:
     with connect() as connection:
         connection.executescript(SCHEMA)
+        if not _column_exists(connection, "client_deployments", "config_json"):
+            connection.execute("ALTER TABLE client_deployments ADD COLUMN config_json TEXT")

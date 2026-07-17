@@ -20,6 +20,18 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Docker is used for application services.
 - Host-level operations are delegated to a small, limited host helper.
 
+## Current MVP
+
+- Dashboard
+- Unified clients
+- Client detail cards
+- SQLite storage
+- Generated AmneziaWG client payloads
+- Generated Xray UUID payloads
+- Downloadable access exports
+- Maintenance diagnostics
+- Local Windows development scripts
+
 ## Local Development on Windows
 
 Run:
