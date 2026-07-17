@@ -42,6 +42,7 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Panel-side sg-hostd client
 - Dry-run installer
 - Release manifest and version endpoint
+- Built-in user help
 - Local check script and CI workflow
 - Local Windows development scripts
 

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}SG-Gateway Â· Help{% endblock %}
+
+{% block content %}
+  <header class="topbar">
+    <div>
+      <h1>Ð¡Ð¿Ñ€Ð°Ð²ÐºÐ°</h1>
+      <p>ÐšÐ¾Ñ€Ð¾Ñ‚ÐºÐ¸Ðµ Ð¿Ð¾Ð´ÑÐºÐ°Ð·ÐºÐ¸ Ð¿Ð¾ Ð³Ð»Ð°Ð²Ð½Ñ‹Ð¼ Ñ‡Ð°ÑÑ‚ÑÐ¼ SG-Gateway.</p>
+    </div>
+  </header>
+
+  <section class="help-layout">
+    <nav class="help-nav">
+      {% for item in topics %}
+        <a class="help-link {{ 'active' if topic and topic.slug == item.slug else '' }}" href="/help/{{ item.slug }}">
+          <strong>{{ item.title }}</strong>
+          <span>{{ item.summary }}</span>
+        </a>
+      {% endfor %}
+    </nav>
+
+    <article class="tool-panel help-article">
+      {% if topic %}
+        <h2>{{ topic.title }}</h2>
+        <p>{{ topic.summary }}</p>
+        <ul class="plain-list">
+          {% for paragraph in topic.body %}
+            <li>{{ paragraph }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <h2>SG-Gateway</h2>
+        <p>Ð’Ñ‹Ð±ÐµÑ€Ð¸Ñ‚Ðµ Ñ€Ð°Ð·Ð´ÐµÐ» ÑÐ»ÐµÐ²Ð°. Ð¡Ð¿Ñ€Ð°Ð²ÐºÐ° Ð½Ð°Ð¼ÐµÑ€ÐµÐ½Ð½Ð¾ ÐºÐ¾Ñ€Ð¾Ñ‚ÐºÐ°Ñ: Ñ‚Ð¾Ð»ÑŒÐºÐ¾ Ñ‚Ð¾, Ñ‡Ñ‚Ð¾ Ð¿Ð¾Ð¼Ð¾Ð³Ð°ÐµÑ‚ Ð´ÐµÐ¹ÑÑ‚Ð²Ð¾Ð²Ð°Ñ‚ÑŒ.</p>
+        <ul class="plain-list">
+          <li>Ð¡Ð¾Ð·Ð´Ð°Ð²Ð°Ð¹Ñ‚Ðµ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð¾Ð² Ð² Ñ€Ð°Ð·Ð´ÐµÐ»Ðµ ÐšÐ»Ð¸ÐµÐ½Ñ‚Ñ‹.</li>
+          <li>ÐÐ°ÑÑ‚Ñ€Ð°Ð¸Ð²Ð°Ð¹Ñ‚Ðµ Ð°Ð´Ñ€ÐµÑÐ° Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ Ð² Ñ€Ð°Ð·Ð´ÐµÐ»Ðµ ÐŸÐ¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ.</li>
+          <li>Ð”ÐµÐ»Ð°Ð¹Ñ‚Ðµ backup Ð¸ ÑÐºÐ°Ñ‡Ð¸Ð²Ð°Ð¹Ñ‚Ðµ Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÑƒ Ð² Ñ€Ð°Ð·Ð´ÐµÐ»Ðµ ÐžÐ±ÑÐ»ÑƒÐ¶Ð¸Ð²Ð°Ð½Ð¸Ðµ.</li>
+        </ul>
+      {% endif %}
+    </article>
+  </section>
+{% endblock %}

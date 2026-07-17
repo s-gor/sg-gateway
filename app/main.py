@@ -14,6 +14,7 @@ from app.clients.repository import (
 from app.connections.service import list_connections
 from app.connections.settings import get_connection_settings, update_connection_settings
 from app.db import init_db
+from app.help.content import get_topic, list_topics
 from app.maintenance.backups import create_backup, get_backup, list_backups, restore_backup
 from app.maintenance.diagnostics import build_diagnostic_report, build_diagnostic_report_json
 from app.maintenance.health import collect_health_checks, health_summary
@@ -216,6 +217,17 @@ def create_app() -> Flask:
             mimetype="application/json; charset=utf-8",
             headers={"Content-Disposition": "attachment; filename=sg-gateway-diagnostics.json"},
         )
+
+    @app.get("/help")
+    def help_index():
+        return render_template("help.html", active_page="help", topics=list_topics(), topic=None)
+
+    @app.get("/help/<slug>")
+    def help_topic(slug: str):
+        topic = get_topic(slug)
+        if topic is None:
+            abort(404)
+        return render_template("help.html", active_page="help", topics=list_topics(), topic=topic)
 
     @app.get("/api/status")
     def api_status():
