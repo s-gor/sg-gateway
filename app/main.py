@@ -12,6 +12,7 @@ from app.clients.repository import (
 )
 from app.config import load_config
 from app.connections.service import list_connections
+from app.connections.settings import get_connection_settings, update_connection_settings
 from app.db import init_db
 from app.maintenance.service import collect_diagnostics
 
@@ -107,7 +108,50 @@ def create_app() -> Flask:
             "connections.html",
             active_page="connections",
             connections=list_connections(),
+            awg_settings=get_connection_settings("amneziawg"),
+            xray_settings=get_connection_settings("xray"),
         )
+
+    @app.post("/connections/amneziawg")
+    def update_amneziawg():
+        current = get_connection_settings("amneziawg")
+        config = dict(current.config)
+        config["dns"] = request.form.get("dns", config.get("dns", "1.1.1.1"))
+        config["server_public_key"] = request.form.get(
+            "server_public_key",
+            config.get("server_public_key", "PLACEHOLDER_SERVER_PUBLIC_KEY"),
+        )
+        update_connection_settings(
+            "amneziawg",
+            request.form.get("host", current.host),
+            int(request.form.get("port", current.port)),
+            config,
+        )
+        return redirect(url_for("connections"))
+
+    @app.post("/connections/xray")
+    def update_xray():
+        current = get_connection_settings("xray")
+        config = dict(current.config)
+        config["server_name"] = request.form.get(
+            "server_name",
+            config.get("server_name", "www.cloudflare.com"),
+        )
+        config["public_key"] = request.form.get(
+            "public_key",
+            config.get("public_key", "PLACEHOLDER_REALITY_PUBLIC_KEY"),
+        )
+        config["short_id"] = request.form.get(
+            "short_id",
+            config.get("short_id", "PLACEHOLDER_SHORT_ID"),
+        )
+        update_connection_settings(
+            "xray",
+            request.form.get("host", current.host),
+            int(request.form.get("port", current.port)),
+            config,
+        )
+        return redirect(url_for("connections"))
 
     @app.get("/maintenance")
     def maintenance():

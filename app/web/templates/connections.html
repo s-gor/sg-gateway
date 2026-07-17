@@ -21,8 +21,66 @@
             <span>ÐšÐ»Ð¸ÐµÐ½Ñ‚Ð¾Ð²: {{ connection.clients }}</span>
           </div>
         </div>
-        <span class="badge">{{ connection.status }}</span>
+        <span class="badge success">{{ connection.status }}</span>
       </article>
     {% endfor %}
+  </section>
+
+  <section class="settings-grid">
+    <article class="tool-panel">
+      <div class="section-heading">
+        <h2>AmneziaWG</h2>
+        <p>Ð­Ñ‚Ð¸ Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ñ Ð¿Ð¾Ð¿Ð°Ð´ÑƒÑ‚ Ð² Ð½Ð¾Ð²Ñ‹Ðµ ÐºÐ»Ð¸ÐµÐ½Ñ‚ÑÐºÐ¸Ðµ .conf.</p>
+      </div>
+      <form class="settings-form" method="post" action="/connections/amneziawg">
+        <label>
+          Ð¥Ð¾ÑÑ‚
+          <input name="host" value="{{ awg_settings.host }}" required>
+        </label>
+        <label>
+          ÐŸÐ¾Ñ€Ñ‚ UDP
+          <input name="port" type="number" value="{{ awg_settings.port }}" required>
+        </label>
+        <label>
+          DNS
+          <input name="dns" value="{{ awg_settings.config.get('dns', '1.1.1.1') }}">
+        </label>
+        <label>
+          Server Public Key
+          <input name="server_public_key" value="{{ awg_settings.config.get('server_public_key', '') }}">
+        </label>
+        <button class="button primary" type="submit">Ð¡Ð¾Ñ…Ñ€Ð°Ð½Ð¸Ñ‚ÑŒ AmneziaWG</button>
+      </form>
+    </article>
+
+    <article class="tool-panel">
+      <div class="section-heading">
+        <h2>Xray Reality</h2>
+        <p>Ð­Ñ‚Ð¸ Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ñ Ð¿Ð¾Ð¿Ð°Ð´ÑƒÑ‚ Ð² Ð½Ð¾Ð²Ñ‹Ðµ VLESS Reality ÑÑÑ‹Ð»ÐºÐ¸.</p>
+      </div>
+      <form class="settings-form" method="post" action="/connections/xray">
+        <label>
+          Ð¥Ð¾ÑÑ‚
+          <input name="host" value="{{ xray_settings.host }}" required>
+        </label>
+        <label>
+          ÐŸÐ¾Ñ€Ñ‚ TCP
+          <input name="port" type="number" value="{{ xray_settings.port }}" required>
+        </label>
+        <label>
+          SNI
+          <input name="server_name" value="{{ xray_settings.config.get('server_name', 'www.cloudflare.com') }}">
+        </label>
+        <label>
+          Reality Public Key
+          <input name="public_key" value="{{ xray_settings.config.get('public_key', '') }}">
+        </label>
+        <label>
+          Short ID
+          <input name="short_id" value="{{ xray_settings.config.get('short_id', '') }}">
+        </label>
+        <button class="button primary" type="submit">Ð¡Ð¾Ñ…Ñ€Ð°Ð½Ð¸Ñ‚ÑŒ Xray</button>
+      </form>
+    </article>
   </section>
 {% endblock %}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.connections.settings import get_connection_settings
 from app.db import connect
 
 
@@ -26,22 +27,24 @@ def list_connections() -> list[ConnectionSummary]:
         ).fetchall()
 
     counts = {row["engine"]: int(row["total"]) for row in rows}
+    awg = get_connection_settings("amneziawg")
+    xray = get_connection_settings("xray")
 
     return [
         ConnectionSummary(
             name="amneziawg",
             label="AmneziaWG",
-            status="Not configured",
-            port="UDP later",
+            status="Configured" if awg.enabled else "Disabled",
+            port=f"UDP {awg.port}",
             clients=counts.get("amneziawg", 0),
-            note="Separate .conf and QR for simple clients.",
+            note=f"Endpoint: {awg.host}:{awg.port}",
         ),
         ConnectionSummary(
             name="xray",
             label="Xray Reality",
-            status="Not configured",
-            port="TCP 443 later",
+            status="Configured" if xray.enabled else "Disabled",
+            port=f"TCP {xray.port}",
             clients=counts.get("xray", 0),
-            note="VLESS Reality link and subscription export.",
+            note=f"Endpoint: {xray.host}:{xray.port}",
         ),
     ]

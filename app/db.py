@@ -24,7 +24,37 @@ CREATE TABLE IF NOT EXISTS client_deployments (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(client_id, engine)
 );
+
+CREATE TABLE IF NOT EXISTS connection_settings (
+    engine TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL,
+    config_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
+
+
+DEFAULT_CONNECTIONS = {
+    "amneziawg": {
+        "host": "vpn.example.com",
+        "port": 51820,
+        "config_json": (
+            '{"dns":"1.1.1.1","server_public_key":"PLACEHOLDER_SERVER_PUBLIC_KEY",'
+            '"allowed_ips":"0.0.0.0/0, ::/0","persistent_keepalive":25}'
+        ),
+    },
+    "xray": {
+        "host": "vpn.example.com",
+        "port": 443,
+        "config_json": (
+            '{"security":"reality","type":"tcp","flow":"xtls-rprx-vision",'
+            '"fingerprint":"chrome","server_name":"www.cloudflare.com",'
+            '"public_key":"PLACEHOLDER_REALITY_PUBLIC_KEY","short_id":"PLACEHOLDER_SHORT_ID"}'
+        ),
+    },
+}
 
 
 def get_database_path() -> Path:
@@ -45,8 +75,20 @@ def _column_exists(connection: sqlite3.Connection, table: str, column: str) -> b
     return any(row["name"] == column for row in rows)
 
 
+def _seed_connection_settings(connection: sqlite3.Connection) -> None:
+    for engine, values in DEFAULT_CONNECTIONS.items():
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO connection_settings (engine, enabled, host, port, config_json)
+            VALUES (?, 1, ?, ?, ?)
+            """,
+            (engine, values["host"], values["port"], values["config_json"]),
+        )
+
+
 def init_db() -> None:
     with connect() as connection:
         connection.executescript(SCHEMA)
         if not _column_exists(connection, "client_deployments", "config_json"):
             connection.execute("ALTER TABLE client_deployments ADD COLUMN config_json TEXT")
+        _seed_connection_settings(connection)

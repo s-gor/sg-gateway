@@ -26,6 +26,7 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Unified clients
 - Client detail cards
 - SQLite storage
+- Editable connection settings
 - Generated AmneziaWG client payloads
 - Generated Xray UUID payloads
 - Downloadable access exports
