@@ -2,4 +2,4 @@
 set -eu
 
 echo "SG-Gateway rollback placeholder"
-echo "The real rollback flow will restore the previous working version."
+echo "Rollback will restore the previous pinned image/version after release packaging is added."

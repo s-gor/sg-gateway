@@ -40,6 +40,7 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Docker panel runtime
 - sg-hostd allow-listed command contract
 - Panel-side sg-hostd client
+- Dry-run installer
 - Local Windows development scripts
 
 ## Local Development on Windows
@@ -66,6 +67,12 @@ Docker development:
 
 ```powershell
 .\scripts\docker-dev.ps1
+```
+
+## Install Dry Run
+
+```sh
+./deploy/install.sh
 ```
 
 ## First Release Scope
