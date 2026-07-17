@@ -60,7 +60,7 @@
         </div>
         <pre class="payload">{{ card.payload }}</pre>
         <div class="button-row">
-          <button class="button primary" type="button">{{ card.primary_action }}</button>
+          <a class="button primary" href="{{ card.export_url }}">{{ card.primary_action }}</a>
           <button class="button" type="button">{{ card.secondary_action }}</button>
         </div>
       </article>

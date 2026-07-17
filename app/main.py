@@ -1,6 +1,7 @@
-from flask import Flask, abort, jsonify, redirect, render_template, request, url_for
+from flask import Flask, Response, abort, jsonify, redirect, render_template, request, url_for
 
 from app.clients.access import build_access_cards
+from app.clients.exports import build_awg_config, build_subscription, build_xray_link
 from app.clients.repository import (
     count_clients,
     create_client,
@@ -61,6 +62,28 @@ def create_app() -> Flask:
             active_page="clients",
             client=client,
             access_cards=build_access_cards(client),
+        )
+
+    @app.get("/clients/<int:client_id>/exports/<kind>")
+    def export_client_access(client_id: int, kind: str):
+        client = get_client(client_id)
+        if client is None:
+            abort(404)
+
+        builders = {
+            "amneziawg": build_awg_config,
+            "xray": build_xray_link,
+            "subscription": build_subscription,
+        }
+        builder = builders.get(kind)
+        if builder is None:
+            abort(404)
+
+        export = builder(client)
+        return Response(
+            export.body,
+            mimetype=export.media_type,
+            headers={"Content-Disposition": f"attachment; filename={export.filename}"},
         )
 
     @app.post("/clients/<int:client_id>/enable")
