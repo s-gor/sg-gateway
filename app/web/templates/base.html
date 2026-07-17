@@ -27,6 +27,12 @@
           <a class="nav-item" href="/recovery">Recovery</a>
           <a class="nav-item {{ 'active' if active_page == 'help' else '' }}" href="/help">Ð¡Ð¿Ñ€Ð°Ð²ÐºÐ°</a>
         </nav>
+
+        {% if is_authenticated %}
+          <form class="logout-form" method="post" action="/logout">
+            <button class="button small" type="submit">Ð’Ñ‹Ð¹Ñ‚Ð¸</button>
+          </form>
+        {% endif %}
       </aside>
 
       <main class="content">

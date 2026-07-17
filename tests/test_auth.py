@@ -1,0 +1,35 @@
+from app.main import create_app
+
+
+def test_dashboard_requires_login(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SG_GATEWAY_ADMIN_PASSWORD", "secret")
+    app = create_app()
+    client = app.test_client()
+
+    response = client.get("/")
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_login_allows_dashboard(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SG_GATEWAY_ADMIN_PASSWORD", "secret")
+    app = create_app()
+    client = app.test_client()
+
+    response = client.post("/login", data={"password": "secret"}, follow_redirects=True)
+
+    assert response.status_code == 200
+    assert "Ð“Ð»Ð°Ð²Ð½Ð°Ñ" in response.get_data(as_text=True)
+
+
+def test_recovery_stays_public(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    app = create_app()
+    client = app.test_client()
+
+    response = client.get("/recovery")
+
+    assert response.status_code == 200

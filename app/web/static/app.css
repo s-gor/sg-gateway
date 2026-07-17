@@ -44,10 +44,29 @@ button:disabled {
   min-height: 100vh;
 }
 
+.login-shell,
 .recovery-shell {
   width: min(1120px, 100%);
   margin: 0 auto;
   padding: 32px;
+}
+
+.login-shell {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
+
+.login-panel {
+  width: min(420px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 24px;
+}
+
+.error-text {
+  color: #ffd7d7;
 }
 
 .recovery-header {
@@ -101,6 +120,10 @@ button:disabled {
 .nav {
   display: grid;
   gap: 6px;
+}
+
+.logout-form {
+  margin-top: 18px;
 }
 
 .nav-item,
@@ -507,6 +530,7 @@ select {
   }
 
   .content,
+  .login-shell,
   .recovery-shell {
     padding: 22px;
   }

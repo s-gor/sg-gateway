@@ -11,6 +11,7 @@ from app.clients.repository import (
     list_clients,
     set_client_enabled,
 )
+from app.config import load_config
 from app.connections.service import list_connections
 from app.connections.settings import get_connection_settings, update_connection_settings
 from app.db import init_db
@@ -20,21 +21,62 @@ from app.maintenance.diagnostics import build_diagnostic_report, build_diagnosti
 from app.maintenance.health import collect_health_checks, health_summary
 from app.maintenance.operations import list_operations
 from app.maintenance.service import collect_diagnostics
+from app.security.auth import (
+    is_authenticated,
+    login_user,
+    logout_user,
+    should_skip_auth,
+    verify_password,
+)
 from app.version import get_release_manifest, get_version
 
 
 def create_app() -> Flask:
+    config = load_config()
     app = Flask(
         __name__,
         template_folder="web/templates",
         static_folder="web/static",
     )
+    app.secret_key = config.secret_key
 
     init_db()
 
+    @app.before_request
+    def protect_panel():
+        if should_skip_auth(request.endpoint):
+            return None
+        if is_authenticated():
+            return None
+        return redirect(url_for("login", next=request.path))
+
     @app.context_processor
-    def inject_version():
-        return {"app_version": get_version()}
+    def inject_globals():
+        return {
+            "app_version": get_version(),
+            "is_authenticated": is_authenticated(),
+        }
+
+    @app.get("/login")
+    def login():
+        return render_template(
+            "login.html",
+            error=False,
+            next_url=request.args.get("next", "/"),
+        )
+
+    @app.post("/login")
+    def login_post():
+        next_url = request.form.get("next") or "/"
+        if verify_password(request.form.get("password", "")):
+            login_user()
+            return redirect(next_url)
+        return render_template("login.html", error=True, next_url=next_url), 401
+
+    @app.post("/logout")
+    def logout():
+        logout_user()
+        return redirect(url_for("login"))
 
     @app.get("/")
     def dashboard():

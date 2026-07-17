@@ -43,6 +43,7 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Dry-run installer
 - Release manifest and version endpoint
 - Built-in user help
+- Panel login
 - Local check script and CI workflow
 - Local Windows development scripts
 
@@ -58,6 +59,12 @@ Then open:
 
 ```text
 http://127.0.0.1:8080
+```
+
+Default MVP password:
+
+```text
+admin
 ```
 
 Run tests:
