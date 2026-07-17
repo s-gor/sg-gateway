@@ -6,7 +6,7 @@
   <header class="topbar">
     <div>
       <h1>ÐžÐ±ÑÐ»ÑƒÐ¶Ð¸Ð²Ð°Ð½Ð¸Ðµ</h1>
-      <p>ÐœÐ¸Ð½Ð¸Ð¼Ð°Ð»ÑŒÐ½Ð°Ñ Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÐ°, Ñ€ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ðµ ÐºÐ¾Ð¿Ð¸Ð¸ Ð±Ð°Ð·Ñ‹ Ð¸ Ð±ÑƒÐ´ÑƒÑ‰Ð¸Ðµ Ð±ÐµÐ·Ð¾Ð¿Ð°ÑÐ½Ñ‹Ðµ Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¸.</p>
+      <p>ÐœÐ¸Ð½Ð¸Ð¼Ð°Ð»ÑŒÐ½Ð°Ñ Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÐ°, Ñ€ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ðµ ÐºÐ¾Ð¿Ð¸Ð¸ Ð±Ð°Ð·Ñ‹ Ð¸ Ð¶ÑƒÑ€Ð½Ð°Ð» Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¹.</p>
     </div>
     <div class="topbar-actions">
       <a class="button" href="/api/status">JSON ÑÑ‚Ð°Ñ‚ÑƒÑ</a>
@@ -28,7 +28,7 @@
     {% endfor %}
   </section>
 
-  <section class="table-panel">
+  <section class="table-panel section-block">
     {% if backups %}
       <table class="data-table">
         <thead>
@@ -61,6 +61,42 @@
       <div class="empty-state">
         <h2>Ð ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ñ… ÐºÐ¾Ð¿Ð¸Ð¹ Ð¿Ð¾ÐºÐ° Ð½ÐµÑ‚</h2>
         <p>Ð¡Ð¾Ð·Ð´Ð°Ð¹Ñ‚Ðµ Ð¿ÐµÑ€Ð²ÑƒÑŽ ÐºÐ¾Ð¿Ð¸ÑŽ Ð¿ÐµÑ€ÐµÐ´ Ð¾Ð¿Ð°ÑÐ½Ñ‹Ð¼Ð¸ Ð¸Ð·Ð¼ÐµÐ½ÐµÐ½Ð¸ÑÐ¼Ð¸.</p>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="table-panel section-block">
+    {% if operations %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Ð’Ñ€ÐµÐ¼Ñ</th>
+            <th>Ð”ÐµÐ¹ÑÑ‚Ð²Ð¸Ðµ</th>
+            <th>Ð¦ÐµÐ»ÑŒ</th>
+            <th>Ð ÐµÐ·ÑƒÐ»ÑŒÑ‚Ð°Ñ‚</th>
+            <th>Ð¡Ð¾Ð¾Ð±Ñ‰ÐµÐ½Ð¸Ðµ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for operation in operations %}
+            <tr>
+              <td>{{ operation.created_at }}</td>
+              <td>{{ operation.action }}</td>
+              <td>{{ operation.target }}</td>
+              <td>
+                <span class="badge {{ 'success' if operation.status == 'ok' else '' }}">
+                  {{ operation.status }}
+                </span>
+              </td>
+              <td>{{ operation.message }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state">
+        <h2>Ð–ÑƒÑ€Ð½Ð°Ð» Ð¿Ð¾ÐºÐ° Ð¿ÑƒÑÑ‚</h2>
+        <p>ÐžÐ¿ÐµÑ€Ð°Ñ†Ð¸Ð¸ Ð¿Ð¾ÑÐ²ÑÑ‚ÑÑ Ð·Ð´ÐµÑÑŒ Ð¿Ð¾ÑÐ»Ðµ ÑÐ¾Ð·Ð´Ð°Ð½Ð¸Ñ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð¾Ð², Ñ€ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ñ… ÐºÐ¾Ð¿Ð¸Ð¹ Ð¸ Ð¸Ð·Ð¼ÐµÐ½ÐµÐ½Ð¸Ñ Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ð¹.</p>
       </div>
     {% endif %}
   </section>

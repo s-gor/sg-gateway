@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from app.db import connect
 from app.engines.provisioning import build_engine_config
+from app.maintenance.operations import log_operation
 
 
 @dataclass(frozen=True)
@@ -144,6 +145,11 @@ def create_client(name: str, access: str) -> int | None:
                 (client_id, engine, engine_object_id, config_json),
             )
 
+    log_operation(
+        action="client.create",
+        target=f"client:{client_id}",
+        message=f"Created client {clean_name} with access: {', '.join(engines)}",
+    )
     return client_id
 
 
@@ -154,7 +160,19 @@ def set_client_enabled(client_id: int, enabled: bool) -> None:
             (1 if enabled else 0, client_id),
         )
 
+    log_operation(
+        action="client.enable" if enabled else "client.disable",
+        target=f"client:{client_id}",
+        message="Enabled client" if enabled else "Disabled client",
+    )
+
 
 def delete_client(client_id: int) -> None:
     with connect() as connection:
         connection.execute("DELETE FROM clients WHERE id = ?", (client_id,))
+
+    log_operation(
+        action="client.delete",
+        target=f"client:{client_id}",
+        message="Deleted client",
+    )

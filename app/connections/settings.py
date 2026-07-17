@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 
 from app.db import connect
+from app.maintenance.operations import log_operation
 
 
 @dataclass(frozen=True)
@@ -55,3 +56,9 @@ def update_connection_settings(engine: str, host: str, port: int, config: dict) 
             """,
             (clean_host, int(port), json.dumps(config, ensure_ascii=False, sort_keys=True), engine),
         )
+
+    log_operation(
+        action="connection.update",
+        target=f"connection:{engine}",
+        message=f"Updated {engine} endpoint to {clean_host}:{int(port)}",
+    )

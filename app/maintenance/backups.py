@@ -7,6 +7,7 @@ from pathlib import Path
 
 from app.config import load_config
 from app.db import get_database_path, init_db
+from app.maintenance.operations import log_operation
 
 
 @dataclass(frozen=True)
@@ -29,7 +30,9 @@ def create_backup() -> BackupInfo:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     destination = get_backup_dir() / f"sg-gateway-{timestamp}.sqlite"
     shutil.copy2(source, destination)
-    return _backup_info(destination)
+    backup = _backup_info(destination)
+    log_operation("backup.create", f"backup:{backup.name}", f"Created backup {backup.name}")
+    return backup
 
 
 def list_backups() -> list[BackupInfo]:
@@ -51,6 +54,7 @@ def get_backup(name: str) -> BackupInfo | None:
 def restore_backup(name: str) -> bool:
     backup = get_backup(name)
     if backup is None:
+        log_operation("backup.restore", f"backup:{name}", "Backup not found", status="error")
         return False
 
     target = get_database_path()
@@ -62,6 +66,7 @@ def restore_backup(name: str) -> bool:
 
     shutil.copy2(backup.path, target)
     init_db()
+    log_operation("backup.restore", f"backup:{backup.name}", f"Restored backup {backup.name}")
     return True
 
 

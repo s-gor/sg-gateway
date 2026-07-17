@@ -16,6 +16,7 @@ from app.connections.service import list_connections
 from app.connections.settings import get_connection_settings, update_connection_settings
 from app.db import init_db
 from app.maintenance.backups import create_backup, get_backup, list_backups, restore_backup
+from app.maintenance.operations import list_operations
 from app.maintenance.service import collect_diagnostics
 
 
@@ -170,6 +171,7 @@ def create_app() -> Flask:
             active_page="maintenance",
             diagnostics=collect_diagnostics(),
             backups=list_backups(),
+            operations=list_operations(),
         )
 
     @app.post("/maintenance/backups")

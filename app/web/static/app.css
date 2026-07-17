@@ -217,6 +217,10 @@ p {
   grid-template-columns: repeat(2, minmax(260px, 1fr));
 }
 
+.section-block {
+  margin-bottom: 14px;
+}
+
 .status-card,
 .tool-panel,
 .table-panel,

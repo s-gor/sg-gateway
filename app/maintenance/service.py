@@ -7,6 +7,7 @@ from app.config import load_config
 from app.connections.service import list_connections
 from app.db import get_database_path
 from app.maintenance.backups import list_backups
+from app.maintenance.operations import count_operations
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,6 @@ def collect_diagnostics() -> list[DiagnosticItem]:
         DiagnosticItem("Clients", str(count_clients()), "idle"),
         DiagnosticItem("AmneziaWG clients", str(connections[0].clients), "idle"),
         DiagnosticItem("Xray clients", str(connections[1].clients), "idle"),
-        DiagnosticItem("Host helper", "Not connected yet", "idle"),
         DiagnosticItem("Backups", str(len(backups)), "ok" if backups else "idle"),
+        DiagnosticItem("Operations", str(count_operations()), "ok"),
     ]

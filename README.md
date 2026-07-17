@@ -33,6 +33,7 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - QR codes for access exports
 - Maintenance diagnostics
 - Database backup and restore
+- Operation log
 - Local Windows development scripts
 
 ## Local Development on Windows
