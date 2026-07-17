@@ -1,4 +1,4 @@
-from flask import Flask, Response, abort, jsonify, redirect, render_template, request, url_for
+from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_file, url_for
 
 from app.clients.access import build_access_cards
 from app.clients.exports import build_awg_config, build_subscription, build_xray_link
@@ -15,6 +15,7 @@ from app.config import load_config
 from app.connections.service import list_connections
 from app.connections.settings import get_connection_settings, update_connection_settings
 from app.db import init_db
+from app.maintenance.backups import create_backup, get_backup, list_backups, restore_backup
 from app.maintenance.service import collect_diagnostics
 
 
@@ -36,7 +37,7 @@ def create_app() -> Flask:
             {"label": "Xray", "value": connections[1].status, "state": "idle"},
             {"label": "Clients", "value": str(count_clients()), "state": "idle"},
             {"label": "Traffic today", "value": "0 GB", "state": "idle"},
-            {"label": "Backup", "value": "Not created", "state": "idle"},
+            {"label": "Backups", "value": str(len(list_backups())), "state": "idle"},
         ]
         return render_template("dashboard.html", active_page="dashboard", status_items=status_items)
 
@@ -168,7 +169,26 @@ def create_app() -> Flask:
             "maintenance.html",
             active_page="maintenance",
             diagnostics=collect_diagnostics(),
+            backups=list_backups(),
         )
+
+    @app.post("/maintenance/backups")
+    def create_backup_route():
+        create_backup()
+        return redirect(url_for("maintenance"))
+
+    @app.post("/maintenance/backups/<name>/restore")
+    def restore_backup_route(name: str):
+        if not restore_backup(name):
+            abort(404)
+        return redirect(url_for("maintenance"))
+
+    @app.get("/maintenance/backups/<name>/download")
+    def download_backup_route(name: str):
+        backup = get_backup(name)
+        if backup is None:
+            abort(404)
+        return send_file(backup.path, as_attachment=True, download_name=backup.name)
 
     @app.get("/api/status")
     def api_status():
@@ -179,6 +199,7 @@ def create_app() -> Flask:
                 "status": "ok",
                 "environment": config.environment,
                 "clients": count_clients(),
+                "backups": len(list_backups()),
                 "connections": [
                     {
                         "name": connection.name,

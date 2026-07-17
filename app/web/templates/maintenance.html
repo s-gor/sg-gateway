@@ -6,10 +6,13 @@
   <header class="topbar">
     <div>
       <h1>ÐžÐ±ÑÐ»ÑƒÐ¶Ð¸Ð²Ð°Ð½Ð¸Ðµ</h1>
-      <p>ÐœÐ¸Ð½Ð¸Ð¼Ð°Ð»ÑŒÐ½Ð°Ñ Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÐ°, ÑÐ¾ÑÑ‚Ð¾ÑÐ½Ð¸Ðµ Ð±Ð°Ð·Ñ‹ Ð¸ Ð±ÑƒÐ´ÑƒÑ‰Ð¸Ðµ Ð±ÐµÐ·Ð¾Ð¿Ð°ÑÐ½Ñ‹Ðµ Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¸.</p>
+      <p>ÐœÐ¸Ð½Ð¸Ð¼Ð°Ð»ÑŒÐ½Ð°Ñ Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÐ°, Ñ€ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ðµ ÐºÐ¾Ð¿Ð¸Ð¸ Ð±Ð°Ð·Ñ‹ Ð¸ Ð±ÑƒÐ´ÑƒÑ‰Ð¸Ðµ Ð±ÐµÐ·Ð¾Ð¿Ð°ÑÐ½Ñ‹Ðµ Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¸.</p>
     </div>
     <div class="topbar-actions">
       <a class="button" href="/api/status">JSON ÑÑ‚Ð°Ñ‚ÑƒÑ</a>
+      <form method="post" action="/maintenance/backups">
+        <button class="button primary" type="submit">Ð¡Ð¾Ð·Ð´Ð°Ñ‚ÑŒ Ñ€ÐµÐ·ÐµÑ€Ð²Ð½ÑƒÑŽ ÐºÐ¾Ð¿Ð¸ÑŽ</button>
+      </form>
     </div>
   </header>
 
@@ -25,13 +28,49 @@
     {% endfor %}
   </section>
 
+  <section class="table-panel">
+    {% if backups %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Ð ÐµÐ·ÐµÑ€Ð²Ð½Ð°Ñ ÐºÐ¾Ð¿Ð¸Ñ</th>
+            <th>Ð¡Ð¾Ð·Ð´Ð°Ð½Ð°</th>
+            <th>Ð Ð°Ð·Ð¼ÐµÑ€</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for backup in backups %}
+            <tr>
+              <td><strong>{{ backup.name }}</strong></td>
+              <td>{{ backup.created_at }}</td>
+              <td>{{ backup.size_bytes }} bytes</td>
+              <td class="actions-cell">
+                <div class="inline-actions">
+                  <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ</a>
+                  <form method="post" action="/maintenance/backups/{{ backup.name }}/restore">
+                    <button class="button small" type="submit">Ð’Ð¾ÑÑÑ‚Ð°Ð½Ð¾Ð²Ð¸Ñ‚ÑŒ</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state">
+        <h2>Ð ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ñ… ÐºÐ¾Ð¿Ð¸Ð¹ Ð¿Ð¾ÐºÐ° Ð½ÐµÑ‚</h2>
+        <p>Ð¡Ð¾Ð·Ð´Ð°Ð¹Ñ‚Ðµ Ð¿ÐµÑ€Ð²ÑƒÑŽ ÐºÐ¾Ð¿Ð¸ÑŽ Ð¿ÐµÑ€ÐµÐ´ Ð¾Ð¿Ð°ÑÐ½Ñ‹Ð¼Ð¸ Ð¸Ð·Ð¼ÐµÐ½ÐµÐ½Ð¸ÑÐ¼Ð¸.</p>
+      </div>
+    {% endif %}
+  </section>
+
   <section class="tool-panel">
     <div class="section-heading">
       <h2>Ð¡Ð»ÐµÐ´ÑƒÑŽÑ‰Ð¸Ðµ Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¸</h2>
       <p>Ð­Ñ‚Ð¸ ÐºÐ½Ð¾Ð¿ÐºÐ¸ Ð¿Ð¾ÑÐ²ÑÑ‚ÑÑ Ð¿Ð¾ÑÐ»Ðµ Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ Ñ€ÐµÐ°Ð»ÑŒÐ½Ð¾Ð³Ð¾ host helper Ð¸ Ð±ÐµÐ·Ð¾Ð¿Ð°ÑÐ½Ð¾Ð³Ð¾ rollback.</p>
     </div>
     <div class="button-row">
-      <button class="button" type="button" disabled>Ð¡Ð¾Ð·Ð´Ð°Ñ‚ÑŒ Ñ€ÐµÐ·ÐµÑ€Ð²Ð½ÑƒÑŽ ÐºÐ¾Ð¿Ð¸ÑŽ</button>
       <button class="button" type="button" disabled>ÐŸÑ€Ð¾Ð²ÐµÑ€Ð¸Ñ‚ÑŒ ÑÐµÑ€Ð²ÐµÑ€</button>
       <button class="button" type="button" disabled>Ð’ÐµÑ€Ð½ÑƒÑ‚ÑŒÑÑ Ðº Ñ€Ð°Ð±Ð¾Ñ‡ÐµÐ¹ Ð²ÐµÑ€ÑÐ¸Ð¸</button>
     </div>
