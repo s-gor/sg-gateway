@@ -32,6 +32,7 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Downloadable access exports
 - QR codes for access exports
 - Maintenance diagnostics
+- Downloadable diagnostic report
 - Database backup and restore
 - Operation log
 - Local Windows development scripts

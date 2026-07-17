@@ -16,6 +16,7 @@ from app.connections.service import list_connections
 from app.connections.settings import get_connection_settings, update_connection_settings
 from app.db import init_db
 from app.maintenance.backups import create_backup, get_backup, list_backups, restore_backup
+from app.maintenance.diagnostics import build_diagnostic_report, build_diagnostic_report_json
 from app.maintenance.operations import list_operations
 from app.maintenance.service import collect_diagnostics
 
@@ -192,24 +193,25 @@ def create_app() -> Flask:
             abort(404)
         return send_file(backup.path, as_attachment=True, download_name=backup.name)
 
+    @app.get("/maintenance/diagnostics.json")
+    def download_diagnostics():
+        return Response(
+            build_diagnostic_report_json(),
+            mimetype="application/json; charset=utf-8",
+            headers={"Content-Disposition": "attachment; filename=sg-gateway-diagnostics.json"},
+        )
+
     @app.get("/api/status")
     def api_status():
-        config = load_config()
+        report = build_diagnostic_report()
         return jsonify(
             {
-                "service": "sg-gateway-panel",
+                "service": report["service"],
                 "status": "ok",
-                "environment": config.environment,
-                "clients": count_clients(),
-                "backups": len(list_backups()),
-                "connections": [
-                    {
-                        "name": connection.name,
-                        "status": connection.status,
-                        "clients": connection.clients,
-                    }
-                    for connection in list_connections()
-                ],
+                "environment": report["environment"],
+                "clients": report["summary"]["clients"],
+                "backups": report["summary"]["backups"],
+                "connections": report["connections"],
             }
         )
 
