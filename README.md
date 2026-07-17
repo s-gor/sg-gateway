@@ -37,6 +37,7 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Recovery page
 - Database backup and restore
 - Operation log
+- Docker panel runtime
 - Local Windows development scripts
 
 ## Local Development on Windows
@@ -57,6 +58,12 @@ Run tests:
 
 ```powershell
 .\scripts\test.ps1
+```
+
+Docker development:
+
+```powershell
+.\scripts\docker-dev.ps1
 ```
 
 ## First Release Scope

@@ -1,0 +1,14 @@
+.git
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+data
+logs
+backups
+*.sqlite
+*.db
+outputs
+work
