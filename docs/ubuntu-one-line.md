@@ -18,9 +18,9 @@ curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/instal
 Open after install:
 
 ```text
-http://SERVER_IP:8080
+http://SERVER_IP
 ```
 
-The installer publishes the panel on `0.0.0.0:8080` by default so it can be
+The installer publishes the panel on `0.0.0.0:80` by default so it can be
 opened from another machine. Override with `SG_GATEWAY_BIND_HOST` and
-`SG_GATEWAY_PORT` when needed.
+`SG_GATEWAY_PUBLIC_PORT` when needed.
