@@ -5,7 +5,7 @@ REPO_URL="${SG_GATEWAY_REPO_URL:-https://github.com/s-gor/sg-gateway.git}"
 BRANCH="${SG_GATEWAY_BRANCH:-main}"
 PREFIX="${SG_GATEWAY_PREFIX:-/opt/sg-gateway}"
 BIND_HOST="${SG_GATEWAY_BIND_HOST:-0.0.0.0}"
-PORT="${SG_GATEWAY_PORT:-8080}"
+PUBLIC_PORT="${SG_GATEWAY_PUBLIC_PORT:-${SG_GATEWAY_PORT:-80}}"
 ADMIN_PASSWORD="${SG_GATEWAY_ADMIN_PASSWORD:-change-this-password}"
 SECRET_KEY="${SG_GATEWAY_SECRET_KEY:-}"
 
@@ -51,7 +51,7 @@ fi
 cd "$PREFIX"
 
 if grep -q '127.0.0.1:8080:8080' docker-compose.yml; then
-  sed -i "s/127.0.0.1:8080:8080/${BIND_HOST}:${PORT}:8080/" docker-compose.yml
+  sed -i "s/127.0.0.1:8080:8080/${BIND_HOST}:${PUBLIC_PORT}:8080/" docker-compose.yml
 fi
 
 cat > "$PREFIX/docker-compose.override.yml" <<EOF
@@ -71,7 +71,11 @@ docker compose up -d --build panel
 
 echo
 echo "SG-Gateway installed."
-echo "URL: http://SERVER_IP:${PORT}"
+if [ "$PUBLIC_PORT" = "80" ]; then
+  echo "URL: http://SERVER_IP"
+else
+  echo "URL: http://SERVER_IP:${PUBLIC_PORT}"
+fi
 echo "Password: ${ADMIN_PASSWORD}"
 echo
 echo "Status:"
