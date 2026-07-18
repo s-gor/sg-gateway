@@ -20,9 +20,11 @@ def test_help_page_loads(tmp_path, monkeypatch):
     _login(client)
 
     response = client.get("/help")
+    body = response.get_data(as_text=True)
 
     assert response.status_code == 200
-    assert "ÃƒÂÃ‚Â¡ÃƒÂÃ‚Â¿Ãƒâ€˜Ã¢â€šÂ¬ÃƒÂÃ‚Â°ÃƒÂÃ‚Â²ÃƒÂÃ‚ÂºÃƒÂÃ‚Â°" in response.get_data(as_text=True)
+    assert "SG-Gateway" in body
+    assert 'href="/help/clients"' in body
 
 
 def test_help_topic_loads(tmp_path, monkeypatch):
@@ -32,6 +34,8 @@ def test_help_topic_loads(tmp_path, monkeypatch):
     _login(client)
 
     response = client.get("/help/clients")
+    body = response.get_data(as_text=True)
 
     assert response.status_code == 200
-    assert "ÃƒÂÃ…Â¡ÃƒÂÃ‚Â»ÃƒÂÃ‚Â¸ÃƒÂÃ‚ÂµÃƒÂÃ‚Â½Ãƒâ€˜Ã¢â‚¬Å¡Ãƒâ€˜Ã¢â‚¬Â¹" in response.get_data(as_text=True)
+    assert "SG-Gateway" in body
+    assert 'href="/help/clients"' in body
