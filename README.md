@@ -112,15 +112,15 @@ Docker development:
 
 ```text
 sg-gateway/
-â”œâ”€â”€ app/             Web panel and product modules
-â”œâ”€â”€ engines/         Engine adapters for AmneziaWG and Xray
-â”œâ”€â”€ hostd/           Limited host helper service
-â”œâ”€â”€ deploy/          Install, update, rollback, uninstall assets
-â”œâ”€â”€ docker/          Container build files
-â”œâ”€â”€ migrations/      Database migrations
-â”œâ”€â”€ scripts/         Local development helpers
-â”œâ”€â”€ tests/           Automated tests
-â””â”€â”€ docs/            Architecture and operator docs
+|-- app/             Web panel and product modules
+|-- engines/         Engine adapters for AmneziaWG and Xray
+|-- hostd/           Limited host helper service
+|-- deploy/          Install, update, rollback, uninstall assets
+|-- docker/          Container build files
+|-- migrations/      Database migrations
+|-- scripts/         Local development helpers
+|-- tests/           Automated tests
+`-- docs/            Architecture and operator docs
 ```
 
 ## Status
