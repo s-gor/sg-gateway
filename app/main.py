@@ -273,7 +273,7 @@ def create_app() -> Flask:
                 "value": str(client_total),
                 "percent": activity_percent,
                 "status": "normal" if client_total else "warning",
-                "detail": "Traffic today: 0 GB. Live traffic counters will appear with engine telemetry.",
+                "detail": "Трафик сегодня: 0 ГБ. Счётчики трафика появятся после подключения телеметрии механизмов.",
             },
         ]
         status_items = [

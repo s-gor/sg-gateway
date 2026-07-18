@@ -35,13 +35,13 @@ def test_sidebar_pages_load_real_content(tmp_path, monkeypatch):
     _login(client)
 
     expectations = {
-        "/system": ["System", "Health checks", "Resource usage"],
-        "/clients": ["Clients", "Create client", "Stored clients"],
-        "/connections": ["Connections", "AmneziaWG", "Xray Reality"],
-        "/routing": ["Routing", "AmneziaWG route", "Xray Reality route"],
-        "/maintenance": ["Maintenance", "Create backup", "Operation"],
-        "/security": ["Security", "Authentication", "Network exposure"],
-        "/help": ["Help", "System", "Routing"],
+        "/system": ["Система", "Проверки состояния", "Память"],
+        "/clients": ["Клиенты", "Создать клиента", "Сохранённые клиенты"],
+        "/connections": ["Подключения", "AmneziaWG", "Xray Reality"],
+        "/routing": ["Маршрутизация", "Маршрут AmneziaWG", "Маршрут Xray Reality"],
+        "/maintenance": ["Обслуживание", "Создать резервную копию", "Операции"],
+        "/security": ["Безопасность", "Аутентификация", "Сетевая доступность"],
+        "/help": ["Справка", "Система", "Маршрутизация"],
     }
 
     for path, expected_texts in expectations.items():
