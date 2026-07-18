@@ -35,11 +35,16 @@
 ## 0.5 Panel MVP
 
 - Dashboard
+- System
 - Clients
 - Connections
+- Routing
 - Maintenance
+- Security
+- Help
 - Diagnostics
 - Backup and restore
+- English side navigation
 
 ## 1.0 Stable
 

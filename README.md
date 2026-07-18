@@ -22,11 +22,15 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 
 ## Current MVP
 
+- English panel navigation
 - Dashboard
+- System overview
 - Unified clients
 - Client detail cards
 - SQLite storage
 - Editable connection settings
+- Routing overview
+- Security posture overview
 - Generated AmneziaWG client payloads
 - Generated Xray UUID payloads
 - Downloadable access exports
@@ -46,6 +50,19 @@ nodes, cascades, controllers, remote workers, or multi-server orchestration.
 - Panel login
 - Local check script and CI workflow
 - Local Windows development scripts
+
+## Panel Sections
+
+The side menu is intentionally small and operational:
+
+- `Dashboard`: gateway summary, readiness and connection cards.
+- `System`: service health, runtime details, resource usage and safe system links.
+- `Clients`: unified client records, access profiles, status and enable/disable actions.
+- `Connections`: editable AmneziaWG and Xray endpoint settings.
+- `Routing`: read-only view of effective client traffic paths.
+- `Maintenance`: backups, health checks, diagnostics and operation history.
+- `Security`: authentication, bind address exposure and recovery posture.
+- `Help`: short operator notes for each section.
 
 ## Local Development on Windows
 
@@ -102,6 +119,7 @@ Docker development:
 - AmneziaWG access
 - Xray VLESS Reality access
 - Unified clients
+- English operational panel pages
 - QR codes and export links
 - Backup and restore
 - Diagnostics
