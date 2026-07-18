@@ -32,16 +32,16 @@ def test_update_connection_settings_changes_new_exports(tmp_path, monkeypatch):
     assert "REALITY_PUBLIC_KEY_TEST" in build_xray_link(client).body
 
 
-def test_connection_summaries_are_ru_ready(tmp_path, monkeypatch):
+def test_connection_summaries_are_english_ready(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     init_db()
 
     connections = list_connections()
 
-    assert connections[0].status == "Настроено"
-    assert connections[0].note.startswith("Адрес: ")
-    assert connections[1].status == "Настроено"
-    assert connections[1].note.startswith("Адрес: ")
+    assert connections[0].status == "Configured"
+    assert connections[0].note.startswith("Endpoint: ")
+    assert connections[1].status == "Configured"
+    assert connections[1].note.startswith("Endpoint: ")
 
 
 def test_invalid_connection_settings_are_rejected(tmp_path, monkeypatch):
@@ -107,5 +107,5 @@ def test_invalid_connection_port_shows_feedback(tmp_path, monkeypatch):
     body = response.get_data(as_text=True)
 
     assert response.status_code == 200
-    assert "Настройки Xray не применены" in body
-    assert "Проверьте хост и порт" in body
+    assert "Xray settings were not applied" in body
+    assert "Check host and port" in body

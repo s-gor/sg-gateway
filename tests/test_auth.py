@@ -24,9 +24,9 @@ def test_login_allows_dashboard(tmp_path, monkeypatch):
 
     assert response.status_code == 200
     assert "SG-Gateway" in body
-    assert "Сервер" in body
-    assert "Работает" in body
-    assert "Трафик сегодня" in body
+    assert "Server" in body
+    assert "Running" in body
+    assert "Traffic today" in body
     assert 'href="/clients"' in body
 
 
@@ -52,8 +52,8 @@ def test_invalid_client_name_shows_feedback(tmp_path, monkeypatch):
     body = response.get_data(as_text=True)
 
     assert response.status_code == 200
-    assert "Клиент не создан" in body
-    assert "не длиннее 80 символов" in body
+    assert "Client was not created" in body
+    assert "80 characters or fewer" in body
 
 
 

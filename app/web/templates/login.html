@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SG-Gateway · Вход</title>
+    <title>SG-Gateway · Sign in</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
   </head>
   <body>
@@ -13,20 +13,22 @@
           <div class="brand-mark">SG</div>
           <div>
             <div class="brand-name">SG-Gateway</div>
-            <div class="brand-note">Вход в панель</div>
+            <div class="brand-note">Panel sign in</div>
           </div>
         </div>
 
         <form class="settings-form" method="post" action="/login">
           <input type="hidden" name="next" value="{{ next_url }}">
           <label>
-            Пароль администратора
-            <input name="password" type="password" autocomplete="current-password" required autofocus>
+            Administrator password
+            <input name="password" type="password" autocomplete="current-password" autofocus required>
           </label>
+
           {% if error %}
-            <p class="error-text">Пароль не подошел.</p>
+            <p class="error-text">The password was not accepted.</p>
           {% endif %}
-          <button class="button primary" type="submit">Войти</button>
+
+          <button class="button primary" type="submit">Sign in</button>
         </form>
       </section>
     </main>

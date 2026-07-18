@@ -6,20 +6,20 @@
   <header class="topbar">
     <div>
       <h1>{{ client.name }}</h1>
-      <p>Единая карточка клиента для AmneziaWG, Xray и будущей общей подписки.</p>
+      <p>Unified client record for AmneziaWG, Xray Reality and SG Client subscription access.</p>
     </div>
     <div class="topbar-actions">
       {% if client.enabled %}
         <form method="post" action="/clients/{{ client.id }}/disable">
-          <button class="button" type="submit">Отключить</button>
+          <button class="button" type="submit">Disable</button>
         </form>
       {% else %}
         <form method="post" action="/clients/{{ client.id }}/enable">
-          <button class="button primary" type="submit">Включить</button>
+          <button class="button primary" type="submit">Enable</button>
         </form>
       {% endif %}
       <form method="post" action="/clients/{{ client.id }}/delete">
-        <button class="button danger" type="submit">Удалить</button>
+        <button class="button danger" type="submit">Delete</button>
       </form>
     </div>
   </header>
@@ -28,22 +28,22 @@
     <article class="status-card">
       <div class="status-dot {{ 'ok' if client.enabled else 'idle' }}"></div>
       <div>
-        <div class="status-label">Статус</div>
-        <div class="status-value">{{ 'Активен' if client.enabled else 'Отключен' }}</div>
+        <div class="status-label">Status</div>
+        <div class="status-value">{{ 'Enabled' if client.enabled else 'Disabled' }}</div>
       </div>
     </article>
     <article class="status-card">
       <div class="status-dot idle"></div>
       <div>
-        <div class="status-label">Срок действия</div>
-        <div class="status-value compact">{{ client.expires_at or 'Без срока' }}</div>
+        <div class="status-label">Expiration</div>
+        <div class="status-value compact">{{ client.expires_at or 'No expiration' }}</div>
       </div>
     </article>
     <article class="status-card">
       <div class="status-dot idle"></div>
       <div>
-        <div class="status-label">Последнее подключение</div>
-        <div class="status-value compact">Пока нет</div>
+        <div class="status-label">Last connection</div>
+        <div class="status-value compact">No live data yet</div>
       </div>
     </article>
   </section>
@@ -56,7 +56,7 @@
             <h2>{{ card.title }}</h2>
             <p>{{ card.description }}</p>
           </div>
-          <span class="badge">{{ card.status }}</span>
+          <span class="badge {{ 'success' if card.status == 'generated' else '' }}">{{ card.status }}</span>
         </div>
         <pre class="payload">{{ card.payload }}</pre>
         <div class="button-row">

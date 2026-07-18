@@ -1,12 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway · Подключения{% endblock %}
+{% block title %}SG-Gateway · Connections{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
-      <h1>Подключения</h1>
-      <p>Два понятных способа подключения без узлов, каскадов и лишней маршрутизации.</p>
+      <h1>Connections</h1>
+      <p>Configure the endpoints that SG-Gateway writes into newly generated client profiles.</p>
+    </div>
+    <div class="topbar-actions">
+      <a class="button" href="/routing">View routing</a>
+      <a class="button" href="/system">System status</a>
     </div>
   </header>
 
@@ -20,12 +24,12 @@
             <p>{{ connection.note }}</p>
             <div class="meta-row">
               <span>{{ connection.country_name }}</span>
-              <span>Порт: {{ connection.port }}</span>
-              <span>Клиентов: {{ connection.clients }}</span>
+              <span>{{ connection.port }}</span>
+              <span>Clients: {{ connection.clients }}</span>
             </div>
           </div>
         </div>
-        <span class="badge success">{{ connection.status }}</span>
+        <span class="badge {{ 'success' if connection.status == 'Configured' else '' }}">{{ connection.status }}</span>
       </article>
     {% endfor %}
   </section>
@@ -34,11 +38,11 @@
     <article class="tool-panel">
       <div class="section-heading">
         <h2>AmneziaWG</h2>
-        <p>Эти значения попадут в новые клиентские .conf.</p>
+        <p>These values are used in new WireGuard-compatible client configuration files.</p>
       </div>
       <form class="settings-form" method="post" action="/connections/amneziawg">
         <label>
-          Страна
+          Country
           <select name="country_code">
             {% for code, label in country_options %}
               <option value="{{ code }}" {{ 'selected' if awg_settings.config.get('country_code', 'unknown') == code else '' }}>{{ label }}</option>
@@ -46,11 +50,11 @@
           </select>
         </label>
         <label>
-          Хост
+          Host
           <input name="host" value="{{ awg_settings.host }}" required>
         </label>
         <label>
-          Порт UDP
+          UDP port
           <input name="port" type="number" value="{{ awg_settings.port }}" required>
         </label>
         <label>
@@ -58,21 +62,21 @@
           <input name="dns" value="{{ awg_settings.config.get('dns', '1.1.1.1') }}">
         </label>
         <label>
-          Server Public Key
+          Server public key
           <input name="server_public_key" value="{{ awg_settings.config.get('server_public_key', '') }}">
         </label>
-        <button class="button primary" type="submit">Сохранить AmneziaWG</button>
+        <button class="button primary" type="submit">Save AmneziaWG</button>
       </form>
     </article>
 
     <article class="tool-panel">
       <div class="section-heading">
         <h2>Xray Reality</h2>
-        <p>Эти значения попадут в новые VLESS Reality ссылки.</p>
+        <p>These values are used in new VLESS Reality client links.</p>
       </div>
       <form class="settings-form" method="post" action="/connections/xray">
         <label>
-          Страна
+          Country
           <select name="country_code">
             {% for code, label in country_options %}
               <option value="{{ code }}" {{ 'selected' if xray_settings.config.get('country_code', 'unknown') == code else '' }}>{{ label }}</option>
@@ -80,11 +84,11 @@
           </select>
         </label>
         <label>
-          Хост
+          Host
           <input name="host" value="{{ xray_settings.host }}" required>
         </label>
         <label>
-          Порт TCP
+          TCP port
           <input name="port" type="number" value="{{ xray_settings.port }}" required>
         </label>
         <label>
@@ -92,14 +96,14 @@
           <input name="server_name" value="{{ xray_settings.config.get('server_name', 'www.cloudflare.com') }}">
         </label>
         <label>
-          Reality Public Key
+          Reality public key
           <input name="public_key" value="{{ xray_settings.config.get('public_key', '') }}">
         </label>
         <label>
           Short ID
           <input name="short_id" value="{{ xray_settings.config.get('short_id', '') }}">
         </label>
-        <button class="button primary" type="submit">Сохранить Xray</button>
+        <button class="button primary" type="submit">Save Xray</button>
       </form>
     </article>
   </section>

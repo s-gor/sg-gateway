@@ -87,8 +87,8 @@ def restore_backup(name: str) -> bool:
 
 def _backup_kind(path: Path) -> str:
     if path.name.startswith("pre-restore-"):
-        return "Перед восстановлением"
-    return "Резервная копия"
+        return "Pre-restore safety backup"
+    return "Manual backup"
 
 
 def _backup_info(path: Path) -> BackupInfo:

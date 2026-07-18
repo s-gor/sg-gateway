@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}SG-Gateway · Security{% endblock %}
+
+{% block content %}
+  <header class="topbar">
+    <div>
+      <h1>Security</h1>
+      <p>Panel authentication, network exposure and recovery posture for this SG-Gateway instance.</p>
+    </div>
+    <div class="topbar-actions">
+      <a class="button" href="/maintenance">Create backup</a>
+      <a class="button primary" href="/recovery">Recovery</a>
+    </div>
+  </header>
+
+  <section class="status-grid">
+    <article class="status-card">
+      <div class="status-dot ok"></div>
+      <div>
+        <div class="status-label">Authentication</div>
+        <div class="status-value compact">Enabled</div>
+      </div>
+    </article>
+    <article class="status-card">
+      <div class="status-dot {{ 'idle' if security.default_password else 'ok' }}"></div>
+      <div>
+        <div class="status-label">Admin password</div>
+        <div class="status-value compact">{{ 'Default' if security.default_password else 'Configured' }}</div>
+      </div>
+    </article>
+    <article class="status-card">
+      <div class="status-dot {{ 'idle' if security.network_accessible else 'ok' }}"></div>
+      <div>
+        <div class="status-label">Bind address</div>
+        <div class="status-value compact">{{ security.host }}:{{ security.port }}</div>
+      </div>
+    </article>
+  </section>
+
+  <section class="settings-grid">
+    <article class="tool-panel">
+      <div class="section-heading">
+        <h2>Access control</h2>
+        <p>Authentication is enforced before protected panel routes are served.</p>
+      </div>
+      <div class="status-list">
+        <div class="status-row">
+          <div>
+            <strong>Login redirect</strong>
+            <span class="subtle">Unauthenticated users are redirected to /login.</span>
+          </div>
+          <span class="badge success">enabled</span>
+        </div>
+        <div class="status-row">
+          <div>
+            <strong>Session signing</strong>
+            <span class="subtle">Browser sessions are signed with the panel secret key.</span>
+          </div>
+          <span class="badge success">active</span>
+        </div>
+        <div class="status-row">
+          <div>
+            <strong>Administrator password</strong>
+            <span class="subtle">{{ security.password_message }}</span>
+          </div>
+          <span class="badge {{ 'success' if not security.default_password else '' }}">
+            {{ 'configured' if not security.default_password else 'default' }}
+          </span>
+        </div>
+      </div>
+    </article>
+
+    <article class="tool-panel">
+      <div class="section-heading">
+        <h2>Network exposure</h2>
+        <p>{{ security.exposure }}</p>
+      </div>
+      <dl class="detail-list">
+        <div>
+          <dt>Host</dt>
+          <dd>{{ security.host }}</dd>
+        </div>
+        <div>
+          <dt>Port</dt>
+          <dd>{{ security.port }}</dd>
+        </div>
+        <div>
+          <dt>Environment</dt>
+          <dd>{{ security.environment }}</dd>
+        </div>
+        <div>
+          <dt>Recommended access</dt>
+          <dd>Trusted private network or HTTPS reverse proxy</dd>
+        </div>
+      </dl>
+    </article>
+  </section>
+
+  {% if security.default_password %}
+    <section class="tool-panel warning-panel">
+      <div class="section-heading">
+        <h2>Action required</h2>
+        <p>Set SG_GATEWAY_ADMIN_PASSWORD to a strong unique value before exposing this panel.</p>
+      </div>
+    </section>
+  {% endif %}
+
+  <section class="tool-panel">
+    <div class="section-heading">
+      <h2>Security actions</h2>
+      <p>Use existing safe operations from the panel.</p>
+    </div>
+    <div class="action-grid">
+      <a class="action-card" href="/maintenance">Create or download backups</a>
+      <a class="action-card" href="/maintenance/diagnostics.json">Download diagnostics</a>
+      <a class="action-card" href="/help/security">Read security help</a>
+    </div>
+  </section>
+{% endblock %}

@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway · Главная{% endblock %}
+{% block title %}SG-Gateway · Dashboard{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
-      <h1>Главная</h1>
-      <p>Один сервер, один список клиентов, два способа подключения.</p>
+      <h1>Dashboard</h1>
+      <p>One gateway, one client list, two supported connection engines.</p>
     </div>
     <div class="topbar-actions">
-      <a class="button primary" href="/clients">Создать клиента</a>
-      <button class="button" type="button">Проверить сервер</button>
-      <button class="button" type="button">Резервная копия</button>
+      <a class="button primary" href="/clients">Create client</a>
+      <a class="button" href="/system">System status</a>
+      <a class="button" href="/maintenance">Backups</a>
     </div>
   </header>
 
-  <section class="brand-dial-grid" aria-label="Главные показатели">
+  <section class="brand-dial-grid" aria-label="Gateway metrics">
     {% for dial in dashboard_dials %}
       <article class="brand-dial-card">
         <div class="brand-dial beta9-load-{{ dial.status }}" style="--dial-value: {{ dial.percent }}%">
@@ -32,7 +32,7 @@
     {% endfor %}
   </section>
 
-  <section class="status-grid" aria-label="Состояние сервера">
+  <section class="status-grid" aria-label="Server status">
     {% for item in status_items %}
       <article class="status-card">
         <div class="status-dot {{ item.state }}"></div>
@@ -46,8 +46,8 @@
 
   <section class="connections">
     <div class="section-heading">
-      <h2>Подключения</h2>
-      <p>В первом выпуске оставляем только базовые и понятные варианты.</p>
+      <h2>Connections</h2>
+      <p>Current engine endpoints and readiness for newly generated client access.</p>
     </div>
 
     <div class="connection-list">
@@ -60,7 +60,7 @@
               <p>{{ connection.note }}</p>
             </div>
           </div>
-          <span class="badge {{ 'success' if connection.status == 'Настроено' else '' }}">{{ connection.status }}</span>
+          <span class="badge {{ 'success' if connection.status == 'Configured' else '' }}">{{ connection.status }}</span>
         </article>
       {% endfor %}
     </div>
