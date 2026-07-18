@@ -62,7 +62,7 @@ def update_connection_settings(engine: str, host: str, port: int | str, config: 
             action="connection.update",
             target=f"connection:{engine}",
             status="error",
-            message="Rejected invalid connection settings",
+            message="Отклонены недопустимые параметры подключения",
         )
         return False
 
@@ -89,13 +89,13 @@ def update_connection_settings(engine: str, host: str, port: int | str, config: 
             action="connection.update",
             target=f"connection:{engine}",
             status="error",
-            message="Rejected unknown connection engine",
+            message="Неизвестный механизм подключения",
         )
         return False
 
     log_operation(
         action="connection.update",
         target=f"connection:{engine}",
-        message=f"Updated {engine} endpoint to {clean_host}:{clean_port}",
+        message=f"Адрес {engine} обновлён: {clean_host}:{clean_port}",
     )
     return True

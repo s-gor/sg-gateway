@@ -42,7 +42,7 @@ def create_backup() -> BackupInfo:
     destination = _next_backup_path("sg-gateway")
     shutil.copy2(source, destination)
     backup = _backup_info(destination)
-    log_operation("backup.create", f"backup:{backup.name}", f"Created backup {backup.name}")
+    log_operation("backup.create", f"backup:{backup.name}", f"Создана резервная копия {backup.name}")
     return backup
 
 
@@ -70,7 +70,7 @@ def get_backup(name: str) -> BackupInfo | None:
 def restore_backup(name: str) -> bool:
     backup = get_backup(name)
     if backup is None:
-        log_operation("backup.restore", f"backup:{name}", "Backup not found", status="error")
+        log_operation("backup.restore", f"backup:{name}", "Резервная копия не найдена", status="error")
         return False
 
     target = get_database_path()
@@ -81,14 +81,14 @@ def restore_backup(name: str) -> bool:
 
     shutil.copy2(backup.path, target)
     init_db()
-    log_operation("backup.restore", f"backup:{backup.name}", f"Restored backup {backup.name}")
+    log_operation("backup.restore", f"backup:{backup.name}", f"Восстановлена резервная копия {backup.name}")
     return True
 
 
 def _backup_kind(path: Path) -> str:
     if path.name.startswith("pre-restore-"):
-        return "Pre-restore safety backup"
-    return "Manual backup"
+        return "Страховочная копия перед восстановлением"
+    return "Ручная резервная копия"
 
 
 def _backup_info(path: Path) -> BackupInfo:

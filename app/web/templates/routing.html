@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway · Routing{% endblock %}
+{% block title %}SG-Gateway · Маршрутизация{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
-      <h1>Routing</h1>
-      <p>Effective client traffic paths built from the configured AmneziaWG and Xray endpoints.</p>
+      <h1>Маршрутизация</h1>
+      <p>Фактические пути клиентского трафика, сформированные из настроенных адресов AmneziaWG и Xray.</p>
     </div>
     <div class="topbar-actions">
-      <a class="button primary" href="/connections">Edit connections</a>
-      <a class="button" href="/clients">Create client</a>
+      <a class="button primary" href="/connections">Изменить подключения</a>
+      <a class="button" href="/clients">Создать клиента</a>
     </div>
   </header>
 
@@ -21,15 +21,15 @@
         <div>
           <div class="status-label">{{ connection.label }}</div>
           <div class="status-value compact">{{ connection.note }}</div>
-          <span class="subtle">{{ connection.clients }} client deployment(s)</span>
+          <span class="subtle">{{ connection.clients }} клиентских назначений</span>
         </div>
       </article>
     {% endfor %}
     <article class="status-card">
       <div class="status-dot idle"></div>
       <div>
-        <div class="status-label">Default access</div>
-        <div class="status-value compact">Recommended</div>
+        <div class="status-label">Доступ по умолчанию</div>
+        <div class="status-value compact">Рекомендуется</div>
         <span class="subtle">AmneziaWG + Xray Reality</span>
       </div>
     </article>
@@ -38,12 +38,12 @@
   <section class="settings-grid">
     <article class="tool-panel">
       <div class="section-heading">
-        <h2>AmneziaWG route</h2>
-        <p>Values used in generated WireGuard-compatible client configurations.</p>
+        <h2>Маршрут AmneziaWG</h2>
+        <p>Параметры, используемые в созданных клиентских конфигурациях, совместимых с WireGuard.</p>
       </div>
       <dl class="detail-list">
         <div>
-          <dt>Endpoint</dt>
+          <dt>Адрес</dt>
           <dd>{{ awg_settings.host }}:{{ awg_settings.port }}</dd>
         </div>
         <div>
@@ -51,40 +51,40 @@
           <dd>{{ awg_settings.config.get('dns', '1.1.1.1') }}</dd>
         </div>
         <div>
-          <dt>Allowed IPs</dt>
+          <dt>Разрешённые IP-адреса</dt>
           <dd>{{ awg_settings.config.get('allowed_ips', '0.0.0.0/0, ::/0') }}</dd>
         </div>
         <div>
-          <dt>Keepalive</dt>
-          <dd>{{ awg_settings.config.get('persistent_keepalive', 25) }} seconds</dd>
+          <dt>Интервал keepalive</dt>
+          <dd>{{ awg_settings.config.get('persistent_keepalive', 25) }} секунд</dd>
         </div>
         <div>
-          <dt>Server public key</dt>
-          <dd class="mono">{{ awg_settings.config.get('server_public_key', 'Not configured') }}</dd>
+          <dt>Публичный ключ сервера</dt>
+          <dd class="mono">{{ awg_settings.config.get('server_public_key', 'Не настроено') }}</dd>
         </div>
       </dl>
     </article>
 
     <article class="tool-panel">
       <div class="section-heading">
-        <h2>Xray Reality route</h2>
-        <p>Values used in generated VLESS Reality client links.</p>
+        <h2>Маршрут Xray Reality</h2>
+        <p>Параметры, используемые в созданных клиентских ссылках VLESS Reality.</p>
       </div>
       <dl class="detail-list">
         <div>
-          <dt>Endpoint</dt>
+          <dt>Адрес</dt>
           <dd>{{ xray_settings.host }}:{{ xray_settings.port }}</dd>
         </div>
         <div>
-          <dt>Transport</dt>
+          <dt>Транспорт</dt>
           <dd>{{ xray_settings.config.get('type', 'tcp') }}</dd>
         </div>
         <div>
-          <dt>Security</dt>
+          <dt>Защита</dt>
           <dd>{{ xray_settings.config.get('security', 'reality') }}</dd>
         </div>
         <div>
-          <dt>Flow</dt>
+          <dt>Поток</dt>
           <dd>{{ xray_settings.config.get('flow', 'xtls-rprx-vision') }}</dd>
         </div>
         <div>
@@ -93,7 +93,7 @@
         </div>
         <div>
           <dt>Short ID</dt>
-          <dd class="mono">{{ xray_settings.config.get('short_id', 'Not configured') }}</dd>
+          <dd class="mono">{{ xray_settings.config.get('short_id', 'Не настроено') }}</dd>
         </div>
       </dl>
     </article>
@@ -101,13 +101,13 @@
 
   <section class="tool-panel">
     <div class="section-heading">
-      <h2>Routing model</h2>
-      <p>SG-Gateway does not invent hidden routing rules here. It exposes the stored engine configuration used for client access generation.</p>
+      <h2>Модель маршрутизации</h2>
+      <p>SG-Gateway не создаёт здесь скрытых правил маршрутизации. Страница показывает сохранённые настройки механизмов, используемые при создании клиентского доступа.</p>
     </div>
     <div class="action-grid">
-      <div class="action-card static">Client profile selects AmneziaWG, Xray Reality, or both.</div>
-      <div class="action-card static">Endpoint settings come from Connections.</div>
-      <div class="action-card static">Engine deployment applies the final server-side forwarding behavior.</div>
+      <div class="action-card static">Клиентский профиль выбирает AmneziaWG, Xray Reality либо оба варианта.</div>
+      <div class="action-card static">Адрес settings come from Connections.</div>
+      <div class="action-card static">Развёртывание механизма определяет окончательную пересылку трафика на стороне сервера.</div>
     </div>
   </section>
 {% endblock %}

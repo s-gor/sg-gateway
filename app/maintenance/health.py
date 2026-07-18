@@ -22,17 +22,17 @@ def collect_health_checks() -> list[HealthCheck]:
     backup_dir = get_backup_dir()
     checks = [
         HealthCheck(
-            name="Database",
+            name="База данных",
             status="ok" if database_path.exists() else "warning",
-            message=str(database_path) if database_path.exists() else "Database will be created on first use",
+            message=str(database_path) if database_path.exists() else "База данных будет создана при первом использовании",
         ),
         HealthCheck(
-            name="Backup directory",
+            name="Каталог резервных копий",
             status="ok" if backup_dir.exists() else "error",
             message=str(backup_dir),
         ),
         HealthCheck(
-            name="Data directory",
+            name="Каталог данных",
             status="ok" if config.data_dir.exists() else "warning",
             message=str(config.data_dir),
         ),
@@ -69,7 +69,7 @@ def _connection_checks() -> list[HealthCheck]:
     awg_host = run_hostd_command("awg.status")
     checks.append(
         HealthCheck(
-            name="AmneziaWG settings",
+            name="Настройки AmneziaWG",
             status="warning" if "PLACEHOLDER" in awg_key else awg_host.status,
             message=f"{awg.host}:{awg.port}; hostd: {awg_host.message}",
         )
@@ -82,11 +82,11 @@ def _connection_checks() -> list[HealthCheck]:
     xray_host = run_hostd_command("xray.status")
     checks.append(
         HealthCheck(
-            name="Xray Reality settings",
+            name="Настройки Xray Reality",
             status=xray_host.status if xray_ready else "warning",
             message=(
                 f"{xray.host}:{xray.port}, "
-                f"SNI {xray.config.get('server_name', 'not set')}; "
+                f"SNI {xray.config.get('server_name', 'не задано')}; "
                 f"hostd: {xray_host.message}"
             ),
         )

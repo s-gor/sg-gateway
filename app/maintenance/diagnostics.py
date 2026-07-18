@@ -125,6 +125,6 @@ def build_diagnostic_report_json() -> str:
     log_operation(
         action="diagnostics.download",
         target="diagnostics:report",
-        message="Downloaded diagnostic report",
+        message="Скачан диагностический отчёт",
     )
     return json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True)

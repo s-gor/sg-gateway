@@ -142,7 +142,7 @@ def create_client(name: str, access: str, expires_at: str | None = None) -> int 
             action="client.create",
             target="client:new",
             status="error",
-            message="Rejected invalid client name",
+            message="Отклонено недопустимое имя клиента",
         )
         return None
 
@@ -158,7 +158,7 @@ def create_client(name: str, access: str, expires_at: str | None = None) -> int 
                 action="client.create",
                 target="client:new",
                 status="error",
-                message=f"Rejected duplicate client name: {clean_name}",
+                message=f"Отклонено повторяющееся имя клиента: {clean_name}",
             )
             return None
 
@@ -186,7 +186,7 @@ def create_client(name: str, access: str, expires_at: str | None = None) -> int 
     log_operation(
         action="client.create",
         target=f"client:{client_id}",
-        message=f"Created client {clean_name} with access: {', '.join(engines)}",
+        message=f"Создан клиент {clean_name}; доступ: {', '.join(engines)}",
     )
     return client_id
 
@@ -205,14 +205,14 @@ def set_client_enabled(client_id: int, enabled: bool) -> bool:
             action=action,
             target=f"client:{client_id}",
             status="error",
-            message="Rejected missing client",
+            message="Клиент не найден",
         )
         return False
 
     log_operation(
         action=action,
         target=f"client:{client_id}",
-        message="Enabled client" if enabled else "Disabled client",
+        message="Клиент включён" if enabled else "Клиент отключён",
     )
     return True
 
@@ -227,13 +227,13 @@ def delete_client(client_id: int) -> bool:
             action="client.delete",
             target=f"client:{client_id}",
             status="error",
-            message="Rejected missing client",
+            message="Клиент не найден",
         )
         return False
 
     log_operation(
         action="client.delete",
         target=f"client:{client_id}",
-        message="Deleted client",
+        message="Клиент удалён",
     )
     return True

@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway · Help{% endblock %}
+{% block title %}SG-Gateway · Справка{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
-      <h1>Help</h1>
-      <p>Short operational notes for the main SG-Gateway sections.</p>
+      <h1>Справка</h1>
+      <p>Краткие рабочие пояснения по основным разделам SG-Gateway.</p>
     </div>
   </header>
 
@@ -31,13 +31,13 @@
         </ul>
       {% else %}
         <h2>SG-Gateway</h2>
-        <p>Select a topic on the left. Help is intentionally compact and focused on actions.</p>
+        <p>Выберите тему слева. Справка сделана компактной и ориентирована на конкретные действия.</p>
         <ul class="plain-list">
-          <li>Check System before changing endpoints or issuing new access.</li>
-          <li>Create clients from Clients and review generated profiles on the client detail page.</li>
-          <li>Update endpoint settings in Connections and review effective paths in Routing.</li>
-          <li>Create backups and download diagnostics from Maintenance.</li>
-          <li>Review panel exposure and password configuration in Security.</li>
+          <li>Проверьте System перед изменением адресов или выдачей нового доступа.</li>
+          <li>Создавайте клиентов в Clients и проверяйте сформированные профили в карточке клиента.</li>
+          <li>Обновляйте адреса в Connections и проверяйте фактические пути в Routing.</li>
+          <li>Создавайте резервные копии и скачивайте диагностику в Maintenance.</li>
+          <li>Проверяйте сетевую доступность панели и настройку пароля в Security.</li>
         </ul>
       {% endif %}
     </article>

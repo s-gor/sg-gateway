@@ -26,12 +26,12 @@ def build_access_cards(client: Client) -> list[AccessCard]:
             AccessCard(
                 title="AmneziaWG",
                 status=deployments["amneziawg"].status,
-                description="Standalone configuration for an AmneziaWG client.",
-                primary_action="Download configuration",
+                description="Отдельная конфигурация для клиента AmneziaWG.",
+                primary_action="Скачать конфигурацию",
                 secondary_action="QR",
                 export_url=f"/clients/{client.id}/exports/amneziawg",
                 qr_url=f"/clients/{client.id}/qr/amneziawg",
-                payload=f"# SG-Gateway AmneziaWG access for {client.name}",
+                payload=f"# Доступ SG-Gateway AmneziaWG для {client.name}",
             )
         )
 
@@ -40,8 +40,8 @@ def build_access_cards(client: Client) -> list[AccessCard]:
             AccessCard(
                 title="Xray Reality",
                 status=deployments["xray"].status,
-                description="VLESS link for a compatible Xray client.",
-                primary_action="Open link",
+                description="Ссылка VLESS для совместимого клиента Xray.",
+                primary_action="Открыть ссылку",
                 secondary_action="QR",
                 export_url=f"/clients/{client.id}/exports/xray",
                 qr_url=f"/clients/{client.id}/qr/xray",
@@ -53,8 +53,8 @@ def build_access_cards(client: Client) -> list[AccessCard]:
         AccessCard(
             title="SG Client",
             status="planned",
-            description="Unified subscription endpoint for SG Client.",
-            primary_action="Download subscription",
+            description="Единая подписка для SG Client.",
+            primary_action="Скачать подписку",
             secondary_action="QR",
             export_url=f"/clients/{client.id}/exports/subscription",
             qr_url=f"/clients/{client.id}/qr/subscription",

@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway · Dashboard{% endblock %}
+{% block title %}SG-Gateway · Главная{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
-      <h1>Dashboard</h1>
-      <p>One gateway, one client list, two supported connection engines.</p>
+      <h1>Главная</h1>
+      <p>Один шлюз, единый список клиентов и два поддерживаемых механизма подключения.</p>
     </div>
     <div class="topbar-actions">
-      <a class="button primary" href="/clients">Create client</a>
-      <a class="button" href="/system">System status</a>
-      <a class="button" href="/maintenance">Backups</a>
+      <a class="button primary" href="/clients">Создать клиента</a>
+      <a class="button" href="/system">Состояние системы</a>
+      <a class="button" href="/maintenance">Резервные копии</a>
     </div>
   </header>
 
@@ -46,8 +46,8 @@
 
   <section class="connections">
     <div class="section-heading">
-      <h2>Connections</h2>
-      <p>Current engine endpoints and readiness for newly generated client access.</p>
+      <h2>Подключения</h2>
+      <p>Текущие адреса подключений и их готовность к созданию новых клиентских профилей.</p>
     </div>
 
     <div class="connection-list">
@@ -60,7 +60,7 @@
               <p>{{ connection.note }}</p>
             </div>
           </div>
-          <span class="badge {{ 'success' if connection.status == 'Configured' else '' }}">{{ connection.status }}</span>
+          <span class="badge {{ 'success' if connection.status == 'Configured' else '' }}">{{ {'Configured': 'Настроено', 'Disabled': 'Отключено'}.get(connection.status, connection.status) }}</span>
         </article>
       {% endfor %}
     </div>
