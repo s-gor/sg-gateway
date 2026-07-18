@@ -54,3 +54,16 @@ def test_invalid_client_name_shows_feedback(tmp_path, monkeypatch):
     assert response.status_code == 200
     assert "Клиент не создан" in body
     assert "не длиннее 80 символов" in body
+
+
+
+def test_missing_client_action_returns_404(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SG_GATEWAY_ADMIN_PASSWORD", "secret")
+    app = create_app()
+    client = app.test_client()
+    client.post("/login", data={"password": "secret"})
+
+    response = client.post("/clients/404/disable")
+
+    assert response.status_code == 404

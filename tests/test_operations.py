@@ -1,4 +1,4 @@
-from app.clients.repository import create_client, set_client_enabled
+from app.clients.repository import create_client, delete_client, set_client_enabled
 from app.db import init_db
 from app.maintenance.operations import count_operations, list_operations
 
@@ -16,3 +16,18 @@ def test_client_actions_are_logged(tmp_path, monkeypatch):
     assert count_operations() == 2
     assert "client.create" in actions
     assert "client.disable" in actions
+
+
+def test_missing_client_actions_are_rejected(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    init_db()
+
+    enabled = set_client_enabled(404, False)
+    deleted = delete_client(404)
+
+    operations = list_operations()
+    assert enabled is False
+    assert deleted is False
+    assert count_operations() == 2
+    assert all(operation.status == "error" for operation in operations)
+    assert all("Rejected missing client" in operation.message for operation in operations)

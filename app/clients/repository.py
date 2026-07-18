@@ -191,28 +191,49 @@ def create_client(name: str, access: str) -> int | None:
     return client_id
 
 
-def set_client_enabled(client_id: int, enabled: bool) -> None:
+def set_client_enabled(client_id: int, enabled: bool) -> bool:
     init_db()
     with connect() as connection:
-        connection.execute(
+        cursor = connection.execute(
             "UPDATE clients SET enabled = ? WHERE id = ?",
             (1 if enabled else 0, client_id),
         )
 
+    action = "client.enable" if enabled else "client.disable"
+    if cursor.rowcount == 0:
+        log_operation(
+            action=action,
+            target=f"client:{client_id}",
+            status="error",
+            message="Rejected missing client",
+        )
+        return False
+
     log_operation(
-        action="client.enable" if enabled else "client.disable",
+        action=action,
         target=f"client:{client_id}",
         message="Enabled client" if enabled else "Disabled client",
     )
+    return True
 
 
-def delete_client(client_id: int) -> None:
+def delete_client(client_id: int) -> bool:
     init_db()
     with connect() as connection:
-        connection.execute("DELETE FROM clients WHERE id = ?", (client_id,))
+        cursor = connection.execute("DELETE FROM clients WHERE id = ?", (client_id,))
+
+    if cursor.rowcount == 0:
+        log_operation(
+            action="client.delete",
+            target=f"client:{client_id}",
+            status="error",
+            message="Rejected missing client",
+        )
+        return False
 
     log_operation(
         action="client.delete",
         target=f"client:{client_id}",
         message="Deleted client",
     )
+    return True

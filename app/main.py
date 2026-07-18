@@ -160,17 +160,20 @@ def create_app() -> Flask:
 
     @app.post("/clients/<int:client_id>/enable")
     def enable_client(client_id: int):
-        set_client_enabled(client_id, True)
+        if not set_client_enabled(client_id, True):
+            abort(404)
         return redirect(request.referrer or url_for("clients"))
 
     @app.post("/clients/<int:client_id>/disable")
     def disable_client(client_id: int):
-        set_client_enabled(client_id, False)
+        if not set_client_enabled(client_id, False):
+            abort(404)
         return redirect(request.referrer or url_for("clients"))
 
     @app.post("/clients/<int:client_id>/delete")
     def remove_client(client_id: int):
-        delete_client(client_id)
+        if not delete_client(client_id):
+            abort(404)
         return redirect(url_for("clients"))
 
     @app.get("/connections")
