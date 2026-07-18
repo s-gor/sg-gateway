@@ -243,13 +243,16 @@ def create_app() -> Flask:
 
     @app.post("/maintenance/backups")
     def create_backup_route():
-        create_backup()
+        backup = create_backup()
+        flash(f"Резервная копия создана: {backup.name}", "success")
         return redirect(url_for("maintenance"))
 
     @app.post("/maintenance/backups/<name>/restore")
     def restore_backup_route(name: str):
         if not restore_backup(name):
-            abort(404)
+            flash("Резервная копия не найдена.", "error")
+            return redirect(url_for("maintenance"))
+        flash(f"Резервная копия восстановлена: {name}", "success")
         return redirect(url_for("maintenance"))
 
     @app.get("/maintenance/backups/<name>/download")
