@@ -24,11 +24,21 @@ def get_backup_dir() -> Path:
     return directory
 
 
+def _next_backup_path(prefix: str) -> Path:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+    backup_dir = get_backup_dir()
+    candidate = backup_dir / f"{prefix}-{timestamp}.sqlite"
+    counter = 1
+    while candidate.exists():
+        candidate = backup_dir / f"{prefix}-{timestamp}-{counter}.sqlite"
+        counter += 1
+    return candidate
+
+
 def create_backup() -> BackupInfo:
     init_db()
     source = get_database_path()
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    destination = get_backup_dir() / f"sg-gateway-{timestamp}.sqlite"
+    destination = _next_backup_path("sg-gateway")
     shutil.copy2(source, destination)
     backup = _backup_info(destination)
     log_operation("backup.create", f"backup:{backup.name}", f"Created backup {backup.name}")
@@ -61,8 +71,7 @@ def restore_backup(name: str) -> bool:
     target.parent.mkdir(parents=True, exist_ok=True)
 
     if target.exists():
-        safety_name = datetime.now(timezone.utc).strftime("pre-restore-%Y%m%d-%H%M%S.sqlite")
-        shutil.copy2(target, get_backup_dir() / safety_name)
+        shutil.copy2(target, _next_backup_path("pre-restore"))
 
     shutil.copy2(backup.path, target)
     init_db()

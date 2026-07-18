@@ -16,3 +16,15 @@ def test_create_and_restore_backup(tmp_path, monkeypatch):
 
     assert restore_backup(backup.name) is True
     assert count_clients() == 1
+
+
+def test_create_backup_uses_unique_names(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    init_db()
+
+    first = create_backup()
+    second = create_backup()
+
+    assert first.name != second.name
+    assert first.path.exists()
+    assert second.path.exists()
