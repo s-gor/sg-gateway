@@ -20,9 +20,11 @@ def test_login_allows_dashboard(tmp_path, monkeypatch):
     client = app.test_client()
 
     response = client.post("/login", data={"password": "secret"}, follow_redirects=True)
+    body = response.get_data(as_text=True)
 
     assert response.status_code == 200
-    assert "Ð“Ð»Ð°Ð²Ð½Ð°Ñ" in response.get_data(as_text=True)
+    assert "SG-Gateway" in body
+    assert 'href="/clients"' in body
 
 
 def test_recovery_stays_public(tmp_path, monkeypatch):

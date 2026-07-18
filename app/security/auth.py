@@ -10,6 +10,7 @@ from app.config import load_config
 
 PUBLIC_ENDPOINTS = {
     "login",
+    "login_post",
     "health",
     "static",
     "recovery",

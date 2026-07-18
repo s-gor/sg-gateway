@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.db import connect
+from app.db import connect, init_db
 from app.engines.provisioning import build_engine_config
 from app.maintenance.operations import log_operation
 
@@ -37,6 +37,7 @@ def _row_to_client(row) -> Client:
 
 
 def list_clients() -> list[Client]:
+    init_db()
     with connect() as connection:
         rows = connection.execute(
             """
@@ -60,6 +61,7 @@ def list_clients() -> list[Client]:
 
 
 def get_client(client_id: int) -> Client | None:
+    init_db()
     with connect() as connection:
         row = connection.execute(
             """
@@ -84,6 +86,7 @@ def get_client(client_id: int) -> Client | None:
 
 
 def list_client_deployments(client_id: int) -> list[ClientDeployment]:
+    init_db()
     with connect() as connection:
         rows = connection.execute(
             """
@@ -107,12 +110,14 @@ def list_client_deployments(client_id: int) -> list[ClientDeployment]:
 
 
 def count_clients() -> int:
+    init_db()
     with connect() as connection:
         row = connection.execute("SELECT COUNT(*) AS total FROM clients").fetchone()
     return int(row["total"])
 
 
 def create_client(name: str, access: str) -> int | None:
+    init_db()
     clean_name = name.strip()
     if not clean_name:
         return None
@@ -154,6 +159,7 @@ def create_client(name: str, access: str) -> int | None:
 
 
 def set_client_enabled(client_id: int, enabled: bool) -> None:
+    init_db()
     with connect() as connection:
         connection.execute(
             "UPDATE clients SET enabled = ? WHERE id = ?",
@@ -168,6 +174,7 @@ def set_client_enabled(client_id: int, enabled: bool) -> None:
 
 
 def delete_client(client_id: int) -> None:
+    init_db()
     with connect() as connection:
         connection.execute("DELETE FROM clients WHERE id = ?", (client_id,))
 
