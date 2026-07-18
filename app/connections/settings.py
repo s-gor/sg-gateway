@@ -39,13 +39,35 @@ def get_connection_settings(engine: str) -> ConnectionSettings:
     )
 
 
-def update_connection_settings(engine: str, host: str, port: int, config: dict) -> None:
-    clean_host = host.strip()
-    if not clean_host:
-        return
+def _clean_host(host: str) -> str | None:
+    value = host.strip()
+    return value or None
+
+
+def _clean_port(port: int | str) -> int | None:
+    try:
+        value = int(port)
+    except (TypeError, ValueError):
+        return None
+    if 1 <= value <= 65535:
+        return value
+    return None
+
+
+def update_connection_settings(engine: str, host: str, port: int | str, config: dict) -> bool:
+    clean_host = _clean_host(host)
+    clean_port = _clean_port(port)
+    if clean_host is None or clean_port is None:
+        log_operation(
+            action="connection.update",
+            target=f"connection:{engine}",
+            status="error",
+            message="Rejected invalid connection settings",
+        )
+        return False
 
     with connect() as connection:
-        connection.execute(
+        cursor = connection.execute(
             """
             UPDATE connection_settings
             SET host = ?,
@@ -54,11 +76,26 @@ def update_connection_settings(engine: str, host: str, port: int, config: dict) 
                 updated_at = CURRENT_TIMESTAMP
             WHERE engine = ?
             """,
-            (clean_host, int(port), json.dumps(config, ensure_ascii=False, sort_keys=True), engine),
+            (
+                clean_host,
+                clean_port,
+                json.dumps(config, ensure_ascii=False, sort_keys=True),
+                engine,
+            ),
         )
+
+    if cursor.rowcount == 0:
+        log_operation(
+            action="connection.update",
+            target=f"connection:{engine}",
+            status="error",
+            message="Rejected unknown connection engine",
+        )
+        return False
 
     log_operation(
         action="connection.update",
         target=f"connection:{engine}",
-        message=f"Updated {engine} endpoint to {clean_host}:{int(port)}",
+        message=f"Updated {engine} endpoint to {clean_host}:{clean_port}",
     )
+    return True

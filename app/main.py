@@ -193,7 +193,7 @@ def create_app() -> Flask:
         update_connection_settings(
             "amneziawg",
             request.form.get("host", current.host),
-            int(request.form.get("port", current.port)),
+            request.form.get("port", str(current.port)),
             config,
         )
         return redirect(url_for("connections"))
@@ -217,7 +217,7 @@ def create_app() -> Flask:
         update_connection_settings(
             "xray",
             request.form.get("host", current.host),
-            int(request.form.get("port", current.port)),
+            request.form.get("port", str(current.port)),
             config,
         )
         return redirect(url_for("connections"))
