@@ -7,6 +7,9 @@ from app.engines.provisioning import build_engine_config
 from app.maintenance.operations import log_operation
 
 
+MAX_CLIENT_NAME_LENGTH = 80
+
+
 @dataclass(frozen=True)
 class Client:
     id: int
@@ -34,6 +37,21 @@ def _row_to_client(row) -> Client:
         awg_status=row["awg_status"],
         xray_status=row["xray_status"],
     )
+
+
+def _clean_client_name(name: str) -> str | None:
+    clean_name = " ".join(name.split())
+    if not clean_name:
+        return None
+    if len(clean_name) > MAX_CLIENT_NAME_LENGTH:
+        return None
+    return clean_name
+
+
+def _client_name_exists(connection, clean_name: str) -> bool:
+    rows = connection.execute("SELECT name FROM clients").fetchall()
+    wanted = clean_name.casefold()
+    return any(row["name"].casefold() == wanted for row in rows)
 
 
 def list_clients() -> list[Client]:
@@ -118,8 +136,14 @@ def count_clients() -> int:
 
 def create_client(name: str, access: str) -> int | None:
     init_db()
-    clean_name = name.strip()
-    if not clean_name:
+    clean_name = _clean_client_name(name)
+    if clean_name is None:
+        log_operation(
+            action="client.create",
+            target="client:new",
+            status="error",
+            message="Rejected invalid client name",
+        )
         return None
 
     engines = {
@@ -129,6 +153,15 @@ def create_client(name: str, access: str) -> int | None:
     }.get(access, ["amneziawg", "xray"])
 
     with connect() as connection:
+        if _client_name_exists(connection, clean_name):
+            log_operation(
+                action="client.create",
+                target="client:new",
+                status="error",
+                message=f"Rejected duplicate client name: {clean_name}",
+            )
+            return None
+
         cursor = connection.execute(
             "INSERT INTO clients (name, enabled) VALUES (?, 1)",
             (clean_name,),
