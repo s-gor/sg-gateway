@@ -25,7 +25,17 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y ca-certificates curl git docker.io docker-compose-plugin
+apt-get install -y ca-certificates curl git
+
+if ! command -v docker >/dev/null 2>&1; then
+  if apt-cache policy docker-ce 2>/dev/null | grep -q 'Candidate: [^(]'; then
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  else
+    apt-get install -y docker.io docker-compose-plugin
+  fi
+elif ! docker compose version >/dev/null 2>&1; then
+  apt-get install -y docker-compose-plugin
+fi
 
 systemctl enable --now docker >/dev/null 2>&1 || true
 
