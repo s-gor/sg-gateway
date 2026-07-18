@@ -22,6 +22,8 @@ def build_diagnostic_report() -> dict:
     connections = list_connections()
     backups = list_backups()
     operations = list_operations(limit=50)
+    error_operations = [item for item in operations if item.status != "ok"]
+    last_error = error_operations[0] if error_operations else None
     health_checks = collect_health_checks()
     hostd = hostd_health()
 
@@ -53,6 +55,17 @@ def build_diagnostic_report() -> dict:
             "clients": count_clients(),
             "backups": len(backups),
             "operations": len(operations),
+            "operation_errors": len(error_operations),
+            "last_error": (
+                {
+                    "action": last_error.action,
+                    "target": last_error.target,
+                    "message": last_error.message,
+                    "created_at": last_error.created_at,
+                }
+                if last_error
+                else None
+            ),
         },
         "health_checks": [
             {

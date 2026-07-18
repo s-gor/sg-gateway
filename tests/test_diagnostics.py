@@ -26,3 +26,18 @@ def test_diagnostic_report_json_is_valid(tmp_path, monkeypatch):
     report = json.loads(payload)
 
     assert report["service"] == "sg-gateway-panel"
+
+
+def test_diagnostic_report_summarizes_operation_errors(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    init_db()
+    from app.clients.repository import set_client_enabled
+
+    set_client_enabled(404, False)
+
+    report = build_diagnostic_report()
+
+    assert report["summary"]["operation_errors"] == 1
+    assert report["summary"]["last_error"]["action"] == "client.disable"
+    assert report["summary"]["last_error"]["target"] == "client:404"
+    assert "Rejected missing client" in report["summary"]["last_error"]["message"]
