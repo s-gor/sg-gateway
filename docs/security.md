@@ -24,12 +24,26 @@ SG_GATEWAY_ADMIN_PASSWORD=change-this-password
 
 Production deployments must replace both defaults.
 
+The `Security` page summarizes:
+
+- whether panel authentication is enabled;
+- whether the admin password is still the default;
+- the configured bind host and port;
+- whether the panel is bound to a local or network-accessible interface;
+- recovery and diagnostic actions available to an authenticated operator.
+
 Public endpoints:
 
 - `/login`
 - `/health`
 - `/recovery`
+
+Authenticated diagnostic endpoint:
+
 - `/maintenance/diagnostics.json`
+
+Production deployments should expose the panel through a trusted private
+network or an HTTPS reverse proxy.
 
 ## Recovery Principle
 
