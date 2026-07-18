@@ -16,6 +16,7 @@ class BackupInfo:
     path: Path
     size_bytes: int
     created_at: str
+    kind: str
 
 
 def get_backup_dir() -> Path:
@@ -84,6 +85,12 @@ def restore_backup(name: str) -> bool:
     return True
 
 
+def _backup_kind(path: Path) -> str:
+    if path.name.startswith("pre-restore-"):
+        return "Перед восстановлением"
+    return "Резервная копия"
+
+
 def _backup_info(path: Path) -> BackupInfo:
     stat = path.stat()
     created_at = datetime.fromtimestamp(stat.st_mtime, timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -92,4 +99,5 @@ def _backup_info(path: Path) -> BackupInfo:
         path=path,
         size_bytes=stat.st_size,
         created_at=created_at,
+        kind=_backup_kind(path),
     )

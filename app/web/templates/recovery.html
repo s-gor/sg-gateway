@@ -58,6 +58,7 @@
             <thead>
               <tr>
                 <th>Последние резервные копии</th>
+                <th>Тип</th>
                 <th>Создана</th>
                 <th></th>
               </tr>
@@ -66,6 +67,7 @@
               {% for backup in backups %}
                 <tr>
                   <td><strong>{{ backup.name }}</strong></td>
+                  <td>{{ backup.kind }}</td>
                   <td>{{ backup.created_at }}</td>
                   <td class="actions-cell">
                     <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Скачать</a>

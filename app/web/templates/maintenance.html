@@ -68,6 +68,7 @@
         <thead>
           <tr>
             <th>Резервная копия</th>
+            <th>Тип</th>
             <th>Создана</th>
             <th>Размер</th>
             <th></th>
@@ -77,6 +78,7 @@
           {% for backup in backups %}
             <tr>
               <td><strong>{{ backup.name }}</strong></td>
+              <td>{{ backup.kind }}</td>
               <td>{{ backup.created_at }}</td>
               <td>{{ backup.size_bytes }} bytes</td>
               <td class="actions-cell">

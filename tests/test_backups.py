@@ -42,3 +42,19 @@ def test_restore_safety_backup_is_listed(tmp_path, monkeypatch):
 
     names = {item.name for item in list_backups()}
     assert any(name.startswith("pre-restore-") for name in names)
+
+
+
+def test_backup_kind_labels(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    init_db()
+    create_client("Before", "recommended")
+
+    backup = create_backup()
+    create_client("After", "recommended")
+    restore_backup(backup.name)
+
+    backups = list_backups()
+    kinds_by_name = {item.name: item.kind for item in backups}
+    assert kinds_by_name[backup.name] == "Резервная копия"
+    assert "Перед восстановлением" in kinds_by_name.values()

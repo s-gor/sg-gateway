@@ -102,6 +102,7 @@ def build_diagnostic_report() -> dict:
                 "name": item.name,
                 "size_bytes": item.size_bytes,
                 "created_at": item.created_at,
+                "kind": item.kind,
             }
             for item in backups
         ],

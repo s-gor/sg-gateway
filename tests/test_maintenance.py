@@ -46,3 +46,22 @@ def test_missing_backup_restore_route_shows_feedback(tmp_path, monkeypatch):
 
     assert response.status_code == 200
     assert "Резервная копия не найдена" in body
+
+
+
+def test_maintenance_page_shows_backup_kind(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SG_GATEWAY_ADMIN_PASSWORD", "secret")
+    from app.main import create_app
+
+    app = create_app()
+    client = app.test_client()
+    client.post("/login", data={"password": "secret"})
+    client.post("/maintenance/backups")
+
+    response = client.get("/maintenance")
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Тип" in body
+    assert "Резервная копия" in body
