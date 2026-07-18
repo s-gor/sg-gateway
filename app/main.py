@@ -1,4 +1,7 @@
+import os
 import re
+import shutil
+from pathlib import Path
 from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, send_file, url_for
 
 from app.clients.access import build_access_cards
@@ -58,6 +61,142 @@ def normalize_country_code(value: str | None) -> str:
 
 def country_name(code: str | None) -> str:
     return COUNTRY_NAMES.get(normalize_country_code(code), COUNTRY_NAMES["unknown"])
+
+
+def _format_bytes(value: int) -> str:
+    units = ("B", "KiB", "MiB", "GiB", "TiB")
+    size = float(max(0, int(value or 0)))
+    for unit in units:
+        if size < 1024 or unit == units[-1]:
+            return f"{size:.1f} {unit}" if unit != "B" else f"{int(size)} B"
+        size /= 1024
+    return f"{int(value)} B"
+
+
+def _read_meminfo() -> dict[str, int]:
+    values: dict[str, int] = {}
+    try:
+        for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
+            key, raw = line.split(":", 1)
+            values[key] = int(raw.split()[0]) * 1024
+    except OSError:
+        return values
+    return values
+
+
+def _process_rss(names: tuple[str, ...]) -> int:
+    total = 0
+    proc = Path("/proc")
+    if not proc.exists():
+        return total
+    for item in proc.iterdir():
+        if not item.name.isdigit():
+            continue
+        try:
+            comm = (item / "comm").read_text(encoding="utf-8").strip().lower()
+            if not any(name in comm for name in names):
+                continue
+            status = (item / "status").read_text(encoding="utf-8")
+        except OSError:
+            continue
+        match = re.search(r"VmRSS:\s+(\d+)\s+kB", status)
+        if match:
+            total += int(match.group(1)) * 1024
+    return total
+
+
+def _resource_state(percent: int) -> tuple[str, str]:
+    if percent >= 95:
+        return "critical", "Критично"
+    if percent >= 85:
+        return "high", "Мало места"
+    if percent >= 70:
+        return "warning", "Внимание"
+    return "normal", "В норме"
+
+
+def _dashboard_resources() -> dict:
+    mem = _read_meminfo()
+    total = mem.get("MemTotal", 0)
+    available = mem.get("MemAvailable", 0)
+    free = mem.get("MemFree", 0)
+    cached = mem.get("Cached", 0) + mem.get("SReclaimable", 0)
+    used = max(0, total - available)
+    used_percent = round(used * 100 / total) if total else 0
+    memory_state, memory_label = _resource_state(used_percent)
+
+    panel = _process_rss(("python", "waitress"))
+    web = _process_rss(("nginx",))
+    other = max(0, used - panel - web)
+    memory_parts = [
+        ("panel", "SG-Gateway", "Панель и дочерние процессы", panel, "#4f9bff"),
+        ("web", "Веб-сервер", "Nginx/прокси, если запущен рядом", web, "#9b7bff"),
+        ("system", "Ubuntu и службы", "Остальные процессы системы", other, "#38c6c2"),
+        ("cache", "Файловый кэш", "Память, которую Linux может освободить", cached, "#e7c45b"),
+        ("free", "Свободно", f"Доступно с учетом кэша: {_format_bytes(available)}", free, "#4ecb86"),
+    ]
+
+    start = 0.0
+    gradient_parts: list[str] = []
+    memory_rows: list[dict] = []
+    for key, label, note, amount, color in memory_parts:
+        percent = round(amount * 100 / total, 1) if total else 0
+        end = min(100.0, start + percent)
+        gradient_parts.append(f"{color} {start:.1f}% {end:.1f}%")
+        memory_rows.append(
+            {
+                "key": key,
+                "label": label,
+                "note": note,
+                "value": _format_bytes(amount),
+                "percent": f"{percent:.1f}%",
+                "color": color,
+            }
+        )
+        start = end
+
+    data_dir = load_config().data_dir
+    data_dir.mkdir(parents=True, exist_ok=True)
+    disk = shutil.disk_usage(str(data_dir))
+    disk_percent = round(disk.used * 100 / disk.total) if disk.total else 0
+    disk_state, disk_label = _resource_state(disk_percent)
+
+    load = os.getloadavg() if hasattr(os, "getloadavg") else (0.0, 0.0, 0.0)
+    cpu_count = os.cpu_count() or 1
+
+    return {
+        "memory": {
+            "used": _format_bytes(used),
+            "total": _format_bytes(total),
+            "available": _format_bytes(available),
+            "percent": used_percent,
+            "percent_text": f"{used_percent}%",
+            "state": memory_state,
+            "state_label": memory_label,
+            "gradient": "conic-gradient(" + ", ".join(gradient_parts) + ")",
+            "rows": memory_rows,
+            "swap_used": _format_bytes(mem.get("SwapTotal", 0) - mem.get("SwapFree", 0)),
+        },
+        "disk": {
+            "used": _format_bytes(disk.used),
+            "free": _format_bytes(disk.free),
+            "total": _format_bytes(disk.total),
+            "percent": disk_percent,
+            "percent_text": f"{disk_percent}%",
+            "free_percent": max(0, 100 - disk_percent),
+            "state": disk_state,
+            "state_label": disk_label,
+            "gradient": (
+                "conic-gradient(#4f9bff 0 "
+                f"{disk_percent}%, #4ecb86 {disk_percent}% 100%)"
+            ),
+        },
+        "cpu": {
+            "count": cpu_count,
+            "load": f"{load[0]:.2f} / {load[1]:.2f} / {load[2]:.2f}",
+            "percent": min(100, round((load[0] / cpu_count) * 100)) if cpu_count else 0,
+        },
+    }
 
 
 def create_app() -> Flask:
