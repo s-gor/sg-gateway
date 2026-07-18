@@ -156,6 +156,30 @@ button:disabled {
   padding: 32px;
 }
 
+.flash-stack {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.flash-message {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 12px 14px;
+}
+
+.flash-message.success {
+  border-color: rgba(79, 209, 139, 0.35);
+  color: var(--green);
+}
+
+.flash-message.error {
+  border-color: rgba(231, 104, 104, 0.45);
+  color: #ffd7d7;
+}
+
 .topbar {
   display: flex;
   justify-content: space-between;

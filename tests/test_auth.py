@@ -38,3 +38,19 @@ def test_recovery_stays_public(tmp_path, monkeypatch):
     response = client.get("/recovery")
 
     assert response.status_code == 200
+
+
+
+def test_invalid_client_name_shows_feedback(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SG_GATEWAY_ADMIN_PASSWORD", "secret")
+    app = create_app()
+    client = app.test_client()
+    client.post("/login", data={"password": "secret"})
+
+    response = client.post("/clients", data={"name": "   ", "access": "recommended"}, follow_redirects=True)
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Клиент не создан" in body
+    assert "не длиннее 80 символов" in body

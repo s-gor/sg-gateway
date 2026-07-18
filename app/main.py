@@ -1,4 +1,4 @@
-from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_file, url_for
+from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, send_file, url_for
 
 from app.clients.access import build_access_cards
 from app.clients.exports import build_awg_config, build_subscription, build_xray_link
@@ -111,7 +111,9 @@ def create_app() -> Flask:
             access=request.form.get("access", "recommended"),
         )
         if client_id:
+            flash("Клиент создан.", "success")
             return redirect(url_for("client_detail", client_id=client_id))
+        flash("Клиент не создан. Проверьте имя: оно должно быть уникальным и не длиннее 80 символов.", "error")
         return redirect(url_for("clients"))
 
     @app.get("/clients/<int:client_id>")
@@ -190,12 +192,13 @@ def create_app() -> Flask:
             "server_public_key",
             config.get("server_public_key", "PLACEHOLDER_SERVER_PUBLIC_KEY"),
         )
-        update_connection_settings(
+        updated = update_connection_settings(
             "amneziawg",
             request.form.get("host", current.host),
             request.form.get("port", str(current.port)),
             config,
         )
+        flash("Настройки AmneziaWG сохранены." if updated else "Настройки AmneziaWG не применены. Проверьте хост и порт.", "success" if updated else "error")
         return redirect(url_for("connections"))
 
     @app.post("/connections/xray")
@@ -214,12 +217,13 @@ def create_app() -> Flask:
             "short_id",
             config.get("short_id", "PLACEHOLDER_SHORT_ID"),
         )
-        update_connection_settings(
+        updated = update_connection_settings(
             "xray",
             request.form.get("host", current.host),
             request.form.get("port", str(current.port)),
             config,
         )
+        flash("Настройки Xray сохранены." if updated else "Настройки Xray не применены. Проверьте хост и порт.", "success" if updated else "error")
         return redirect(url_for("connections"))
 
     @app.get("/maintenance")

@@ -83,3 +83,29 @@ def test_invalid_connection_port_does_not_crash_route(tmp_path, monkeypatch):
     assert response.status_code == 302
     assert current.host == "vpn.example.com"
     assert current.port == 443
+
+
+
+def test_invalid_connection_port_shows_feedback(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SG_GATEWAY_ADMIN_PASSWORD", "secret")
+    app = create_app()
+    client = app.test_client()
+    client.post("/login", data={"password": "secret"})
+
+    response = client.post(
+        "/connections/xray",
+        data={
+            "host": "xray.test",
+            "port": "not-a-port",
+            "server_name": "www.cloudflare.com",
+            "public_key": "REALITY_PUBLIC_KEY_TEST",
+            "short_id": "abc123",
+        },
+        follow_redirects=True,
+    )
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Настройки Xray не применены" in body
+    assert "Проверьте хост и порт" in body
