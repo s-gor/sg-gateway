@@ -4,6 +4,12 @@ This folder contains early deployment helpers for SG-Gateway.
 
 ## Installer
 
+Ubuntu one-line install:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-ubuntu.sh | sudo SG_GATEWAY_ADMIN_PASSWORD='change-this-password' sh
+```
+
 The installer is safe by default:
 
 ```sh
@@ -28,4 +34,8 @@ Rollback is currently a placeholder until release packaging is added.
 
 ## Uninstall
 
-Uninstall is intentionally non-destructive in the MVP.
+Ubuntu full uninstall:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/full-uninstall-ubuntu.sh | sudo SG_GATEWAY_CONFIRM_UNINSTALL=YES sh
+```
