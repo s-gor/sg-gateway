@@ -28,3 +28,17 @@ def test_create_backup_uses_unique_names(tmp_path, monkeypatch):
     assert first.name != second.name
     assert first.path.exists()
     assert second.path.exists()
+
+
+
+def test_restore_safety_backup_is_listed(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    init_db()
+    create_client("Before", "recommended")
+
+    backup = create_backup()
+    create_client("After", "recommended")
+    restore_backup(backup.name)
+
+    names = {item.name for item in list_backups()}
+    assert any(name.startswith("pre-restore-") for name in names)

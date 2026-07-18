@@ -46,7 +46,12 @@ def create_backup() -> BackupInfo:
 
 
 def list_backups() -> list[BackupInfo]:
-    backups = [_backup_info(path) for path in get_backup_dir().glob("sg-gateway-*.sqlite")]
+    backup_dir = get_backup_dir()
+    paths = [
+        *backup_dir.glob("sg-gateway-*.sqlite"),
+        *backup_dir.glob("pre-restore-*.sqlite"),
+    ]
+    backups = [_backup_info(path) for path in paths]
     return sorted(backups, key=lambda item: item.name, reverse=True)
 
 
