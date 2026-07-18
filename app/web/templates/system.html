@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}SG-Gateway · System{% endblock %}
+
+{% block content %}
+  <header class="topbar">
+    <div>
+      <h1>System</h1>
+      <p>Service health, runtime details and resource usage for this SG-Gateway instance.</p>
+    </div>
+    <div class="topbar-actions">
+      <a class="button" href="/api/status">Status API</a>
+      <a class="button" href="/maintenance/diagnostics.json">Download diagnostics</a>
+      <a class="button primary" href="/maintenance">Maintenance</a>
+    </div>
+  </header>
+
+  <section class="status-grid">
+    <article class="status-card">
+      <div class="status-dot {{ 'ok' if report.health in ['ok', 'warning'] else 'idle' }}"></div>
+      <div>
+        <div class="status-label">Health</div>
+        <div class="status-value">{{ report.health | upper }}</div>
+      </div>
+    </article>
+    <article class="status-card">
+      <div class="status-dot ok"></div>
+      <div>
+        <div class="status-label">Version</div>
+        <div class="status-value compact">{{ report.version }}</div>
+      </div>
+    </article>
+    <article class="status-card">
+      <div class="status-dot idle"></div>
+      <div>
+        <div class="status-label">Environment</div>
+        <div class="status-value compact">{{ report.environment }}</div>
+      </div>
+    </article>
+  </section>
+
+  <section class="brand-dial-grid" aria-label="Resource usage">
+    <article class="brand-dial-card">
+      <div class="brand-dial beta9-load-{{ resources.memory.state }}" style="--dial-value: {{ resources.memory.percent }}%">
+        <div class="brand-dial-center">
+          <strong>{{ resources.memory.percent_text }}</strong>
+          <span>memory</span>
+        </div>
+      </div>
+      <div class="brand-dial-copy">
+        <h2>Memory</h2>
+        <p>{{ resources.memory.used }} used of {{ resources.memory.total }}. {{ resources.memory.available }} available.</p>
+      </div>
+    </article>
+
+    <article class="brand-dial-card">
+      <div class="brand-dial beta9-load-{{ resources.disk.state }}" style="--dial-value: {{ resources.disk.percent }}%">
+        <div class="brand-dial-center">
+          <strong>{{ resources.disk.percent_text }}</strong>
+          <span>disk</span>
+        </div>
+      </div>
+      <div class="brand-dial-copy">
+        <h2>Data disk</h2>
+        <p>{{ resources.disk.used }} used of {{ resources.disk.total }}. {{ resources.disk.free }} free.</p>
+      </div>
+    </article>
+  </section>
+
+  <section class="settings-grid">
+    <article class="tool-panel">
+      <div class="section-heading">
+        <h2>Runtime</h2>
+        <p>Host process and storage paths reported by diagnostics.</p>
+      </div>
+      <dl class="detail-list">
+        <div>
+          <dt>Python</dt>
+          <dd>{{ report.runtime.python }}</dd>
+        </div>
+        <div>
+          <dt>System</dt>
+          <dd>{{ report.runtime.system }} {{ report.runtime.release }}</dd>
+        </div>
+        <div>
+          <dt>CPU load</dt>
+          <dd>{{ resources.cpu.load }} across {{ resources.cpu.count }} CPU(s)</dd>
+        </div>
+        <div>
+          <dt>Data directory</dt>
+          <dd>{{ report.paths.data_dir }}</dd>
+        </div>
+        <div>
+          <dt>Database</dt>
+          <dd>{{ report.paths.database }}</dd>
+        </div>
+      </dl>
+    </article>
+
+    <article class="tool-panel">
+      <div class="section-heading">
+        <h2>Health checks</h2>
+        <p>Readiness checks used by the status API and Maintenance page.</p>
+      </div>
+      <div class="status-list">
+        {% for check in health_checks %}
+          <div class="status-row">
+            <div>
+              <strong>{{ check.name }}</strong>
+              <span class="subtle">{{ check.message }}</span>
+            </div>
+            <span class="badge {{ 'success' if check.status == 'ok' else '' }}">{{ check.status }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <section class="tool-panel">
+    <div class="section-heading">
+      <h2>System actions</h2>
+      <p>Use safe panel actions that already exist in this release.</p>
+    </div>
+    <div class="action-grid">
+      <a class="action-card" href="/maintenance">Review diagnostics and backups</a>
+      <a class="action-card" href="/recovery">Open recovery console</a>
+      <a class="action-card" href="/connections">Configure connection engines</a>
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}SG-Gateway · Routing{% endblock %}
+
+{% block content %}
+  <header class="topbar">
+    <div>
+      <h1>Routing</h1>
+      <p>Effective client traffic paths built from the configured AmneziaWG and Xray endpoints.</p>
+    </div>
+    <div class="topbar-actions">
+      <a class="button primary" href="/connections">Edit connections</a>
+      <a class="button" href="/clients">Create client</a>
+    </div>
+  </header>
+
+  <section class="status-grid">
+    {% for connection in connections %}
+      <article class="status-card">
+        <div class="status-dot {{ 'ok' if connection.status == 'Configured' else 'idle' }}"></div>
+        <div>
+          <div class="status-label">{{ connection.label }}</div>
+          <div class="status-value compact">{{ connection.note }}</div>
+          <span class="subtle">{{ connection.clients }} client deployment(s)</span>
+        </div>
+      </article>
+    {% endfor %}
+    <article class="status-card">
+      <div class="status-dot idle"></div>
+      <div>
+        <div class="status-label">Default access</div>
+        <div class="status-value compact">Recommended</div>
+        <span class="subtle">AmneziaWG + Xray Reality</span>
+      </div>
+    </article>
+  </section>
+
+  <section class="settings-grid">
+    <article class="tool-panel">
+      <div class="section-heading">
+        <h2>AmneziaWG route</h2>
+        <p>Values used in generated WireGuard-compatible client configurations.</p>
+      </div>
+      <dl class="detail-list">
+        <div>
+          <dt>Endpoint</dt>
+          <dd>{{ awg_settings.host }}:{{ awg_settings.port }}</dd>
+        </div>
+        <div>
+          <dt>DNS</dt>
+          <dd>{{ awg_settings.config.get('dns', '1.1.1.1') }}</dd>
+        </div>
+        <div>
+          <dt>Allowed IPs</dt>
+          <dd>{{ awg_settings.config.get('allowed_ips', '0.0.0.0/0, ::/0') }}</dd>
+        </div>
+        <div>
+          <dt>Keepalive</dt>
+          <dd>{{ awg_settings.config.get('persistent_keepalive', 25) }} seconds</dd>
+        </div>
+        <div>
+          <dt>Server public key</dt>
+          <dd class="mono">{{ awg_settings.config.get('server_public_key', 'Not configured') }}</dd>
+        </div>
+      </dl>
+    </article>
+
+    <article class="tool-panel">
+      <div class="section-heading">
+        <h2>Xray Reality route</h2>
+        <p>Values used in generated VLESS Reality client links.</p>
+      </div>
+      <dl class="detail-list">
+        <div>
+          <dt>Endpoint</dt>
+          <dd>{{ xray_settings.host }}:{{ xray_settings.port }}</dd>
+        </div>
+        <div>
+          <dt>Transport</dt>
+          <dd>{{ xray_settings.config.get('type', 'tcp') }}</dd>
+        </div>
+        <div>
+          <dt>Security</dt>
+          <dd>{{ xray_settings.config.get('security', 'reality') }}</dd>
+        </div>
+        <div>
+          <dt>Flow</dt>
+          <dd>{{ xray_settings.config.get('flow', 'xtls-rprx-vision') }}</dd>
+        </div>
+        <div>
+          <dt>SNI</dt>
+          <dd>{{ xray_settings.config.get('server_name', 'www.cloudflare.com') }}</dd>
+        </div>
+        <div>
+          <dt>Short ID</dt>
+          <dd class="mono">{{ xray_settings.config.get('short_id', 'Not configured') }}</dd>
+        </div>
+      </dl>
+    </article>
+  </section>
+
+  <section class="tool-panel">
+    <div class="section-heading">
+      <h2>Routing model</h2>
+      <p>SG-Gateway does not invent hidden routing rules here. It exposes the stored engine configuration used for client access generation.</p>
+    </div>
+    <div class="action-grid">
+      <div class="action-card static">Client profile selects AmneziaWG, Xray Reality, or both.</div>
+      <div class="action-card static">Endpoint settings come from Connections.</div>
+      <div class="action-card static">Engine deployment applies the final server-side forwarding behavior.</div>
+    </div>
+  </section>
+{% endblock %}

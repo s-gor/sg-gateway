@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,7 +8,7 @@
   </head>
   <body>
     <div class="shell">
-      <aside class="sidebar" aria-label="Основная навигация">
+      <aside class="sidebar" aria-label="Main navigation">
         <div class="brand">
           <div class="brand-mark">SG</div>
           <div>
@@ -17,20 +17,20 @@
           </div>
         </div>
 
-        <nav class="nav">
-          <a class="nav-item {{ 'active' if active_page == 'dashboard' else '' }}" href="/">Главная</a>
-          <a class="nav-item {{ 'active' if active_page == 'clients' else '' }}" href="/clients">Клиенты</a>
-          <a class="nav-item {{ 'active' if active_page == 'connections' else '' }}" href="/connections">Подключения</a>
-          <a class="nav-item" href="#">Правила трафика</a>
-          <a class="nav-item" href="#">Безопасность</a>
-          <a class="nav-item {{ 'active' if active_page == 'maintenance' else '' }}" href="/maintenance">Обслуживание</a>
-          <a class="nav-item" href="/recovery">Recovery</a>
-          <a class="nav-item {{ 'active' if active_page == 'help' else '' }}" href="/help">Справка</a>
+        <nav class="nav" aria-label="Main navigation">
+          <a class="nav-item {{ 'active' if active_page == 'dashboard' else '' }}" href="/">Dashboard</a>
+          <a class="nav-item {{ 'active' if active_page == 'system' else '' }}" href="/system">System</a>
+          <a class="nav-item {{ 'active' if active_page == 'clients' else '' }}" href="/clients">Clients</a>
+          <a class="nav-item {{ 'active' if active_page == 'connections' else '' }}" href="/connections">Connections</a>
+          <a class="nav-item {{ 'active' if active_page == 'routing' else '' }}" href="/routing">Routing</a>
+          <a class="nav-item {{ 'active' if active_page == 'maintenance' else '' }}" href="/maintenance">Maintenance</a>
+          <a class="nav-item {{ 'active' if active_page == 'security' else '' }}" href="/security">Security</a>
+          <a class="nav-item {{ 'active' if active_page == 'help' else '' }}" href="/help">Help</a>
         </nav>
 
         {% if is_authenticated %}
           <form class="logout-form" method="post" action="/logout">
-            <button class="button small" type="submit">Выйти</button>
+            <button class="button small" type="submit">Sign out</button>
           </form>
         {% endif %}
       </aside>

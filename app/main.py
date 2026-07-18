@@ -36,18 +36,18 @@ from app.version import get_release_manifest, get_version
 
 
 COUNTRY_OPTIONS = [
-    ("nl", "Нидерланды"),
-    ("de", "Германия"),
-    ("fi", "Финляндия"),
-    ("fr", "Франция"),
-    ("gb", "Великобритания"),
-    ("pl", "Польша"),
-    ("us", "США"),
-    ("ca", "Канада"),
-    ("sg", "Сингапур"),
-    ("tr", "Турция"),
-    ("il", "Израиль"),
-    ("unknown", "Страна не выбрана"),
+    ("nl", "Netherlands"),
+    ("de", "Germany"),
+    ("fi", "Finland"),
+    ("fr", "France"),
+    ("gb", "United Kingdom"),
+    ("pl", "Poland"),
+    ("us", "United States"),
+    ("ca", "Canada"),
+    ("sg", "Singapore"),
+    ("tr", "Turkey"),
+    ("il", "Israel"),
+    ("unknown", "Country not selected"),
 ]
 COUNTRY_NAMES = dict(COUNTRY_OPTIONS)
 
@@ -107,12 +107,12 @@ def _process_rss(names: tuple[str, ...]) -> int:
 
 def _resource_state(percent: int) -> tuple[str, str]:
     if percent >= 95:
-        return "critical", "Критично"
+        return "critical", "Critical"
     if percent >= 85:
-        return "high", "Мало места"
+        return "high", "Low capacity"
     if percent >= 70:
-        return "warning", "Внимание"
-    return "normal", "В норме"
+        return "warning", "Warning"
+    return "normal", "Normal"
 
 
 def _dashboard_resources() -> dict:
@@ -129,11 +129,11 @@ def _dashboard_resources() -> dict:
     web = _process_rss(("nginx",))
     other = max(0, used - panel - web)
     memory_parts = [
-        ("panel", "SG-Gateway", "Панель и дочерние процессы", panel, "#4f9bff"),
-        ("web", "Веб-сервер", "Nginx/прокси, если запущен рядом", web, "#9b7bff"),
-        ("system", "Ubuntu и службы", "Остальные процессы системы", other, "#38c6c2"),
-        ("cache", "Файловый кэш", "Память, которую Linux может освободить", cached, "#e7c45b"),
-        ("free", "Свободно", f"Доступно с учетом кэша: {_format_bytes(available)}", free, "#4ecb86"),
+        ("panel", "SG-Gateway", "Panel and child processes", panel, "#4f9bff"),
+        ("web", "Web server", "Nginx/proxy processes, when present", web, "#9b7bff"),
+        ("system", "System services", "Remaining operating system processes", other, "#38c6c2"),
+        ("cache", "File cache", "Memory the OS can reclaim", cached, "#e7c45b"),
+        ("free", "Free", f"Available including cache: {_format_bytes(available)}", free, "#4ecb86"),
     ]
 
     start = 0.0
@@ -254,35 +254,35 @@ def create_app() -> Flask:
         connections = list_connections()
         client_total = count_clients()
         backup_total = len(list_backups())
-        ready_connections = sum(1 for connection in connections if connection.status == "Настроено")
+        ready_connections = sum(1 for connection in connections if connection.status == "Configured")
         connection_total = len(connections) or 1
         ready_percent = round(ready_connections * 100 / connection_total)
         activity_percent = min(100, max(8, client_total * 14))
         dashboard_dials = [
             {
-                "title": "Готовность подключений",
-                "label": "готово",
+                "title": "Connection readiness",
+                "label": "ready",
                 "value": f"{ready_percent}%",
                 "percent": ready_percent,
                 "status": "normal" if ready_percent == 100 else "warning",
-                "detail": f"{ready_connections} из {connection_total} способов подключения настроены.",
+                "detail": f"{ready_connections} of {connection_total} connection engines are configured.",
             },
             {
-                "title": "Клиенты",
-                "label": "клиентов",
+                "title": "Clients",
+                "label": "clients",
                 "value": str(client_total),
                 "percent": activity_percent,
                 "status": "normal" if client_total else "warning",
-                "detail": "Трафик сегодня: 0 GB. Живую статистику подключим вместе с реальными движками.",
+                "detail": "Traffic today: 0 GB. Live traffic counters will appear with engine telemetry.",
             },
         ]
         status_items = [
-            {"label": "Сервер", "value": "Работает", "state": "ok"},
+            {"label": "Server", "value": "Running", "state": "ok"},
             {"label": "AmneziaWG", "value": connections[0].status, "state": "idle"},
             {"label": "Xray", "value": connections[1].status, "state": "idle"},
-            {"label": "Клиенты", "value": str(client_total), "state": "idle"},
-            {"label": "Трафик сегодня", "value": "0 GB", "state": "idle"},
-            {"label": "Резервные копии", "value": str(backup_total), "state": "idle"},
+            {"label": "Clients", "value": str(client_total), "state": "idle"},
+            {"label": "Traffic today", "value": "0 GB", "state": "idle"},
+            {"label": "Backups", "value": str(backup_total), "state": "idle"},
         ]
         return render_template(
             "dashboard.html",
@@ -301,6 +301,53 @@ def create_app() -> Flask:
             backups=list_backups()[:5],
         )
 
+    @app.get("/system")
+    def system():
+        report = build_diagnostic_report()
+        return render_template(
+            "system.html",
+            active_page="system",
+            report=report,
+            health_checks=collect_health_checks(),
+            resources=_dashboard_resources(),
+        )
+
+    @app.get("/routing")
+    def routing():
+        return render_template(
+            "routing.html",
+            active_page="routing",
+            connections=list_connections(),
+            awg_settings=get_connection_settings("amneziawg"),
+            xray_settings=get_connection_settings("xray"),
+        )
+
+    @app.get("/security")
+    def security():
+        network_accessible = config.host not in {"127.0.0.1", "localhost", "::1"}
+        default_password = config.admin_password == "admin"
+        return render_template(
+            "security.html",
+            active_page="security",
+            security={
+                "host": config.host,
+                "port": config.port,
+                "environment": config.environment,
+                "network_accessible": network_accessible,
+                "default_password": default_password,
+                "exposure": (
+                    "The panel is bound to a network-accessible interface."
+                    if network_accessible
+                    else "The panel is bound to a local interface."
+                ),
+                "password_message": (
+                    "The default development password is still active."
+                    if default_password
+                    else "A custom administrator password is configured."
+                ),
+            },
+        )
+
     @app.get("/clients")
     def clients():
         return render_template("clients.html", active_page="clients", clients=list_clients())
@@ -313,9 +360,9 @@ def create_app() -> Flask:
             expires_at=request.form.get("expires_at") or None,
         )
         if client_id:
-            flash("Клиент создан.", "success")
+            flash("Client created.", "success")
             return redirect(url_for("client_detail", client_id=client_id))
-        flash("Клиент не создан. Проверьте имя: оно должно быть уникальным и не длиннее 80 символов.", "error")
+        flash("Client was not created. Check the name: it must be unique and 80 characters or fewer.", "error")
         return redirect(url_for("clients"))
 
     @app.get("/clients/<int:client_id>")
@@ -406,7 +453,7 @@ def create_app() -> Flask:
             request.form.get("port", str(current.port)),
             config,
         )
-        flash("Настройки AmneziaWG сохранены." if updated else "Настройки AmneziaWG не применены. Проверьте хост и порт.", "success" if updated else "error")
+        flash("AmneziaWG settings saved." if updated else "AmneziaWG settings were not applied. Check host and port.", "success" if updated else "error")
         return redirect(url_for("connections"))
 
     @app.post("/connections/xray")
@@ -434,7 +481,7 @@ def create_app() -> Flask:
             request.form.get("port", str(current.port)),
             config,
         )
-        flash("Настройки Xray сохранены." if updated else "Настройки Xray не применены. Проверьте хост и порт.", "success" if updated else "error")
+        flash("Xray settings saved." if updated else "Xray settings were not applied. Check host and port.", "success" if updated else "error")
         return redirect(url_for("connections"))
 
     @app.get("/maintenance")
@@ -452,15 +499,15 @@ def create_app() -> Flask:
     @app.post("/maintenance/backups")
     def create_backup_route():
         backup = create_backup()
-        flash(f"Резервная копия создана: {backup.name}", "success")
+        flash(f"Backup created: {backup.name}", "success")
         return redirect(url_for("maintenance"))
 
     @app.post("/maintenance/backups/<name>/restore")
     def restore_backup_route(name: str):
         if not restore_backup(name):
-            flash("Резервная копия не найдена.", "error")
+            flash("Backup not found.", "error")
             return redirect(url_for("maintenance"))
-        flash(f"Резервная копия восстановлена: {name}", "success")
+        flash(f"Backup restored: {name}", "success")
         return redirect(url_for("maintenance"))
 
     @app.get("/maintenance/backups/<name>/download")

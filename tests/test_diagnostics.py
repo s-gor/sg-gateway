@@ -52,4 +52,4 @@ def test_diagnostic_report_includes_backup_kind(tmp_path, monkeypatch):
     create_backup()
     report = build_diagnostic_report()
 
-    assert report["backups"][0]["kind"] == "Резервная копия"
+    assert report["backups"][0]["kind"] == "Manual backup"

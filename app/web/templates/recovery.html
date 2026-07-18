@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,42 +9,41 @@
   <body>
     <main class="recovery-shell">
       <header class="recovery-header">
-        <div>
-          <div class="brand">
-            <div class="brand-mark">SG</div>
-            <div>
-              <div class="brand-name">SG-Gateway Recovery</div>
-              <div class="brand-note">Минимальная аварийная страница</div>
-            </div>
+        <div class="brand">
+          <div class="brand-mark">SG</div>
+          <div>
+            <div class="brand-name">SG-Gateway Recovery</div>
+            <div class="brand-note">Minimal emergency page</div>
           </div>
-          <h1>Состояние: {{ health.upper() }}</h1>
-          <p>Эта страница должна оставаться простой: статус, диагностика, резервные копии и быстрый переход к обслуживанию.</p>
         </div>
         <div class="topbar-actions">
-          <a class="button primary" href="/maintenance">Обслуживание</a>
-          <a class="button" href="/maintenance/diagnostics.json">Скачать диагностику</a>
-          <a class="button" href="/">Открыть панель</a>
+          <a class="button primary" href="/maintenance">Maintenance</a>
+          <a class="button" href="/maintenance/diagnostics.json">Download diagnostics</a>
+          <a class="button" href="/">Open panel</a>
         </div>
       </header>
+
+      <section class="tool-panel">
+        <div class="section-heading">
+          <h1>Status: {{ health.upper() }}</h1>
+          <p>This page stays intentionally simple: status, health checks, recent backups and quick panel links.</p>
+        </div>
+      </section>
 
       <section class="table-panel section-block">
         <table class="data-table">
           <thead>
             <tr>
-              <th>Проверка</th>
-              <th>Статус</th>
-              <th>Сообщение</th>
+              <th>Check</th>
+              <th>Status</th>
+              <th>Message</th>
             </tr>
           </thead>
           <tbody>
             {% for check in health_checks %}
               <tr>
                 <td><strong>{{ check.name }}</strong></td>
-                <td>
-                  <span class="badge {{ 'success' if check.status == 'ok' else '' }}">
-                    {{ check.status }}
-                  </span>
-                </td>
+                <td><span class="badge {{ 'success' if check.status == 'ok' else '' }}">{{ check.status }}</span></td>
                 <td>{{ check.message }}</td>
               </tr>
             {% endfor %}
@@ -57,9 +56,9 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Последние резервные копии</th>
-                <th>Тип</th>
-                <th>Создана</th>
+                <th>Recent backups</th>
+                <th>Type</th>
+                <th>Created</th>
                 <th></th>
               </tr>
             </thead>
@@ -70,7 +69,7 @@
                   <td>{{ backup.kind }}</td>
                   <td>{{ backup.created_at }}</td>
                   <td class="actions-cell">
-                    <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Скачать</a>
+                    <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Download</a>
                   </td>
                 </tr>
               {% endfor %}
@@ -78,8 +77,8 @@
           </table>
         {% else %}
           <div class="empty-state">
-            <h2>Резервных копий пока нет</h2>
-            <p>После создания backup здесь появятся последние файлы.</p>
+            <h2>No backups yet</h2>
+            <p>Recent backup files will appear here after the first backup is created.</p>
           </div>
         {% endif %}
       </section>

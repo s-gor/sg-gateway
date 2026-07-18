@@ -9,8 +9,12 @@
   --green: #4fd18b;
   --yellow: #e4b84f;
   --blue: #62a8ff;
+  --success: var(--green);
+  --warning: var(--yellow);
   --button: #26313c;
   --danger: #e76868;
+  --panel-2: #1b2128;
+  --panel-3: #202832;
 }
 
 * {
@@ -539,6 +543,81 @@ select {
   margin-bottom: 0;
 }
 
+.detail-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.detail-list > div,
+.status-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.7fr) minmax(0, 1.5fr);
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.detail-list > div:last-child,
+.status-row:last-child {
+  border-bottom: 0;
+}
+
+.detail-list dt {
+  color: var(--muted);
+}
+
+.detail-list dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.status-list {
+  display: grid;
+}
+
+.status-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.action-card {
+  display: flex;
+  align-items: center;
+  min-height: 82px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #11161b;
+  color: var(--text);
+  padding: 16px;
+  text-decoration: none;
+}
+
+.action-card:hover {
+  border-color: #4b8fd4;
+  background: var(--panel-soft);
+}
+
+.action-card.static:hover {
+  border-color: var(--line);
+  background: #11161b;
+}
+
+.warning-panel {
+  border-color: rgba(228, 184, 79, 0.45);
+}
+
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: 1fr;
@@ -575,6 +654,7 @@ select {
   .status-grid,
   .access-grid,
   .settings-grid,
+  .action-grid,
   .help-layout {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -585,8 +665,15 @@ select {
   .status-grid,
   .access-grid,
   .settings-grid,
+  .action-grid,
   .help-layout {
     grid-template-columns: 1fr;
+  }
+
+  .detail-list > div,
+  .status-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 
   .topbar-actions,

@@ -1,38 +1,66 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway · Клиенты{% endblock %}
+{% block title %}SG-Gateway · Clients{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
-      <h1>Клиенты</h1>
-      <p>Клиент здесь - человек или устройство, а не отдельная запись в AWG или Xray.</p>
+      <h1>Clients</h1>
+      <p>Create and manage people or devices across AmneziaWG and Xray Reality access.</p>
     </div>
   </header>
 
+  <section class="status-grid">
+    <article class="status-card">
+      <div class="status-dot ok"></div>
+      <div>
+        <div class="status-label">Stored clients</div>
+        <div class="status-value">{{ clients | length }}</div>
+      </div>
+    </article>
+    <article class="status-card">
+      <div class="status-dot idle"></div>
+      <div>
+        <div class="status-label">Enabled</div>
+        <div class="status-value">{{ clients | selectattr('enabled') | list | length }}</div>
+      </div>
+    </article>
+    <article class="status-card">
+      <div class="status-dot idle"></div>
+      <div>
+        <div class="status-label">Access types</div>
+        <div class="status-value compact">AmneziaWG / Xray</div>
+      </div>
+    </article>
+  </section>
+
   <section class="tool-panel">
+    <div class="section-heading">
+      <h2>Create client</h2>
+      <p>New profiles use the current endpoint settings from Connections.</p>
+    </div>
     <form class="client-form client-form-wide" method="post" action="/clients">
       <label>
-        Имя клиента
-        <input name="name" placeholder="Например: Irina iPhone" required>
+        Client name
+        <input name="name" placeholder="Example: Irina iPhone" required>
       </label>
 
       <label>
-        Доступ
+        Access
         <select name="access">
-          <option value="recommended">Рекомендуемый: AmneziaWG + Xray</option>
-          <option value="amneziawg">Только AmneziaWG</option>
-          <option value="xray">Только Xray Reality</option>
+          <option value="recommended">Recommended: AmneziaWG + Xray</option>
+          <option value="amneziawg">AmneziaWG only</option>
+          <option value="xray">Xray Reality only</option>
         </select>
       </label>
 
       <label>
-        Срок действия
+        Expiration
         <input name="expires_at" type="date">
-        <small>Пусто - без ограничения.</small>
+        <small>Leave empty for no expiration date.</small>
       </label>
 
-      <button class="button primary" type="submit">Создать клиента</button>
+      <button class="button primary" type="submit">Create client</button>
     </form>
   </section>
 
@@ -41,9 +69,9 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Клиент</th>
-            <th>Статус</th>
-            <th>Срок</th>
+            <th>Client</th>
+            <th>Status</th>
+            <th>Expiration</th>
             <th>AmneziaWG</th>
             <th>Xray</th>
             <th></th>
@@ -58,22 +86,22 @@
               </td>
               <td>
                 <span class="badge {{ 'success' if client.enabled else '' }}">
-                  {{ 'Активен' if client.enabled else 'Отключен' }}
+                  {{ 'Enabled' if client.enabled else 'Disabled' }}
                 </span>
               </td>
-              <td>{{ client.expires_at or 'Без срока' }}</td>
+              <td>{{ client.expires_at or 'No expiration' }}</td>
               <td>{{ client.awg_status }}</td>
               <td>{{ client.xray_status }}</td>
               <td class="actions-cell">
                 <div class="inline-actions">
-                  <a class="button small" href="/clients/{{ client.id }}">Открыть</a>
+                  <a class="button small" href="/clients/{{ client.id }}">Open</a>
                   {% if client.enabled %}
                     <form method="post" action="/clients/{{ client.id }}/disable">
-                      <button class="button small" type="submit">Отключить</button>
+                      <button class="button small" type="submit">Disable</button>
                     </form>
                   {% else %}
                     <form method="post" action="/clients/{{ client.id }}/enable">
-                      <button class="button small" type="submit">Включить</button>
+                      <button class="button small" type="submit">Enable</button>
                     </form>
                   {% endif %}
                 </div>
@@ -84,8 +112,8 @@
       </table>
     {% else %}
       <div class="empty-state">
-        <h2>Клиентов пока нет</h2>
-        <p>Создайте первого клиента, и SG-Gateway подготовит для него доступы.</p>
+        <h2>No clients yet</h2>
+        <p>Create the first client and SG-Gateway will prepare access data for the selected engines.</p>
       </div>
     {% endif %}
   </section>

@@ -56,5 +56,5 @@ def test_backup_kind_labels(tmp_path, monkeypatch):
 
     backups = list_backups()
     kinds_by_name = {item.name: item.kind for item in backups}
-    assert kinds_by_name[backup.name] == "Резервная копия"
-    assert "Перед восстановлением" in kinds_by_name.values()
+    assert kinds_by_name[backup.name] == "Manual backup"
+    assert "Pre-restore safety backup" in kinds_by_name.values()
