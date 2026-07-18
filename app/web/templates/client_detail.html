@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway Â· {{ client.name }}{% endblock %}
+{% block title %}SG-Gateway · {{ client.name }}{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
       <h1>{{ client.name }}</h1>
-      <p>Ð•Ð´Ð¸Ð½Ð°Ñ ÐºÐ°Ñ€Ñ‚Ð¾Ñ‡ÐºÐ° ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð° Ð´Ð»Ñ AmneziaWG, Xray Ð¸ Ð±ÑƒÐ´ÑƒÑ‰ÐµÐ¹ Ð¾Ð±Ñ‰ÐµÐ¹ Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÐ¸.</p>
+      <p>Единая карточка клиента для AmneziaWG, Xray и будущей общей подписки.</p>
     </div>
     <div class="topbar-actions">
       {% if client.enabled %}
         <form method="post" action="/clients/{{ client.id }}/disable">
-          <button class="button" type="submit">ÐžÑ‚ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ</button>
+          <button class="button" type="submit">Отключить</button>
         </form>
       {% else %}
         <form method="post" action="/clients/{{ client.id }}/enable">
-          <button class="button primary" type="submit">Ð’ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ</button>
+          <button class="button primary" type="submit">Включить</button>
         </form>
       {% endif %}
       <form method="post" action="/clients/{{ client.id }}/delete">
-        <button class="button danger" type="submit">Ð£Ð´Ð°Ð»Ð¸Ñ‚ÑŒ</button>
+        <button class="button danger" type="submit">Удалить</button>
       </form>
     </div>
   </header>
@@ -28,22 +28,22 @@
     <article class="status-card">
       <div class="status-dot {{ 'ok' if client.enabled else 'idle' }}"></div>
       <div>
-        <div class="status-label">Ð¡Ñ‚Ð°Ñ‚ÑƒÑ</div>
-        <div class="status-value">{{ 'ÐÐºÑ‚Ð¸Ð²ÐµÐ½' if client.enabled else 'ÐžÑ‚ÐºÐ»ÑŽÑ‡ÐµÐ½' }}</div>
+        <div class="status-label">Статус</div>
+        <div class="status-value">{{ 'Активен' if client.enabled else 'Отключен' }}</div>
       </div>
     </article>
     <article class="status-card">
       <div class="status-dot idle"></div>
       <div>
-        <div class="status-label">Ð¢Ñ€Ð°Ñ„Ð¸Ðº</div>
+        <div class="status-label">Трафик</div>
         <div class="status-value">0 GB</div>
       </div>
     </article>
     <article class="status-card">
       <div class="status-dot idle"></div>
       <div>
-        <div class="status-label">ÐŸÐ¾ÑÐ»ÐµÐ´Ð½ÐµÐµ Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ðµ</div>
-        <div class="status-value">ÐŸÐ¾ÐºÐ° Ð½ÐµÑ‚</div>
+        <div class="status-label">Последнее подключение</div>
+        <div class="status-value">Пока нет</div>
       </div>
     </article>
   </section>

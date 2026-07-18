@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SG-Gateway Â· Recovery</title>
+    <title>SG-Gateway · Recovery</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
   </head>
   <body>
@@ -14,16 +14,16 @@
             <div class="brand-mark">SG</div>
             <div>
               <div class="brand-name">SG-Gateway Recovery</div>
-              <div class="brand-note">ÐœÐ¸Ð½Ð¸Ð¼Ð°Ð»ÑŒÐ½Ð°Ñ Ð°Ð²Ð°Ñ€Ð¸Ð¹Ð½Ð°Ñ ÑÑ‚Ñ€Ð°Ð½Ð¸Ñ†Ð°</div>
+              <div class="brand-note">Минимальная аварийная страница</div>
             </div>
           </div>
-          <h1>Ð¡Ð¾ÑÑ‚Ð¾ÑÐ½Ð¸Ðµ: {{ health.upper() }}</h1>
-          <p>Ð­Ñ‚Ð° ÑÑ‚Ñ€Ð°Ð½Ð¸Ñ†Ð° Ð´Ð¾Ð»Ð¶Ð½Ð° Ð¾ÑÑ‚Ð°Ð²Ð°Ñ‚ÑŒÑÑ Ð¿Ñ€Ð¾ÑÑ‚Ð¾Ð¹: ÑÑ‚Ð°Ñ‚ÑƒÑ, Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÐ°, Ñ€ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ðµ ÐºÐ¾Ð¿Ð¸Ð¸ Ð¸ Ð±Ñ‹ÑÑ‚Ñ€Ñ‹Ð¹ Ð¿ÐµÑ€ÐµÑ…Ð¾Ð´ Ðº Ð¾Ð±ÑÐ»ÑƒÐ¶Ð¸Ð²Ð°Ð½Ð¸ÑŽ.</p>
+          <h1>Состояние: {{ health.upper() }}</h1>
+          <p>Эта страница должна оставаться простой: статус, диагностика, резервные копии и быстрый переход к обслуживанию.</p>
         </div>
         <div class="topbar-actions">
-          <a class="button primary" href="/maintenance">ÐžÐ±ÑÐ»ÑƒÐ¶Ð¸Ð²Ð°Ð½Ð¸Ðµ</a>
-          <a class="button" href="/maintenance/diagnostics.json">Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÑƒ</a>
-          <a class="button" href="/">ÐžÑ‚ÐºÑ€Ñ‹Ñ‚ÑŒ Ð¿Ð°Ð½ÐµÐ»ÑŒ</a>
+          <a class="button primary" href="/maintenance">Обслуживание</a>
+          <a class="button" href="/maintenance/diagnostics.json">Скачать диагностику</a>
+          <a class="button" href="/">Открыть панель</a>
         </div>
       </header>
 
@@ -31,9 +31,9 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>ÐŸÑ€Ð¾Ð²ÐµÑ€ÐºÐ°</th>
-              <th>Ð¡Ñ‚Ð°Ñ‚ÑƒÑ</th>
-              <th>Ð¡Ð¾Ð¾Ð±Ñ‰ÐµÐ½Ð¸Ðµ</th>
+              <th>Проверка</th>
+              <th>Статус</th>
+              <th>Сообщение</th>
             </tr>
           </thead>
           <tbody>
@@ -57,8 +57,8 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>ÐŸÐ¾ÑÐ»ÐµÐ´Ð½Ð¸Ðµ Ñ€ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ðµ ÐºÐ¾Ð¿Ð¸Ð¸</th>
-                <th>Ð¡Ð¾Ð·Ð´Ð°Ð½Ð°</th>
+                <th>Последние резервные копии</th>
+                <th>Создана</th>
                 <th></th>
               </tr>
             </thead>
@@ -68,7 +68,7 @@
                   <td><strong>{{ backup.name }}</strong></td>
                   <td>{{ backup.created_at }}</td>
                   <td class="actions-cell">
-                    <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ</a>
+                    <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Скачать</a>
                   </td>
                 </tr>
               {% endfor %}
@@ -76,8 +76,8 @@
           </table>
         {% else %}
           <div class="empty-state">
-            <h2>Ð ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ñ… ÐºÐ¾Ð¿Ð¸Ð¹ Ð¿Ð¾ÐºÐ° Ð½ÐµÑ‚</h2>
-            <p>ÐŸÐ¾ÑÐ»Ðµ ÑÐ¾Ð·Ð´Ð°Ð½Ð¸Ñ backup Ð·Ð´ÐµÑÑŒ Ð¿Ð¾ÑÐ²ÑÑ‚ÑÑ Ð¿Ð¾ÑÐ»ÐµÐ´Ð½Ð¸Ðµ Ñ„Ð°Ð¹Ð»Ñ‹.</p>
+            <h2>Резервных копий пока нет</h2>
+            <p>После создания backup здесь появятся последние файлы.</p>
           </div>
         {% endif %}
       </section>

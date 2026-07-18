@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SG-Gateway Â· Login</title>
+    <title>SG-Gateway · Вход</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
   </head>
   <body>
@@ -13,20 +13,20 @@
           <div class="brand-mark">SG</div>
           <div>
             <div class="brand-name">SG-Gateway</div>
-            <div class="brand-note">Ð’Ñ…Ð¾Ð´ Ð² Ð¿Ð°Ð½ÐµÐ»ÑŒ</div>
+            <div class="brand-note">Вход в панель</div>
           </div>
         </div>
 
         <form class="settings-form" method="post" action="/login">
           <input type="hidden" name="next" value="{{ next_url }}">
           <label>
-            ÐŸÐ°Ñ€Ð¾Ð»ÑŒ Ð°Ð´Ð¼Ð¸Ð½Ð¸ÑÑ‚Ñ€Ð°Ñ‚Ð¾Ñ€Ð°
+            Пароль администратора
             <input name="password" type="password" autocomplete="current-password" required autofocus>
           </label>
           {% if error %}
-            <p class="error-text">ÐŸÐ°Ñ€Ð¾Ð»ÑŒ Ð½Ðµ Ð¿Ð¾Ð´Ð¾ÑˆÑ‘Ð».</p>
+            <p class="error-text">Пароль не подошел.</p>
           {% endif %}
-          <button class="button primary" type="submit">Ð’Ð¾Ð¹Ñ‚Ð¸</button>
+          <button class="button primary" type="submit">Войти</button>
         </form>
       </section>
     </main>

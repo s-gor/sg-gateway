@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway Â· Maintenance{% endblock %}
+{% block title %}SG-Gateway · Обслуживание{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
-      <h1>ÐžÐ±ÑÐ»ÑƒÐ¶Ð¸Ð²Ð°Ð½Ð¸Ðµ</h1>
-      <p>ÐœÐ¸Ð½Ð¸Ð¼Ð°Ð»ÑŒÐ½Ð°Ñ Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÐ°, Ñ€ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ðµ ÐºÐ¾Ð¿Ð¸Ð¸ Ð±Ð°Ð·Ñ‹ Ð¸ Ð¶ÑƒÑ€Ð½Ð°Ð» Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¹.</p>
+      <h1>Обслуживание</h1>
+      <p>Минимальная диагностика, резервные копии базы и журнал операций.</p>
     </div>
     <div class="topbar-actions">
-      <a class="button" href="/api/version">Ð’ÐµÑ€ÑÐ¸Ñ</a>
-      <a class="button" href="/api/status">JSON ÑÑ‚Ð°Ñ‚ÑƒÑ</a>
-      <a class="button" href="/maintenance/diagnostics.json">Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ Ð´Ð¸Ð°Ð³Ð½Ð¾ÑÑ‚Ð¸ÐºÑƒ</a>
+      <a class="button" href="/api/version">Версия</a>
+      <a class="button" href="/api/status">JSON статус</a>
+      <a class="button" href="/maintenance/diagnostics.json">Скачать диагностику</a>
       <form method="post" action="/maintenance/backups">
-        <button class="button primary" type="submit">Ð¡Ð¾Ð·Ð´Ð°Ñ‚ÑŒ Ñ€ÐµÐ·ÐµÑ€Ð²Ð½ÑƒÑŽ ÐºÐ¾Ð¿Ð¸ÑŽ</button>
+        <button class="button primary" type="submit">Создать резервную копию</button>
       </form>
     </div>
   </header>
@@ -32,8 +32,8 @@
 
   <section class="tool-panel">
     <div class="section-heading">
-      <h2>Ð’ÐµÑ€ÑÐ¸Ñ</h2>
-      <p>{{ release.name }} {{ release.version }} Â· ÐºÐ°Ð½Ð°Ð» {{ release.channel }}</p>
+      <h2>Версия</h2>
+      <p>{{ release.name }} {{ release.version }} · канал {{ release.channel }}</p>
     </div>
   </section>
 
@@ -41,9 +41,9 @@
     <table class="data-table">
       <thead>
         <tr>
-          <th>ÐŸÑ€Ð¾Ð²ÐµÑ€ÐºÐ°</th>
-          <th>Ð¡Ñ‚Ð°Ñ‚ÑƒÑ</th>
-          <th>Ð¡Ð¾Ð¾Ð±Ñ‰ÐµÐ½Ð¸Ðµ</th>
+          <th>Проверка</th>
+          <th>Статус</th>
+          <th>Сообщение</th>
         </tr>
       </thead>
       <tbody>
@@ -67,9 +67,9 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Ð ÐµÐ·ÐµÑ€Ð²Ð½Ð°Ñ ÐºÐ¾Ð¿Ð¸Ñ</th>
-            <th>Ð¡Ð¾Ð·Ð´Ð°Ð½Ð°</th>
-            <th>Ð Ð°Ð·Ð¼ÐµÑ€</th>
+            <th>Резервная копия</th>
+            <th>Создана</th>
+            <th>Размер</th>
             <th></th>
           </tr>
         </thead>
@@ -81,9 +81,9 @@
               <td>{{ backup.size_bytes }} bytes</td>
               <td class="actions-cell">
                 <div class="inline-actions">
-                  <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ</a>
+                  <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Скачать</a>
                   <form method="post" action="/maintenance/backups/{{ backup.name }}/restore">
-                    <button class="button small" type="submit">Ð’Ð¾ÑÑÑ‚Ð°Ð½Ð¾Ð²Ð¸Ñ‚ÑŒ</button>
+                    <button class="button small" type="submit">Восстановить</button>
                   </form>
                 </div>
               </td>
@@ -93,8 +93,8 @@
       </table>
     {% else %}
       <div class="empty-state">
-        <h2>Ð ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ñ… ÐºÐ¾Ð¿Ð¸Ð¹ Ð¿Ð¾ÐºÐ° Ð½ÐµÑ‚</h2>
-        <p>Ð¡Ð¾Ð·Ð´Ð°Ð¹Ñ‚Ðµ Ð¿ÐµÑ€Ð²ÑƒÑŽ ÐºÐ¾Ð¿Ð¸ÑŽ Ð¿ÐµÑ€ÐµÐ´ Ð¾Ð¿Ð°ÑÐ½Ñ‹Ð¼Ð¸ Ð¸Ð·Ð¼ÐµÐ½ÐµÐ½Ð¸ÑÐ¼Ð¸.</p>
+        <h2>Резервных копий пока нет</h2>
+        <p>Создайте первую копию перед опасными изменениями.</p>
       </div>
     {% endif %}
   </section>
@@ -104,11 +104,11 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Ð’Ñ€ÐµÐ¼Ñ</th>
-            <th>Ð”ÐµÐ¹ÑÑ‚Ð²Ð¸Ðµ</th>
-            <th>Ð¦ÐµÐ»ÑŒ</th>
-            <th>Ð ÐµÐ·ÑƒÐ»ÑŒÑ‚Ð°Ñ‚</th>
-            <th>Ð¡Ð¾Ð¾Ð±Ñ‰ÐµÐ½Ð¸Ðµ</th>
+            <th>Время</th>
+            <th>Действие</th>
+            <th>Цель</th>
+            <th>Результат</th>
+            <th>Сообщение</th>
           </tr>
         </thead>
         <tbody>
@@ -129,20 +129,20 @@
       </table>
     {% else %}
       <div class="empty-state">
-        <h2>Ð–ÑƒÑ€Ð½Ð°Ð» Ð¿Ð¾ÐºÐ° Ð¿ÑƒÑÑ‚</h2>
-        <p>ÐžÐ¿ÐµÑ€Ð°Ñ†Ð¸Ð¸ Ð¿Ð¾ÑÐ²ÑÑ‚ÑÑ Ð·Ð´ÐµÑÑŒ Ð¿Ð¾ÑÐ»Ðµ ÑÐ¾Ð·Ð´Ð°Ð½Ð¸Ñ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð¾Ð², Ñ€ÐµÐ·ÐµÑ€Ð²Ð½Ñ‹Ñ… ÐºÐ¾Ð¿Ð¸Ð¹ Ð¸ Ð¸Ð·Ð¼ÐµÐ½ÐµÐ½Ð¸Ñ Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ð¹.</p>
+        <h2>Журнал пока пуст</h2>
+        <p>Операции появятся здесь после создания клиентов, резервных копий и изменения подключений.</p>
       </div>
     {% endif %}
   </section>
 
   <section class="tool-panel">
     <div class="section-heading">
-      <h2>Ð¡Ð»ÐµÐ´ÑƒÑŽÑ‰Ð¸Ðµ Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¸</h2>
-      <p>Ð­Ñ‚Ð¸ ÐºÐ½Ð¾Ð¿ÐºÐ¸ Ð¿Ð¾ÑÐ²ÑÑ‚ÑÑ Ð¿Ð¾ÑÐ»Ðµ Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ Ñ€ÐµÐ°Ð»ÑŒÐ½Ð¾Ð³Ð¾ host helper Ð¸ Ð±ÐµÐ·Ð¾Ð¿Ð°ÑÐ½Ð¾Ð³Ð¾ rollback.</p>
+      <h2>Следующие операции</h2>
+      <p>Эти кнопки появятся после подключения реального host helper и безопасного rollback.</p>
     </div>
     <div class="button-row">
-      <button class="button" type="button" disabled>ÐŸÑ€Ð¾Ð²ÐµÑ€Ð¸Ñ‚ÑŒ ÑÐµÑ€Ð²ÐµÑ€</button>
-      <button class="button" type="button" disabled>Ð’ÐµÑ€Ð½ÑƒÑ‚ÑŒÑÑ Ðº Ñ€Ð°Ð±Ð¾Ñ‡ÐµÐ¹ Ð²ÐµÑ€ÑÐ¸Ð¸</button>
+      <button class="button" type="button" disabled>Проверить сервер</button>
+      <button class="button" type="button" disabled>Вернуться к рабочей версии</button>
     </div>
   </section>
 {% endblock %}

@@ -1,32 +1,32 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway Â· Clients{% endblock %}
+{% block title %}SG-Gateway · Клиенты{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
-      <h1>ÐšÐ»Ð¸ÐµÐ½Ñ‚Ñ‹</h1>
-      <p>ÐšÐ»Ð¸ÐµÐ½Ñ‚ Ð·Ð´ÐµÑÑŒ â€” Ñ‡ÐµÐ»Ð¾Ð²ÐµÐº Ð¸Ð»Ð¸ ÑƒÑÑ‚Ñ€Ð¾Ð¹ÑÑ‚Ð²Ð¾, Ð° Ð½Ðµ Ð¾Ñ‚Ð´ÐµÐ»ÑŒÐ½Ð°Ñ Ð·Ð°Ð¿Ð¸ÑÑŒ Ð² AWG Ð¸Ð»Ð¸ Xray.</p>
+      <h1>Клиенты</h1>
+      <p>Клиент здесь - человек или устройство, а не отдельная запись в AWG или Xray.</p>
     </div>
   </header>
 
   <section class="tool-panel">
     <form class="client-form" method="post" action="/clients">
       <label>
-        Ð˜Ð¼Ñ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð°
-        <input name="name" placeholder="ÐÐ°Ð¿Ñ€Ð¸Ð¼ÐµÑ€: Irina iPhone" required>
+        Имя клиента
+        <input name="name" placeholder="Например: Irina iPhone" required>
       </label>
 
       <label>
-        Ð”Ð¾ÑÑ‚ÑƒÐ¿
+        Доступ
         <select name="access">
-          <option value="recommended">Ð ÐµÐºÐ¾Ð¼ÐµÐ½Ð´ÑƒÐµÐ¼Ñ‹Ð¹: AmneziaWG + Xray</option>
-          <option value="amneziawg">Ð¢Ð¾Ð»ÑŒÐºÐ¾ AmneziaWG</option>
-          <option value="xray">Ð¢Ð¾Ð»ÑŒÐºÐ¾ Xray Reality</option>
+          <option value="recommended">Рекомендуемый: AmneziaWG + Xray</option>
+          <option value="amneziawg">Только AmneziaWG</option>
+          <option value="xray">Только Xray Reality</option>
         </select>
       </label>
 
-      <button class="button primary" type="submit">Ð¡Ð¾Ð·Ð´Ð°Ñ‚ÑŒ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð°</button>
+      <button class="button primary" type="submit">Создать клиента</button>
     </form>
   </section>
 
@@ -35,8 +35,8 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>ÐšÐ»Ð¸ÐµÐ½Ñ‚</th>
-            <th>Ð¡Ñ‚Ð°Ñ‚ÑƒÑ</th>
+            <th>Клиент</th>
+            <th>Статус</th>
             <th>AmneziaWG</th>
             <th>Xray</th>
             <th></th>
@@ -51,21 +51,21 @@
               </td>
               <td>
                 <span class="badge {{ 'success' if client.enabled else '' }}">
-                  {{ 'ÐÐºÑ‚Ð¸Ð²ÐµÐ½' if client.enabled else 'ÐžÑ‚ÐºÐ»ÑŽÑ‡ÐµÐ½' }}
+                  {{ 'Активен' if client.enabled else 'Отключен' }}
                 </span>
               </td>
               <td>{{ client.awg_status }}</td>
               <td>{{ client.xray_status }}</td>
               <td class="actions-cell">
                 <div class="inline-actions">
-                  <a class="button small" href="/clients/{{ client.id }}">ÐžÑ‚ÐºÑ€Ñ‹Ñ‚ÑŒ</a>
+                  <a class="button small" href="/clients/{{ client.id }}">Открыть</a>
                   {% if client.enabled %}
                     <form method="post" action="/clients/{{ client.id }}/disable">
-                      <button class="button small" type="submit">ÐžÑ‚ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ</button>
+                      <button class="button small" type="submit">Отключить</button>
                     </form>
                   {% else %}
                     <form method="post" action="/clients/{{ client.id }}/enable">
-                      <button class="button small" type="submit">Ð’ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ</button>
+                      <button class="button small" type="submit">Включить</button>
                     </form>
                   {% endif %}
                 </div>
@@ -76,8 +76,8 @@
       </table>
     {% else %}
       <div class="empty-state">
-        <h2>ÐšÐ»Ð¸ÐµÐ½Ñ‚Ð¾Ð² Ð¿Ð¾ÐºÐ° Ð½ÐµÑ‚</h2>
-        <p>Ð¡Ð¾Ð·Ð´Ð°Ð¹Ñ‚Ðµ Ð¿ÐµÑ€Ð²Ð¾Ð³Ð¾ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð°, Ð¸ SG-Gateway Ð¿Ð¾Ð´Ð³Ð¾Ñ‚Ð¾Ð²Ð¸Ñ‚ Ð´Ð»Ñ Ð½ÐµÐ³Ð¾ Ð´Ð¾ÑÑ‚ÑƒÐ¿Ñ‹.</p>
+        <h2>Клиентов пока нет</h2>
+        <p>Создайте первого клиента, и SG-Gateway подготовит для него доступы.</p>
       </div>
     {% endif %}
   </section>

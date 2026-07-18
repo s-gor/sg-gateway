@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway Â· Connections{% endblock %}
+{% block title %}SG-Gateway · Подключения{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
-      <h1>ÐŸÐ¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ</h1>
-      <p>Ð”Ð²Ð° Ð¿Ð¾Ð½ÑÑ‚Ð½Ñ‹Ñ… ÑÐ¿Ð¾ÑÐ¾Ð±Ð° Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ Ð±ÐµÐ· ÑƒÐ·Ð»Ð¾Ð², ÐºÐ°ÑÐºÐ°Ð´Ð¾Ð² Ð¸ Ð»Ð¸ÑˆÐ½ÐµÐ¹ Ð¼Ð°Ñ€ÑˆÑ€ÑƒÑ‚Ð¸Ð·Ð°Ñ†Ð¸Ð¸.</p>
+      <h1>Подключения</h1>
+      <p>Два понятных способа подключения без узлов, каскадов и лишней маршрутизации.</p>
     </div>
   </header>
 
@@ -17,8 +17,8 @@
           <h3>{{ connection.label }}</h3>
           <p>{{ connection.note }}</p>
           <div class="meta-row">
-            <span>ÐŸÐ¾Ñ€Ñ‚: {{ connection.port }}</span>
-            <span>ÐšÐ»Ð¸ÐµÐ½Ñ‚Ð¾Ð²: {{ connection.clients }}</span>
+            <span>Порт: {{ connection.port }}</span>
+            <span>Клиентов: {{ connection.clients }}</span>
           </div>
         </div>
         <span class="badge success">{{ connection.status }}</span>
@@ -30,15 +30,15 @@
     <article class="tool-panel">
       <div class="section-heading">
         <h2>AmneziaWG</h2>
-        <p>Ð­Ñ‚Ð¸ Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ñ Ð¿Ð¾Ð¿Ð°Ð´ÑƒÑ‚ Ð² Ð½Ð¾Ð²Ñ‹Ðµ ÐºÐ»Ð¸ÐµÐ½Ñ‚ÑÐºÐ¸Ðµ .conf.</p>
+        <p>Эти значения попадут в новые клиентские .conf.</p>
       </div>
       <form class="settings-form" method="post" action="/connections/amneziawg">
         <label>
-          Ð¥Ð¾ÑÑ‚
+          Хост
           <input name="host" value="{{ awg_settings.host }}" required>
         </label>
         <label>
-          ÐŸÐ¾Ñ€Ñ‚ UDP
+          Порт UDP
           <input name="port" type="number" value="{{ awg_settings.port }}" required>
         </label>
         <label>
@@ -49,22 +49,22 @@
           Server Public Key
           <input name="server_public_key" value="{{ awg_settings.config.get('server_public_key', '') }}">
         </label>
-        <button class="button primary" type="submit">Ð¡Ð¾Ñ…Ñ€Ð°Ð½Ð¸Ñ‚ÑŒ AmneziaWG</button>
+        <button class="button primary" type="submit">Сохранить AmneziaWG</button>
       </form>
     </article>
 
     <article class="tool-panel">
       <div class="section-heading">
         <h2>Xray Reality</h2>
-        <p>Ð­Ñ‚Ð¸ Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ñ Ð¿Ð¾Ð¿Ð°Ð´ÑƒÑ‚ Ð² Ð½Ð¾Ð²Ñ‹Ðµ VLESS Reality ÑÑÑ‹Ð»ÐºÐ¸.</p>
+        <p>Эти значения попадут в новые VLESS Reality ссылки.</p>
       </div>
       <form class="settings-form" method="post" action="/connections/xray">
         <label>
-          Ð¥Ð¾ÑÑ‚
+          Хост
           <input name="host" value="{{ xray_settings.host }}" required>
         </label>
         <label>
-          ÐŸÐ¾Ñ€Ñ‚ TCP
+          Порт TCP
           <input name="port" type="number" value="{{ xray_settings.port }}" required>
         </label>
         <label>
@@ -79,7 +79,7 @@
           Short ID
           <input name="short_id" value="{{ xray_settings.config.get('short_id', '') }}">
         </label>
-        <button class="button primary" type="submit">Ð¡Ð¾Ñ…Ñ€Ð°Ð½Ð¸Ñ‚ÑŒ Xray</button>
+        <button class="button primary" type="submit">Сохранить Xray</button>
       </form>
     </article>
   </section>

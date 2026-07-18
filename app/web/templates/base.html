@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,7 +8,7 @@
   </head>
   <body>
     <div class="shell">
-      <aside class="sidebar" aria-label="Main navigation">
+      <aside class="sidebar" aria-label="Основная навигация">
         <div class="brand">
           <div class="brand-mark">SG</div>
           <div>
@@ -18,19 +18,19 @@
         </div>
 
         <nav class="nav">
-          <a class="nav-item {{ 'active' if active_page == 'dashboard' else '' }}" href="/">Ð“Ð»Ð°Ð²Ð½Ð°Ñ</a>
-          <a class="nav-item {{ 'active' if active_page == 'clients' else '' }}" href="/clients">ÐšÐ»Ð¸ÐµÐ½Ñ‚Ñ‹</a>
-          <a class="nav-item {{ 'active' if active_page == 'connections' else '' }}" href="/connections">ÐŸÐ¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ</a>
-          <a class="nav-item" href="#">ÐŸÑ€Ð°Ð²Ð¸Ð»Ð° Ñ‚Ñ€Ð°Ñ„Ð¸ÐºÐ°</a>
-          <a class="nav-item" href="#">Ð‘ÐµÐ·Ð¾Ð¿Ð°ÑÐ½Ð¾ÑÑ‚ÑŒ</a>
-          <a class="nav-item {{ 'active' if active_page == 'maintenance' else '' }}" href="/maintenance">ÐžÐ±ÑÐ»ÑƒÐ¶Ð¸Ð²Ð°Ð½Ð¸Ðµ</a>
+          <a class="nav-item {{ 'active' if active_page == 'dashboard' else '' }}" href="/">Главная</a>
+          <a class="nav-item {{ 'active' if active_page == 'clients' else '' }}" href="/clients">Клиенты</a>
+          <a class="nav-item {{ 'active' if active_page == 'connections' else '' }}" href="/connections">Подключения</a>
+          <a class="nav-item" href="#">Правила трафика</a>
+          <a class="nav-item" href="#">Безопасность</a>
+          <a class="nav-item {{ 'active' if active_page == 'maintenance' else '' }}" href="/maintenance">Обслуживание</a>
           <a class="nav-item" href="/recovery">Recovery</a>
-          <a class="nav-item {{ 'active' if active_page == 'help' else '' }}" href="/help">Ð¡Ð¿Ñ€Ð°Ð²ÐºÐ°</a>
+          <a class="nav-item {{ 'active' if active_page == 'help' else '' }}" href="/help">Справка</a>
         </nav>
 
         {% if is_authenticated %}
           <form class="logout-form" method="post" action="/logout">
-            <button class="button small" type="submit">Ð’Ñ‹Ð¹Ñ‚Ð¸</button>
+            <button class="button small" type="submit">Выйти</button>
           </form>
         {% endif %}
       </aside>

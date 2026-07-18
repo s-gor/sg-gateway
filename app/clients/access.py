@@ -26,8 +26,8 @@ def build_access_cards(client: Client) -> list[AccessCard]:
             AccessCard(
                 title="AmneziaWG",
                 status=deployments["amneziawg"].status,
-                description="ÐžÑ‚Ð´ÐµÐ»ÑŒÐ½Ð°Ñ ÐºÐ¾Ð½Ñ„Ð¸Ð³ÑƒÑ€Ð°Ñ†Ð¸Ñ Ð´Ð»Ñ AmneziaWG-ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð°.",
-                primary_action="Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ ÐºÐ¾Ð½Ñ„Ð¸Ð³ÑƒÑ€Ð°Ñ†Ð¸ÑŽ",
+                description="Отдельная конфигурация для AmneziaWG-клиента.",
+                primary_action="Скачать конфигурацию",
                 secondary_action="QR",
                 export_url=f"/clients/{client.id}/exports/amneziawg",
                 qr_url=f"/clients/{client.id}/qr/amneziawg",
@@ -40,8 +40,8 @@ def build_access_cards(client: Client) -> list[AccessCard]:
             AccessCard(
                 title="Xray Reality",
                 status=deployments["xray"].status,
-                description="Ð¡ÑÑ‹Ð»ÐºÐ° Ð´Ð»Ñ ÑÐ¾Ð²Ð¼ÐµÑÑ‚Ð¸Ð¼Ð¾Ð³Ð¾ Xray-ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð°.",
-                primary_action="Ð¡ÐºÐ¾Ð¿Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ ÑÑÑ‹Ð»ÐºÑƒ",
+                description="Ссылка для совместимого Xray-клиента.",
+                primary_action="Скопировать ссылку",
                 secondary_action="QR",
                 export_url=f"/clients/{client.id}/exports/xray",
                 qr_url=f"/clients/{client.id}/qr/xray",
@@ -53,8 +53,8 @@ def build_access_cards(client: Client) -> list[AccessCard]:
         AccessCard(
             title="SG Client",
             status="planned",
-            description="Ð•Ð´Ð¸Ð½Ð°Ñ Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÐ° Ð¿Ð¾ÑÐ²Ð¸Ñ‚ÑÑ Ð¿Ð¾ÑÐ»Ðµ Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ Ð³ÐµÐ½ÐµÑ€Ð°Ñ‚Ð¾Ñ€Ð¾Ð² AWG Ð¸ Xray.",
-            primary_action="Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ Ð¿Ð¾Ð´Ð¿Ð¸ÑÐºÑƒ",
+            description="Единая подписка появится после подключения генераторов AWG и Xray.",
+            primary_action="Скачать подписку",
             secondary_action="QR",
             export_url=f"/clients/{client.id}/exports/subscription",
             qr_url=f"/clients/{client.id}/qr/subscription",
