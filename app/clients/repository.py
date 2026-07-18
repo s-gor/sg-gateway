@@ -134,7 +134,7 @@ def count_clients() -> int:
     return int(row["total"])
 
 
-def create_client(name: str, access: str) -> int | None:
+def create_client(name: str, access: str, expires_at: str | None = None) -> int | None:
     init_db()
     clean_name = _clean_client_name(name)
     if clean_name is None:
@@ -163,8 +163,8 @@ def create_client(name: str, access: str) -> int | None:
             return None
 
         cursor = connection.execute(
-            "INSERT INTO clients (name, enabled) VALUES (?, 1)",
-            (clean_name,),
+            "INSERT INTO clients (name, enabled, expires_at) VALUES (?, 1, ?)",
+            (clean_name, expires_at or None),
         )
         client_id = int(cursor.lastrowid)
         for engine in engines:

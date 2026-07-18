@@ -1,3 +1,4 @@
+import re
 from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, send_file, url_for
 
 from app.clients.access import build_access_cards
@@ -31,6 +32,34 @@ from app.security.auth import (
 from app.version import get_release_manifest, get_version
 
 
+COUNTRY_OPTIONS = [
+    ("nl", "Нидерланды"),
+    ("de", "Германия"),
+    ("fi", "Финляндия"),
+    ("fr", "Франция"),
+    ("gb", "Великобритания"),
+    ("pl", "Польша"),
+    ("us", "США"),
+    ("ca", "Канада"),
+    ("sg", "Сингапур"),
+    ("tr", "Турция"),
+    ("il", "Израиль"),
+    ("unknown", "Страна не выбрана"),
+]
+COUNTRY_NAMES = dict(COUNTRY_OPTIONS)
+
+
+def normalize_country_code(value: str | None) -> str:
+    code = (value or "unknown").strip().lower()
+    if not re.fullmatch(r"[a-z]{2}|unknown", code):
+        return "unknown"
+    return code if code in COUNTRY_NAMES else "unknown"
+
+
+def country_name(code: str | None) -> str:
+    return COUNTRY_NAMES.get(normalize_country_code(code), COUNTRY_NAMES["unknown"])
+
+
 def create_app() -> Flask:
     config = load_config()
     app = Flask(
@@ -55,6 +84,9 @@ def create_app() -> Flask:
         return {
             "app_version": get_version(),
             "is_authenticated": is_authenticated(),
+            "country_options": COUNTRY_OPTIONS,
+            "country_name": country_name,
+            "country_flag_url": lambda code: url_for("static", filename=f"flags/{normalize_country_code(code)}.svg"),
         }
 
     @app.get("/login")
@@ -81,15 +113,45 @@ def create_app() -> Flask:
     @app.get("/")
     def dashboard():
         connections = list_connections()
+        client_total = count_clients()
+        backup_total = len(list_backups())
+        ready_connections = sum(1 for connection in connections if connection.status == "Настроено")
+        connection_total = len(connections) or 1
+        ready_percent = round(ready_connections * 100 / connection_total)
+        activity_percent = min(100, max(8, client_total * 14))
+        dashboard_dials = [
+            {
+                "title": "Готовность подключений",
+                "label": "готово",
+                "value": f"{ready_percent}%",
+                "percent": ready_percent,
+                "status": "normal" if ready_percent == 100 else "warning",
+                "detail": f"{ready_connections} из {connection_total} способов подключения настроены.",
+            },
+            {
+                "title": "Клиенты",
+                "label": "клиентов",
+                "value": str(client_total),
+                "percent": activity_percent,
+                "status": "normal" if client_total else "warning",
+                "detail": "Трафик сегодня: 0 GB. Живую статистику подключим вместе с реальными движками.",
+            },
+        ]
         status_items = [
             {"label": "Сервер", "value": "Работает", "state": "ok"},
             {"label": "AmneziaWG", "value": connections[0].status, "state": "idle"},
             {"label": "Xray", "value": connections[1].status, "state": "idle"},
-            {"label": "Клиенты", "value": str(count_clients()), "state": "idle"},
+            {"label": "Клиенты", "value": str(client_total), "state": "idle"},
             {"label": "Трафик сегодня", "value": "0 GB", "state": "idle"},
-            {"label": "Резервные копии", "value": str(len(list_backups())), "state": "idle"},
+            {"label": "Резервные копии", "value": str(backup_total), "state": "idle"},
         ]
-        return render_template("dashboard.html", active_page="dashboard", status_items=status_items)
+        return render_template(
+            "dashboard.html",
+            active_page="dashboard",
+            status_items=status_items,
+            dashboard_dials=dashboard_dials,
+            connections=connections,
+        )
 
     @app.get("/recovery")
     def recovery():
@@ -109,6 +171,7 @@ def create_app() -> Flask:
         client_id = create_client(
             name=request.form.get("name", ""),
             access=request.form.get("access", "recommended"),
+            expires_at=request.form.get("expires_at") or None,
         )
         if client_id:
             flash("Клиент создан.", "success")
@@ -195,6 +258,9 @@ def create_app() -> Flask:
             "server_public_key",
             config.get("server_public_key", "PLACEHOLDER_SERVER_PUBLIC_KEY"),
         )
+        config["country_code"] = normalize_country_code(
+            request.form.get("country_code", config.get("country_code", "unknown"))
+        )
         updated = update_connection_settings(
             "amneziawg",
             request.form.get("host", current.host),
@@ -219,6 +285,9 @@ def create_app() -> Flask:
         config["short_id"] = request.form.get(
             "short_id",
             config.get("short_id", "PLACEHOLDER_SHORT_ID"),
+        )
+        config["country_code"] = normalize_country_code(
+            request.form.get("country_code", config.get("country_code", "unknown"))
         )
         updated = update_connection_settings(
             "xray",

@@ -11,7 +11,7 @@
   </header>
 
   <section class="tool-panel">
-    <form class="client-form" method="post" action="/clients">
+    <form class="client-form client-form-wide" method="post" action="/clients">
       <label>
         Имя клиента
         <input name="name" placeholder="Например: Irina iPhone" required>
@@ -26,6 +26,12 @@
         </select>
       </label>
 
+      <label>
+        Срок действия
+        <input name="expires_at" type="date">
+        <small>Пусто - без ограничения.</small>
+      </label>
+
       <button class="button primary" type="submit">Создать клиента</button>
     </form>
   </section>
@@ -37,6 +43,7 @@
           <tr>
             <th>Клиент</th>
             <th>Статус</th>
+            <th>Срок</th>
             <th>AmneziaWG</th>
             <th>Xray</th>
             <th></th>
@@ -54,6 +61,7 @@
                   {{ 'Активен' if client.enabled else 'Отключен' }}
                 </span>
               </td>
+              <td>{{ client.expires_at or 'Без срока' }}</td>
               <td>{{ client.awg_status }}</td>
               <td>{{ client.xray_status }}</td>
               <td class="actions-cell">

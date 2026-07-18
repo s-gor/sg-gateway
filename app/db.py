@@ -50,7 +50,7 @@ DEFAULT_CONNECTIONS = {
         "host": "vpn.example.com",
         "port": 51820,
         "config_json": (
-            '{"dns":"1.1.1.1","server_public_key":"PLACEHOLDER_SERVER_PUBLIC_KEY",'
+            '{"dns":"1.1.1.1","country_code":"nl","server_public_key":"PLACEHOLDER_SERVER_PUBLIC_KEY",'
             '"allowed_ips":"0.0.0.0/0, ::/0","persistent_keepalive":25}'
         ),
     },
@@ -58,7 +58,7 @@ DEFAULT_CONNECTIONS = {
         "host": "vpn.example.com",
         "port": 443,
         "config_json": (
-            '{"security":"reality","type":"tcp","flow":"xtls-rprx-vision",'
+            '{"security":"reality","country_code":"nl","type":"tcp","flow":"xtls-rprx-vision",'
             '"fingerprint":"chrome","server_name":"www.cloudflare.com",'
             '"public_key":"PLACEHOLDER_REALITY_PUBLIC_KEY","short_id":"PLACEHOLDER_SHORT_ID"}'
         ),

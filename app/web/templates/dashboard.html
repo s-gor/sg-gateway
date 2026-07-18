@@ -15,6 +15,23 @@
     </div>
   </header>
 
+  <section class="brand-dial-grid" aria-label="Главные показатели">
+    {% for dial in dashboard_dials %}
+      <article class="brand-dial-card">
+        <div class="brand-dial beta9-load-{{ dial.status }}" style="--dial-value: {{ dial.percent }}%">
+          <div class="brand-dial-center">
+            <strong>{{ dial.value }}</strong>
+            <span>{{ dial.label }}</span>
+          </div>
+        </div>
+        <div class="brand-dial-copy">
+          <h2>{{ dial.title }}</h2>
+          <p>{{ dial.detail }}</p>
+        </div>
+      </article>
+    {% endfor %}
+  </section>
+
   <section class="status-grid" aria-label="Состояние сервера">
     {% for item in status_items %}
       <article class="status-card">
@@ -34,21 +51,18 @@
     </div>
 
     <div class="connection-list">
-      <article class="connection-row">
-        <div>
-          <h3>AmneziaWG</h3>
-          <p>UDP, отдельная конфигурация и QR для клиента.</p>
-        </div>
-        <span class="badge">Ожидает настройки</span>
-      </article>
-
-      <article class="connection-row">
-        <div>
-          <h3>Xray Reality</h3>
-          <p>VLESS Reality, ссылка подписки и QR для совместимых клиентов.</p>
-        </div>
-        <span class="badge">Ожидает настройки</span>
-      </article>
+      {% for connection in connections %}
+        <article class="connection-row">
+          <div class="connection-title-row">
+            <img class="flag-icon" src="{{ country_flag_url(connection.country_code) }}" alt="{{ connection.country_name }}">
+            <div>
+              <h3>{{ connection.label }}</h3>
+              <p>{{ connection.note }}</p>
+            </div>
+          </div>
+          <span class="badge {{ 'success' if connection.status == 'Настроено' else '' }}">{{ connection.status }}</span>
+        </article>
+      {% endfor %}
     </div>
   </section>
 {% endblock %}

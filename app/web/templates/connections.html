@@ -13,12 +13,16 @@
   <section class="connection-list">
     {% for connection in connections %}
       <article class="connection-row detail">
-        <div>
-          <h3>{{ connection.label }}</h3>
-          <p>{{ connection.note }}</p>
-          <div class="meta-row">
-            <span>Порт: {{ connection.port }}</span>
-            <span>Клиентов: {{ connection.clients }}</span>
+        <div class="connection-title-row">
+          <img class="flag-icon large" src="{{ country_flag_url(connection.country_code) }}" alt="{{ connection.country_name }}">
+          <div>
+            <h3>{{ connection.label }}</h3>
+            <p>{{ connection.note }}</p>
+            <div class="meta-row">
+              <span>{{ connection.country_name }}</span>
+              <span>Порт: {{ connection.port }}</span>
+              <span>Клиентов: {{ connection.clients }}</span>
+            </div>
           </div>
         </div>
         <span class="badge success">{{ connection.status }}</span>
@@ -33,6 +37,14 @@
         <p>Эти значения попадут в новые клиентские .conf.</p>
       </div>
       <form class="settings-form" method="post" action="/connections/amneziawg">
+        <label>
+          Страна
+          <select name="country_code">
+            {% for code, label in country_options %}
+              <option value="{{ code }}" {{ 'selected' if awg_settings.config.get('country_code', 'unknown') == code else '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
         <label>
           Хост
           <input name="host" value="{{ awg_settings.host }}" required>
@@ -59,6 +71,14 @@
         <p>Эти значения попадут в новые VLESS Reality ссылки.</p>
       </div>
       <form class="settings-form" method="post" action="/connections/xray">
+        <label>
+          Страна
+          <select name="country_code">
+            {% for code, label in country_options %}
+              <option value="{{ code }}" {{ 'selected' if xray_settings.config.get('country_code', 'unknown') == code else '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
         <label>
           Хост
           <input name="host" value="{{ xray_settings.host }}" required>

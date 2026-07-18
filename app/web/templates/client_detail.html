@@ -35,15 +35,15 @@
     <article class="status-card">
       <div class="status-dot idle"></div>
       <div>
-        <div class="status-label">Трафик</div>
-        <div class="status-value">0 GB</div>
+        <div class="status-label">Срок действия</div>
+        <div class="status-value compact">{{ client.expires_at or 'Без срока' }}</div>
       </div>
     </article>
     <article class="status-card">
       <div class="status-dot idle"></div>
       <div>
         <div class="status-label">Последнее подключение</div>
-        <div class="status-value">Пока нет</div>
+        <div class="status-value compact">Пока нет</div>
       </div>
     </article>
   </section>
@@ -59,12 +59,14 @@
           <span class="badge">{{ card.status }}</span>
         </div>
         <pre class="payload">{{ card.payload }}</pre>
-        <div class="qr-frame">
-          <img src="{{ card.qr_url }}" alt="QR {{ card.title }}">
-        </div>
         <div class="button-row">
           <a class="button primary" href="{{ card.export_url }}">{{ card.primary_action }}</a>
-          <a class="button" href="{{ card.qr_url }}" target="_blank" rel="noreferrer">{{ card.secondary_action }}</a>
+          <details class="qr-details">
+            <summary class="button">{{ card.secondary_action }}</summary>
+            <div class="qr-frame compact">
+              <img src="{{ card.qr_url }}" alt="QR {{ card.title }}">
+            </div>
+          </details>
         </div>
       </article>
     {% endfor %}
