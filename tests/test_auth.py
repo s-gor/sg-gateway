@@ -24,6 +24,9 @@ def test_login_allows_dashboard(tmp_path, monkeypatch):
 
     assert response.status_code == 200
     assert "SG-Gateway" in body
+    assert "Сервер" in body
+    assert "Работает" in body
+    assert "Трафик сегодня" in body
     assert 'href="/clients"' in body
 
 

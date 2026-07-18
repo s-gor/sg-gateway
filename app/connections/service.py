@@ -34,17 +34,17 @@ def list_connections() -> list[ConnectionSummary]:
         ConnectionSummary(
             name="amneziawg",
             label="AmneziaWG",
-            status="Configured" if awg.enabled else "Disabled",
+            status="Настроено" if awg.enabled else "Отключено",
             port=f"UDP {awg.port}",
             clients=counts.get("amneziawg", 0),
-            note=f"Endpoint: {awg.host}:{awg.port}",
+            note=f"Адрес: {awg.host}:{awg.port}",
         ),
         ConnectionSummary(
             name="xray",
             label="Xray Reality",
-            status="Configured" if xray.enabled else "Disabled",
+            status="Настроено" if xray.enabled else "Отключено",
             port=f"TCP {xray.port}",
             clients=counts.get("xray", 0),
-            note=f"Endpoint: {xray.host}:{xray.port}",
+            note=f"Адрес: {xray.host}:{xray.port}",
         ),
     ]

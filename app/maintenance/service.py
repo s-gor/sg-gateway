@@ -26,13 +26,13 @@ def collect_diagnostics() -> list[DiagnosticItem]:
     health = health_summary()
 
     return [
-        DiagnosticItem("Health", health.upper(), "ok" if health == "ok" else "idle"),
-        DiagnosticItem("Panel mode", config.environment, "ok"),
-        DiagnosticItem("Database", "Ready" if database_path.exists() else "Will be created", "ok"),
-        DiagnosticItem("Database path", str(database_path), "idle"),
-        DiagnosticItem("Clients", str(count_clients()), "idle"),
-        DiagnosticItem("AmneziaWG clients", str(connections[0].clients), "idle"),
-        DiagnosticItem("Xray clients", str(connections[1].clients), "idle"),
-        DiagnosticItem("Backups", str(len(backups)), "ok" if backups else "idle"),
-        DiagnosticItem("Operations", str(count_operations()), "ok"),
+        DiagnosticItem("Состояние", health.upper(), "ok" if health == "ok" else "idle"),
+        DiagnosticItem("Режим панели", config.environment, "ok"),
+        DiagnosticItem("База данных", "Готова" if database_path.exists() else "Будет создана", "ok"),
+        DiagnosticItem("Путь к базе", str(database_path), "idle"),
+        DiagnosticItem("Клиенты", str(count_clients()), "idle"),
+        DiagnosticItem("Клиенты AmneziaWG", str(connections[0].clients), "idle"),
+        DiagnosticItem("Клиенты Xray", str(connections[1].clients), "idle"),
+        DiagnosticItem("Резервные копии", str(len(backups)), "ok" if backups else "idle"),
+        DiagnosticItem("Операции", str(count_operations()), "ok"),
     ]

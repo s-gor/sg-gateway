@@ -82,12 +82,12 @@ def create_app() -> Flask:
     def dashboard():
         connections = list_connections()
         status_items = [
-            {"label": "Server", "value": "Works", "state": "ok"},
+            {"label": "Сервер", "value": "Работает", "state": "ok"},
             {"label": "AmneziaWG", "value": connections[0].status, "state": "idle"},
             {"label": "Xray", "value": connections[1].status, "state": "idle"},
-            {"label": "Clients", "value": str(count_clients()), "state": "idle"},
-            {"label": "Traffic today", "value": "0 GB", "state": "idle"},
-            {"label": "Backups", "value": str(len(list_backups())), "state": "idle"},
+            {"label": "Клиенты", "value": str(count_clients()), "state": "idle"},
+            {"label": "Трафик сегодня", "value": "0 GB", "state": "idle"},
+            {"label": "Резервные копии", "value": str(len(list_backups())), "state": "idle"},
         ]
         return render_template("dashboard.html", active_page="dashboard", status_items=status_items)
 
