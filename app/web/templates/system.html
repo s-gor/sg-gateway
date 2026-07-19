@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway · System{% endblock %}
+{% block title %}SG-Gateway · Система{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
-      <h1>System</h1>
-      <p>Service health, runtime details and resource usage for this SG-Gateway instance.</p>
+      <h1>Система</h1>
+      <p>Состояние служб, параметры среды выполнения и использование ресурсов этого сервера SG-Gateway.</p>
     </div>
     <div class="topbar-actions">
-      <a class="button" href="/api/status">Status API</a>
-      <a class="button" href="/maintenance/diagnostics.json">Download diagnostics</a>
-      <a class="button primary" href="/maintenance">Maintenance</a>
+      <a class="button" href="/api/status">Статус API</a>
+      <a class="button" href="/maintenance/diagnostics.json">Скачать диагностику</a>
+      <a class="button primary" href="/maintenance">Обслуживание</a>
     </div>
   </header>
 
@@ -19,21 +19,21 @@
     <article class="status-card">
       <div class="status-dot {{ 'ok' if report.health in ['ok', 'warning'] else 'idle' }}"></div>
       <div>
-        <div class="status-label">Health</div>
-        <div class="status-value">{{ report.health | upper }}</div>
+        <div class="status-label">Состояние</div>
+        <div class="status-value">{{ {'ok': 'НОРМА', 'warning': 'ПРЕДУПРЕЖДЕНИЕ', 'error': 'ОШИБКА'}.get(report.health, report.health | upper) }}</div>
       </div>
     </article>
     <article class="status-card">
       <div class="status-dot ok"></div>
       <div>
-        <div class="status-label">Version</div>
+        <div class="status-label">Версия</div>
         <div class="status-value compact">{{ report.version }}</div>
       </div>
     </article>
     <article class="status-card">
       <div class="status-dot idle"></div>
       <div>
-        <div class="status-label">Environment</div>
+        <div class="status-label">Среда</div>
         <div class="status-value compact">{{ report.environment }}</div>
       </div>
     </article>
@@ -48,8 +48,8 @@
         </div>
       </div>
       <div class="brand-dial-copy">
-        <h2>Memory</h2>
-        <p>{{ resources.memory.used }} used of {{ resources.memory.total }}. {{ resources.memory.available }} available.</p>
+        <h2>Память</h2>
+        <p>{{ resources.memory.used }} использовано из {{ resources.memory.total }}. Доступно: {{ resources.memory.available }}.</p>
       </div>
     </article>
 
@@ -61,8 +61,8 @@
         </div>
       </div>
       <div class="brand-dial-copy">
-        <h2>Data disk</h2>
-        <p>{{ resources.disk.used }} used of {{ resources.disk.total }}. {{ resources.disk.free }} free.</p>
+        <h2>Диск данных</h2>
+        <p>{{ resources.disk.used }} использовано из {{ resources.disk.total }}. Свободно: {{ resources.disk.free }}.</p>
       </div>
     </article>
   </section>
@@ -70,8 +70,8 @@
   <section class="settings-grid">
     <article class="tool-panel">
       <div class="section-heading">
-        <h2>Runtime</h2>
-        <p>Host process and storage paths reported by diagnostics.</p>
+        <h2>Среда выполнения</h2>
+        <p>Процесс сервера и пути хранения, полученные из диагностики.</p>
       </div>
       <dl class="detail-list">
         <div>
@@ -79,19 +79,19 @@
           <dd>{{ report.runtime.python }}</dd>
         </div>
         <div>
-          <dt>System</dt>
+          <dt>Система</dt>
           <dd>{{ report.runtime.system }} {{ report.runtime.release }}</dd>
         </div>
         <div>
-          <dt>CPU load</dt>
-          <dd>{{ resources.cpu.load }} across {{ resources.cpu.count }} CPU(s)</dd>
+          <dt>Загрузка CPU</dt>
+          <dd>{{ resources.cpu.load }} на {{ resources.cpu.count }} CPU</dd>
         </div>
         <div>
-          <dt>Data directory</dt>
+          <dt>Каталог данных</dt>
           <dd>{{ report.paths.data_dir }}</dd>
         </div>
         <div>
-          <dt>Database</dt>
+          <dt>База данных</dt>
           <dd>{{ report.paths.database }}</dd>
         </div>
       </dl>
@@ -99,8 +99,8 @@
 
     <article class="tool-panel">
       <div class="section-heading">
-        <h2>Health checks</h2>
-        <p>Readiness checks used by the status API and Maintenance page.</p>
+        <h2>Проверки состояния</h2>
+        <p>Проверки готовности, используемые API состояния и разделом Maintenance.</p>
       </div>
       <div class="status-list">
         {% for check in health_checks %}
@@ -109,7 +109,7 @@
               <strong>{{ check.name }}</strong>
               <span class="subtle">{{ check.message }}</span>
             </div>
-            <span class="badge {{ 'success' if check.status == 'ok' else '' }}">{{ check.status }}</span>
+            <span class="badge {{ 'success' if check.status == 'ok' else '' }}">{{ {'ok': 'Норма', 'warning': 'Предупреждение', 'error': 'Ошибка'}.get(check.status, check.status) }}</span>
           </div>
         {% endfor %}
       </div>
@@ -118,13 +118,13 @@
 
   <section class="tool-panel">
     <div class="section-heading">
-      <h2>System actions</h2>
-      <p>Use safe panel actions that already exist in this release.</p>
+      <h2>Действия с системой</h2>
+      <p>Используйте безопасные действия панели, уже доступные в этой версии.</p>
     </div>
     <div class="action-grid">
-      <a class="action-card" href="/maintenance">Review diagnostics and backups</a>
-      <a class="action-card" href="/recovery">Open recovery console</a>
-      <a class="action-card" href="/connections">Configure connection engines</a>
+      <a class="action-card" href="/maintenance">Проверить диагностику и резервные копии</a>
+      <a class="action-card" href="/recovery">Открыть консоль Recovery</a>
+      <a class="action-card" href="/connections">Настроить подключения</a>
     </div>
   </section>
 {% endblock %}

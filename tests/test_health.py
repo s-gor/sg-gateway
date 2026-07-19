@@ -9,7 +9,7 @@ def test_health_checks_report_expected_sections(tmp_path, monkeypatch):
     checks = collect_health_checks()
     names = {check.name for check in checks}
 
-    assert "Database" in names
-    assert "Backup directory" in names
-    assert "AmneziaWG settings" in names
+    assert "База данных" in names
+    assert "Каталог резервных копий" in names
+    assert "Настройки AmneziaWG" in names
     assert health_summary() in {"ok", "warning", "error"}

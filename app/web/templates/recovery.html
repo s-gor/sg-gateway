@@ -13,20 +13,20 @@
           <div class="brand-mark">SG</div>
           <div>
             <div class="brand-name">SG-Gateway Recovery</div>
-            <div class="brand-note">Minimal emergency page</div>
+            <div class="brand-note">Минимальная аварийная страница</div>
           </div>
         </div>
         <div class="topbar-actions">
           <a class="button primary" href="/maintenance">Maintenance</a>
-          <a class="button" href="/maintenance/diagnostics.json">Download diagnostics</a>
-          <a class="button" href="/">Open panel</a>
+          <a class="button" href="/maintenance/diagnostics.json">Скачать диагностику</a>
+          <a class="button" href="/">Открыть панель</a>
         </div>
       </header>
 
       <section class="tool-panel">
         <div class="section-heading">
-          <h1>Status: {{ health.upper() }}</h1>
-          <p>This page stays intentionally simple: status, health checks, recent backups and quick panel links.</p>
+          <h1>Состояние: {{ health.upper() }}</h1>
+          <p>Эта страница намеренно упрощена: состояние, проверки, последние резервные копии и быстрые ссылки панели.</p>
         </div>
       </section>
 
@@ -34,16 +34,16 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>Check</th>
-              <th>Status</th>
-              <th>Message</th>
+              <th>Проверка</th>
+              <th>Статус</th>
+              <th>Сообщение</th>
             </tr>
           </thead>
           <tbody>
             {% for check in health_checks %}
               <tr>
                 <td><strong>{{ check.name }}</strong></td>
-                <td><span class="badge {{ 'success' if check.status == 'ok' else '' }}">{{ check.status }}</span></td>
+                <td><span class="badge {{ 'success' if check.status == 'ok' else '' }}">{{ {'ok': 'Норма', 'warning': 'Предупреждение', 'error': 'Ошибка'}.get(check.status, check.status) }}</span></td>
                 <td>{{ check.message }}</td>
               </tr>
             {% endfor %}
@@ -56,9 +56,9 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>Recent backups</th>
-                <th>Type</th>
-                <th>Created</th>
+                <th>Последние резервные копии</th>
+                <th>Тип</th>
+                <th>Создана</th>
                 <th></th>
               </tr>
             </thead>
@@ -69,7 +69,7 @@
                   <td>{{ backup.kind }}</td>
                   <td>{{ backup.created_at }}</td>
                   <td class="actions-cell">
-                    <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Download</a>
+                    <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Скачать</a>
                   </td>
                 </tr>
               {% endfor %}
@@ -77,8 +77,8 @@
           </table>
         {% else %}
           <div class="empty-state">
-            <h2>No backups yet</h2>
-            <p>Recent backup files will appear here after the first backup is created.</p>
+            <h2>Резервных копий пока нет</h2>
+            <p>Последние резервные копии появятся здесь после создания первой копии.</p>
           </div>
         {% endif %}
       </section>

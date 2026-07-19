@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway · Maintenance{% endblock %}
+{% block title %}SG-Gateway · Обслуживание{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
-      <h1>Maintenance</h1>
-      <p>Backups, health checks, diagnostics and the operation history for SG-Gateway.</p>
+      <h1>Обслуживание</h1>
+      <p>Резервные копии, проверки состояния, диагностика и история операций SG-Gateway.</p>
     </div>
     <div class="topbar-actions">
-      <a class="button" href="/api/version">Version</a>
-      <a class="button" href="/api/status">JSON status</a>
-      <a class="button" href="/maintenance/diagnostics.json">Download diagnostics</a>
+      <a class="button" href="/api/version">Версия</a>
+      <a class="button" href="/api/status">Статус JSON</a>
+      <a class="button" href="/maintenance/diagnostics.json">Скачать диагностику</a>
       <form method="post" action="/maintenance/backups">
-        <button class="button primary" type="submit">Create backup</button>
+        <button class="button primary" type="submit">Создать резервную копию</button>
       </form>
     </div>
   </header>
@@ -32,8 +32,8 @@
 
   <section class="tool-panel">
     <div class="section-heading">
-      <h2>Release</h2>
-      <p>{{ release.name }} {{ release.version }} · channel {{ release.channel }}</p>
+      <h2>Версия</h2>
+      <p>{{ release.name }} {{ release.version }} · канал {{ release.channel }}</p>
     </div>
   </section>
 
@@ -41,9 +41,9 @@
     <table class="data-table">
       <thead>
         <tr>
-          <th>Check</th>
-          <th>Status</th>
-          <th>Message</th>
+          <th>Проверка</th>
+          <th>Статус</th>
+          <th>Сообщение</th>
         </tr>
       </thead>
       <tbody>
@@ -52,7 +52,7 @@
             <td><strong>{{ check.name }}</strong></td>
             <td>
               <span class="badge {{ 'success' if check.status == 'ok' else '' }}">
-                {{ check.status }}
+                {{ {'ok': 'Норма', 'warning': 'Предупреждение', 'error': 'Ошибка'}.get(check.status, check.status) }}
               </span>
             </td>
             <td>{{ check.message }}</td>
@@ -67,10 +67,10 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Backup</th>
-            <th>Type</th>
-            <th>Created</th>
-            <th>Size</th>
+            <th>Копия</th>
+            <th>Тип</th>
+            <th>Создана</th>
+            <th>Размер</th>
             <th></th>
           </tr>
         </thead>
@@ -80,12 +80,12 @@
               <td><strong>{{ backup.name }}</strong></td>
               <td>{{ backup.kind }}</td>
               <td>{{ backup.created_at }}</td>
-              <td>{{ backup.size_bytes }} bytes</td>
+              <td>{{ backup.size_bytes }} байт</td>
               <td class="actions-cell">
                 <div class="inline-actions">
-                  <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Download</a>
+                  <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Скачать</a>
                   <form method="post" action="/maintenance/backups/{{ backup.name }}/restore">
-                    <button class="button small" type="submit">Restore</button>
+                    <button class="button small" type="submit">Восстановить</button>
                   </form>
                 </div>
               </td>
@@ -95,8 +95,8 @@
       </table>
     {% else %}
       <div class="empty-state">
-        <h2>No backups yet</h2>
-        <p>Create the first backup before risky endpoint, client or recovery changes.</p>
+        <h2>Резервных копий пока нет</h2>
+        <p>Создайте первую резервную копию перед изменением адресов, клиентов или выполнением восстановления.</p>
       </div>
     {% endif %}
   </section>
@@ -106,11 +106,11 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Time</th>
-            <th>Action</th>
-            <th>Target</th>
-            <th>Result</th>
-            <th>Message</th>
+            <th>Время</th>
+            <th>Действие</th>
+            <th>Объект</th>
+            <th>Результат</th>
+            <th>Сообщение</th>
           </tr>
         </thead>
         <tbody>
@@ -121,7 +121,7 @@
               <td>{{ operation.target }}</td>
               <td>
                 <span class="badge {{ 'success' if operation.status == 'ok' else '' }}">
-                  {{ operation.status }}
+                  {{ {'ok': 'Успешно', 'warning': 'Предупреждение', 'error': 'Ошибка'}.get(operation.status, operation.status) }}
                 </span>
               </td>
               <td>{{ operation.message }}</td>
@@ -131,20 +131,20 @@
       </table>
     {% else %}
       <div class="empty-state">
-        <h2>No operations yet</h2>
-        <p>Client, backup, connection and diagnostic actions will appear here.</p>
+        <h2>Операций пока нет</h2>
+        <p>Здесь появятся операции с клиентами, резервными копиями, подключениями и диагностикой.</p>
       </div>
     {% endif %}
   </section>
 
   <section class="tool-panel">
     <div class="section-heading">
-      <h2>Recovery tools</h2>
-      <p>Use the recovery console for a compact health view and recent restore points.</p>
+      <h2>Инструменты восстановления</h2>
+      <p>Используйте консоль Recovery для компактного просмотра состояния и последних точек восстановления.</p>
     </div>
     <div class="button-row">
-      <a class="button" href="/recovery">Open recovery</a>
-      <a class="button" href="/system">Open system overview</a>
+      <a class="button" href="/recovery">Открыть Recovery</a>
+      <a class="button" href="/system">Открыть обзор системы</a>
     </div>
   </section>
 {% endblock %}

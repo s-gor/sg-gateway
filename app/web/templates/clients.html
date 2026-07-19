@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}SG-Gateway · Clients{% endblock %}
+{% block title %}SG-Gateway · Клиенты{% endblock %}
 
 {% block content %}
   <header class="topbar">
     <div>
-      <h1>Clients</h1>
-      <p>Create and manage people or devices across AmneziaWG and Xray Reality access.</p>
+      <h1>Клиенты</h1>
+      <p>Создавайте и управляйте доступом людей и устройств через AmneziaWG и Xray Reality.</p>
     </div>
   </header>
 
@@ -14,21 +14,21 @@
     <article class="status-card">
       <div class="status-dot ok"></div>
       <div>
-        <div class="status-label">Stored clients</div>
+        <div class="status-label">Сохранённые клиенты</div>
         <div class="status-value">{{ clients | length }}</div>
       </div>
     </article>
     <article class="status-card">
       <div class="status-dot idle"></div>
       <div>
-        <div class="status-label">Enabled</div>
+        <div class="status-label">Активные</div>
         <div class="status-value">{{ clients | selectattr('enabled') | list | length }}</div>
       </div>
     </article>
     <article class="status-card">
       <div class="status-dot idle"></div>
       <div>
-        <div class="status-label">Access types</div>
+        <div class="status-label">Типы доступа</div>
         <div class="status-value compact">AmneziaWG / Xray</div>
       </div>
     </article>
@@ -36,31 +36,31 @@
 
   <section class="tool-panel">
     <div class="section-heading">
-      <h2>Create client</h2>
-      <p>New profiles use the current endpoint settings from Connections.</p>
+      <h2>Создать клиента</h2>
+      <p>Новые профили используют текущие параметры адресов из раздела Connections.</p>
     </div>
     <form class="client-form client-form-wide" method="post" action="/clients">
       <label>
-        Client name
+        Имя клиента
         <input name="name" placeholder="Example: Irina iPhone" required>
       </label>
 
       <label>
-        Access
+        Доступ
         <select name="access">
-          <option value="recommended">Recommended: AmneziaWG + Xray</option>
-          <option value="amneziawg">AmneziaWG only</option>
-          <option value="xray">Xray Reality only</option>
+          <option value="recommended">Рекомендуется: AmneziaWG + Xray</option>
+          <option value="amneziawg">Только AmneziaWG</option>
+          <option value="xray">Только Xray Reality</option>
         </select>
       </label>
 
       <label>
-        Expiration
+        Срок действия
         <input name="expires_at" type="date">
-        <small>Leave empty for no expiration date.</small>
+        <small>Оставьте пустым для бессрочного доступа.</small>
       </label>
 
-      <button class="button primary" type="submit">Create client</button>
+      <button class="button primary" type="submit">Создать клиента</button>
     </form>
   </section>
 
@@ -69,9 +69,9 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Client</th>
-            <th>Status</th>
-            <th>Expiration</th>
+            <th>Клиент</th>
+            <th>Статус</th>
+            <th>Срок действия</th>
             <th>AmneziaWG</th>
             <th>Xray</th>
             <th></th>
@@ -86,22 +86,22 @@
               </td>
               <td>
                 <span class="badge {{ 'success' if client.enabled else '' }}">
-                  {{ 'Enabled' if client.enabled else 'Disabled' }}
+                  {{ 'Активные' if client.enabled else 'Отключён' }}
                 </span>
               </td>
-              <td>{{ client.expires_at or 'No expiration' }}</td>
-              <td>{{ client.awg_status }}</td>
-              <td>{{ client.xray_status }}</td>
+              <td>{{ client.expires_at or 'Без ограничения срока' }}</td>
+              <td>{{ {'generated': 'Сформировано', 'missing': 'Нет', 'disabled': 'Отключено'}.get(client.awg_status, client.awg_status) }}</td>
+              <td>{{ {'generated': 'Сформировано', 'missing': 'Нет', 'disabled': 'Отключено'}.get(client.xray_status, client.xray_status) }}</td>
               <td class="actions-cell">
                 <div class="inline-actions">
-                  <a class="button small" href="/clients/{{ client.id }}">Open</a>
+                  <a class="button small" href="/clients/{{ client.id }}">Открыть</a>
                   {% if client.enabled %}
                     <form method="post" action="/clients/{{ client.id }}/disable">
-                      <button class="button small" type="submit">Disable</button>
+                      <button class="button small" type="submit">Отключить</button>
                     </form>
                   {% else %}
                     <form method="post" action="/clients/{{ client.id }}/enable">
-                      <button class="button small" type="submit">Enable</button>
+                      <button class="button small" type="submit">Включить</button>
                     </form>
                   {% endif %}
                 </div>
@@ -112,8 +112,8 @@
       </table>
     {% else %}
       <div class="empty-state">
-        <h2>No clients yet</h2>
-        <p>Create the first client and SG-Gateway will prepare access data for the selected engines.</p>
+        <h2>Клиентов пока нет</h2>
+        <p>Создайте первого клиента, и SG-Gateway подготовит данные доступа для выбранных механизмов.</p>
       </div>
     {% endif %}
   </section>

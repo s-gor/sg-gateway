@@ -35,7 +35,7 @@ def test_create_client_rejects_duplicate_name(tmp_path, monkeypatch):
     assert second_id is None
     assert count_clients() == 1
     assert operations[0].status == "error"
-    assert "Rejected duplicate client name" in operations[0].message
+    assert "Отклонено повторяющееся имя клиента" in operations[0].message
 
 
 def test_create_client_rejects_invalid_name(tmp_path, monkeypatch):

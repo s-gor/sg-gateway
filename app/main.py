@@ -36,18 +36,18 @@ from app.version import get_release_manifest, get_version
 
 
 COUNTRY_OPTIONS = [
-    ("nl", "Netherlands"),
-    ("de", "Germany"),
-    ("fi", "Finland"),
-    ("fr", "France"),
-    ("gb", "United Kingdom"),
-    ("pl", "Poland"),
-    ("us", "United States"),
-    ("ca", "Canada"),
-    ("sg", "Singapore"),
-    ("tr", "Turkey"),
-    ("il", "Israel"),
-    ("unknown", "Country not selected"),
+    ("nl", "Нидерланды"),
+    ("de", "Германия"),
+    ("fi", "Финляндия"),
+    ("fr", "Франция"),
+    ("gb", "Великобритания"),
+    ("pl", "Польша"),
+    ("us", "США"),
+    ("ca", "Канада"),
+    ("sg", "Сингапур"),
+    ("tr", "Турция"),
+    ("il", "Израиль"),
+    ("unknown", "Страна не выбрана"),
 ]
 COUNTRY_NAMES = dict(COUNTRY_OPTIONS)
 
@@ -107,12 +107,12 @@ def _process_rss(names: tuple[str, ...]) -> int:
 
 def _resource_state(percent: int) -> tuple[str, str]:
     if percent >= 95:
-        return "critical", "Critical"
+        return "critical", "Критично"
     if percent >= 85:
-        return "high", "Low capacity"
+        return "high", "Мало свободных ресурсов"
     if percent >= 70:
-        return "warning", "Warning"
-    return "normal", "Normal"
+        return "warning", "Предупреждение"
+    return "normal", "Норма"
 
 
 def _dashboard_resources() -> dict:
@@ -129,11 +129,11 @@ def _dashboard_resources() -> dict:
     web = _process_rss(("nginx",))
     other = max(0, used - panel - web)
     memory_parts = [
-        ("panel", "SG-Gateway", "Panel and child processes", panel, "#4f9bff"),
-        ("web", "Web server", "Nginx/proxy processes, when present", web, "#9b7bff"),
-        ("system", "System services", "Remaining operating system processes", other, "#38c6c2"),
-        ("cache", "File cache", "Memory the OS can reclaim", cached, "#e7c45b"),
-        ("free", "Free", f"Available including cache: {_format_bytes(available)}", free, "#4ecb86"),
+        ("panel", "SG-Gateway", "Панель и дочерние процессы", panel, "#4f9bff"),
+        ("web", "Веб-сервер", "Процессы Nginx и reverse proxy, если используются", web, "#9b7bff"),
+        ("system", "Системные службы", "Остальные процессы операционной системы", other, "#38c6c2"),
+        ("cache", "Файловый кэш", "Память, которую система может освободить", cached, "#e7c45b"),
+        ("free", "Свободно", f"Доступно с учётом кэша: {_format_bytes(available)}", free, "#4ecb86"),
     ]
 
     start = 0.0
@@ -260,29 +260,29 @@ def create_app() -> Flask:
         activity_percent = min(100, max(8, client_total * 14))
         dashboard_dials = [
             {
-                "title": "Connection readiness",
-                "label": "ready",
+                "title": "Готовность подключений",
+                "label": "готово",
                 "value": f"{ready_percent}%",
                 "percent": ready_percent,
                 "status": "normal" if ready_percent == 100 else "warning",
-                "detail": f"{ready_connections} of {connection_total} connection engines are configured.",
+                "detail": f"Настроено подключений: {ready_connections} из {connection_total}.",
             },
             {
-                "title": "Clients",
-                "label": "clients",
+                "title": "Клиенты",
+                "label": "клиентов",
                 "value": str(client_total),
                 "percent": activity_percent,
                 "status": "normal" if client_total else "warning",
-                "detail": "Traffic today: 0 GB. Live traffic counters will appear with engine telemetry.",
+                "detail": "Трафик сегодня: 0 ГБ. Счётчики трафика появятся после подключения телеметрии механизмов.",
             },
         ]
         status_items = [
-            {"label": "Server", "value": "Running", "state": "ok"},
+            {"label": "Сервер", "value": "Работает", "state": "ok"},
             {"label": "AmneziaWG", "value": connections[0].status, "state": "idle"},
             {"label": "Xray", "value": connections[1].status, "state": "idle"},
-            {"label": "Clients", "value": str(client_total), "state": "idle"},
-            {"label": "Traffic today", "value": "0 GB", "state": "idle"},
-            {"label": "Backups", "value": str(backup_total), "state": "idle"},
+            {"label": "Клиенты", "value": str(client_total), "state": "idle"},
+            {"label": "Трафик сегодня", "value": "0 ГБ", "state": "idle"},
+            {"label": "Резервные копии", "value": str(backup_total), "state": "idle"},
         ]
         return render_template(
             "dashboard.html",
@@ -336,14 +336,14 @@ def create_app() -> Flask:
                 "network_accessible": network_accessible,
                 "default_password": default_password,
                 "exposure": (
-                    "The panel is bound to a network-accessible interface."
+                    "Панель привязана к сетевому интерфейсу и доступна по сети."
                     if network_accessible
-                    else "The panel is bound to a local interface."
+                    else "Панель привязана только к локальному интерфейсу."
                 ),
                 "password_message": (
-                    "The default development password is still active."
+                    "Стандартный пароль для разработки всё ещё активен."
                     if default_password
-                    else "A custom administrator password is configured."
+                    else "Настроен пользовательский пароль администратора."
                 ),
             },
         )
@@ -360,9 +360,9 @@ def create_app() -> Flask:
             expires_at=request.form.get("expires_at") or None,
         )
         if client_id:
-            flash("Client created.", "success")
+            flash("Клиент создан.", "success")
             return redirect(url_for("client_detail", client_id=client_id))
-        flash("Client was not created. Check the name: it must be unique and 80 characters or fewer.", "error")
+        flash("Клиент не создан. Имя должно быть уникальным и содержать не более 80 символов.", "error")
         return redirect(url_for("clients"))
 
     @app.get("/clients/<int:client_id>")
@@ -453,7 +453,7 @@ def create_app() -> Flask:
             request.form.get("port", str(current.port)),
             config,
         )
-        flash("AmneziaWG settings saved." if updated else "AmneziaWG settings were not applied. Check host and port.", "success" if updated else "error")
+        flash("Настройки AmneziaWG сохранены." if updated else "Настройки AmneziaWG не применены. Проверьте адрес и порт.", "success" if updated else "error")
         return redirect(url_for("connections"))
 
     @app.post("/connections/xray")
@@ -481,7 +481,7 @@ def create_app() -> Flask:
             request.form.get("port", str(current.port)),
             config,
         )
-        flash("Xray settings saved." if updated else "Xray settings were not applied. Check host and port.", "success" if updated else "error")
+        flash("Настройки Xray сохранены." if updated else "Настройки Xray не применены. Проверьте адрес и порт.", "success" if updated else "error")
         return redirect(url_for("connections"))
 
     @app.get("/maintenance")
@@ -499,15 +499,15 @@ def create_app() -> Flask:
     @app.post("/maintenance/backups")
     def create_backup_route():
         backup = create_backup()
-        flash(f"Backup created: {backup.name}", "success")
+        flash(f"Резервная копия создана: {backup.name}", "success")
         return redirect(url_for("maintenance"))
 
     @app.post("/maintenance/backups/<name>/restore")
     def restore_backup_route(name: str):
         if not restore_backup(name):
-            flash("Backup not found.", "error")
+            flash("Резервная копия не найдена.", "error")
             return redirect(url_for("maintenance"))
-        flash(f"Backup restored: {name}", "success")
+        flash(f"Резервная копия восстановлена: {name}", "success")
         return redirect(url_for("maintenance"))
 
     @app.get("/maintenance/backups/<name>/download")

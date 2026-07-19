@@ -5,18 +5,18 @@ from dataclasses import dataclass
 from app.connections.settings import get_connection_settings
 
 COUNTRY_NAMES = {
-    "nl": "Netherlands",
-    "de": "Germany",
-    "fi": "Finland",
-    "fr": "France",
-    "gb": "United Kingdom",
-    "pl": "Poland",
-    "us": "United States",
-    "ca": "Canada",
-    "sg": "Singapore",
-    "tr": "Turkey",
-    "il": "Israel",
-    "unknown": "Country not selected",
+    "nl": "Нидерланды",
+    "de": "Германия",
+    "fi": "Финляндия",
+    "fr": "Франция",
+    "gb": "Великобритания",
+    "pl": "Польша",
+    "us": "США",
+    "ca": "Канада",
+    "sg": "Сингапур",
+    "tr": "Турция",
+    "il": "Израиль",
+    "unknown": "Страна не выбрана",
 }
 
 def normalize_country_code(value: str | None) -> str:
@@ -61,7 +61,7 @@ def list_connections() -> list[ConnectionSummary]:
             status="Configured" if awg.enabled else "Disabled",
             port=f"UDP {awg.port}",
             clients=counts.get("amneziawg", 0),
-            note=f"Endpoint: {awg.host}:{awg.port}",
+            note=f"Адрес: {awg.host}:{awg.port}",
             country_code=normalize_country_code(awg.config.get("country_code")),
             country_name=country_name(awg.config.get("country_code")),
         ),
@@ -71,7 +71,7 @@ def list_connections() -> list[ConnectionSummary]:
             status="Configured" if xray.enabled else "Disabled",
             port=f"TCP {xray.port}",
             clients=counts.get("xray", 0),
-            note=f"Endpoint: {xray.host}:{xray.port}",
+            note=f"Адрес: {xray.host}:{xray.port}",
             country_code=normalize_country_code(xray.config.get("country_code")),
             country_name=country_name(xray.config.get("country_code")),
         ),

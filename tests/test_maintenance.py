@@ -9,9 +9,9 @@ def test_collect_diagnostics(tmp_path, monkeypatch):
     diagnostics = collect_diagnostics()
     labels = {item.label: item.value for item in diagnostics}
 
-    assert labels["Clients"] == "1"
-    assert labels["AmneziaWG clients"] == "1"
-    assert labels["Xray clients"] == "1"
+    assert labels["Клиенты"] == "1"
+    assert labels["Клиенты AmneziaWG"] == "1"
+    assert labels["Клиенты Xray"] == "1"
 
 
 
@@ -28,7 +28,7 @@ def test_backup_create_route_shows_feedback(tmp_path, monkeypatch):
     body = response.get_data(as_text=True)
 
     assert response.status_code == 200
-    assert "Backup created" in body
+    assert "Резервная копия создана" in body
     assert "sg-gateway-" in body
 
 
@@ -45,7 +45,7 @@ def test_missing_backup_restore_route_shows_feedback(tmp_path, monkeypatch):
     body = response.get_data(as_text=True)
 
     assert response.status_code == 200
-    assert "Backup not found" in body
+    assert "Резервная копия не найдена" in body
 
 
 
@@ -63,5 +63,5 @@ def test_maintenance_page_shows_backup_kind(tmp_path, monkeypatch):
     body = response.get_data(as_text=True)
 
     assert response.status_code == 200
-    assert "Type" in body
-    assert "Manual backup" in body
+    assert "Тип" in body
+    assert "Ручная резервная копия" in body

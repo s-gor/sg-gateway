@@ -40,7 +40,7 @@ def test_diagnostic_report_summarizes_operation_errors(tmp_path, monkeypatch):
     assert report["summary"]["operation_errors"] == 1
     assert report["summary"]["last_error"]["action"] == "client.disable"
     assert report["summary"]["last_error"]["target"] == "client:404"
-    assert "Rejected missing client" in report["summary"]["last_error"]["message"]
+    assert "Клиент не найден" in report["summary"]["last_error"]["message"]
 
 
 
@@ -52,4 +52,4 @@ def test_diagnostic_report_includes_backup_kind(tmp_path, monkeypatch):
     create_backup()
     report = build_diagnostic_report()
 
-    assert report["backups"][0]["kind"] == "Manual backup"
+    assert report["backups"][0]["kind"] == "Ручная резервная копия"
