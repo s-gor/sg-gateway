@@ -1,52 +1,97 @@
 <!doctype html>
 <html lang="ru">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}SG-Gateway{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
-  </head>
-  <body>
-    <div class="shell">
-      <aside class="sidebar" aria-label="Main navigation">
-        <div class="brand">
-          <div class="brand-mark">SG</div>
-          <div>
-            <div class="brand-name">SG-Gateway</div>
-            <div class="brand-note">v{{ app_version }}</div>
-          </div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}SG-Gateway{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='awg-style-v1.css') }}">
+</head>
+<body class="sg-awg-body">
+  <div class="sg-shell" id="sgShell">
+    <aside class="sg-sidebar">
+      <a class="sg-brand" href="/" aria-label="Открыть System">
+        <span class="sg-brand-shield">SG</span>
+        <span class="sg-brand-copy"><strong>SG-Gateway</strong><small>v{{ app_version }}</small></span>
+      </a>
+
+      <nav class="sg-nav" aria-label="Основное меню">
+        {% set nav_items = [
+          ('system', '/system', 'System', 'Ресурсы и состояние'),
+          ('clients', '/clients', 'Clients', 'Клиенты и конфигурации'),
+          ('connections', '/connections', 'Connections', 'AmneziaWG и Xray Reality'),
+          ('routing', '/routing', 'Routing', 'Маршруты и Outbounds'),
+          ('maintenance', '/maintenance', 'Maintenance', 'Копии и диагностика'),
+          ('security', '/security', 'Security', 'Доступ и защита'),
+          ('help', '/help', 'Help', 'Пошаговая справка')
+        ] %}
+        {% for key, href, label, subtitle in nav_items %}
+        <div class="sg-nav-item{% if active_page == key %} is-active{% endif %}" data-nav-label="{{ label }}">
+          <span class="sg-nav-icon sg-icon-{{ key }}" aria-hidden="true"></span>
+          <span class="sg-nav-copy"><a href="{{ href }}">{{ label }}</a><small>{{ subtitle }}</small></span>
         </div>
+        {% endfor %}
+      </nav>
 
-        <nav class="nav" aria-label="Main navigation">
-          <a class="nav-item {{ 'active' if active_page == 'dashboard' else '' }}" href="/">Dashboard</a>
-          <a class="nav-item {{ 'active' if active_page == 'system' else '' }}" href="/system">System</a>
-          <a class="nav-item {{ 'active' if active_page == 'clients' else '' }}" href="/clients">Clients</a>
-          <a class="nav-item {{ 'active' if active_page == 'connections' else '' }}" href="/connections">Connections</a>
-          <a class="nav-item {{ 'active' if active_page == 'routing' else '' }}" href="/routing">Routing</a>
-          <a class="nav-item {{ 'active' if active_page == 'maintenance' else '' }}" href="/maintenance">Maintenance</a>
-          <a class="nav-item {{ 'active' if active_page == 'security' else '' }}" href="/security">Security</a>
-          <a class="nav-item {{ 'active' if active_page == 'help' else '' }}" href="/help">Help</a>
-        </nav>
+      <div class="sg-sidebar-bottom">
+        <div class="sg-own-server">
+          <div class="sg-own-kicker"><span class="sg-live-dot"></span>СОБСТВЕННЫЙ СЕРВЕР</div>
+          <div class="sg-server-line">
+            <img class="sg-flag" src="{{ country_flag_url(server_identity.country_code) }}" alt="{{ server_identity.country_name }}">
+            <strong>{{ server_identity.name }}</strong>
+          </div>
+          <div class="sg-server-meta"><span>{{ server_identity.address }}</span><span>v{{ app_version }}</span></div>
+        </div>
+        <button class="sg-collapse" type="button" id="sgCollapse">← Свернуть меню</button>
+        <form method="post" action="/logout"><button class="sg-logout" type="submit">↪ Выйти</button></form>
+      </div>
+    </aside>
 
-        {% if is_authenticated %}
-          <form class="logout-form" method="post" action="/logout">
-            <button class="button small" type="submit">Выйти</button>
-          </form>
-        {% endif %}
-      </aside>
+    <section class="sg-workspace">
+      <header class="sg-topbar">
+        <div class="sg-topbar-server">
+          <span class="sg-topbar-kicker">ТЕКУЩИЙ СЕРВЕР</span>
+          <span class="sg-topbar-value">
+            <img class="sg-flag" src="{{ country_flag_url(server_identity.country_code) }}" alt="{{ server_identity.country_name }}">
+            <strong>{{ server_identity.name }}</strong><small>{{ server_identity.address }}</small>
+          </span>
+        </div>
+        <span class="sg-version">v{{ app_version }}</span>
+        <span class="sg-health sg-health-{{ panel_health }}"><span class="sg-health-dot"></span>{% if panel_health == 'ok' %}СИСТЕМА В НОРМЕ{% elif panel_health == 'warning' %}ЕСТЬ ПРЕДУПРЕЖДЕНИЯ{% else %}ТРЕБУЕТ ВНИМАНИЯ{% endif %}</span>
+        <span class="sg-theme-chip">●&nbsp; Тёмная</span>
+        <span class="sg-user-chip">admin</span>
+      </header>
 
-      <main class="content">
+      <main class="sg-content">
         {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            <section class="flash-stack" aria-live="polite">
-              {% for category, message in messages %}
-                <div class="flash-message {{ category }}">{{ message }}</div>
-              {% endfor %}
-            </section>
-          {% endif %}
+          {% if messages %}<div class="sg-flashes">{% for category, message in messages %}<div class="sg-flash sg-flash-{{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}
         {% endwith %}
         {% block content %}{% endblock %}
       </main>
-    </div>
-  </body>
+    </section>
+  </div>
+
+  <script>
+  (() => {
+    const shell = document.getElementById('sgShell');
+    const button = document.getElementById('sgCollapse');
+    const key = 'sg-gateway-sidebar-collapsed';
+    if (localStorage.getItem(key) === '1') shell.classList.add('is-collapsed');
+    button?.addEventListener('click', () => {
+      shell.classList.toggle('is-collapsed');
+      localStorage.setItem(key, shell.classList.contains('is-collapsed') ? '1' : '0');
+    });
+    document.querySelectorAll('[data-tab-target]').forEach(tab => tab.addEventListener('click', () => {
+      const group = tab.closest('[data-tabs]');
+      if (!group) return;
+      group.querySelectorAll('[data-tab-target]').forEach(x => x.classList.remove('is-active'));
+      group.querySelectorAll('[data-tab-panel]').forEach(x => x.hidden = true);
+      tab.classList.add('is-active');
+      const panel = group.querySelector(`[data-tab-panel="${tab.dataset.tabTarget}"]`);
+      if (panel) panel.hidden = false;
+    }));
+  })();
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
 </html>

@@ -1,130 +1,50 @@
 {% extends "base.html" %}
-
-{% block title %}SG-Gateway · Система{% endblock %}
-
+{% block title %}System · SG-Gateway{% endblock %}
 {% block content %}
-  <header class="topbar">
-    <div>
-      <h1>Система</h1>
-      <p>Состояние служб, параметры среды выполнения и использование ресурсов этого сервера SG-Gateway.</p>
-    </div>
-    <div class="topbar-actions">
-      <a class="button" href="/api/status">Статус API</a>
-      <a class="button" href="/maintenance/diagnostics.json">Скачать диагностику</a>
-      <a class="button primary" href="/maintenance">Обслуживание</a>
-    </div>
-  </header>
+<section class="sg-page-head">
+  <div><div class="sg-eyebrow">SG-GATEWAY / SYSTEM</div><h1>System</h1><p>Система: ресурсы, состояние служб, журналы и диагностика</p></div>
+  <a class="sg-button sg-button-secondary" href="/system">Обновить данные</a>
+</section>
 
-  <section class="status-grid">
-    <article class="status-card">
-      <div class="status-dot {{ 'ok' if report.health in ['ok', 'warning'] else 'idle' }}"></div>
-      <div>
-        <div class="status-label">Состояние</div>
-        <div class="status-value">{{ {'ok': 'НОРМА', 'warning': 'ПРЕДУПРЕЖДЕНИЕ', 'error': 'ОШИБКА'}.get(report.health, report.health | upper) }}</div>
-      </div>
-    </article>
-    <article class="status-card">
-      <div class="status-dot ok"></div>
-      <div>
-        <div class="status-label">Версия</div>
-        <div class="status-value compact">{{ report.version }}</div>
-      </div>
-    </article>
-    <article class="status-card">
-      <div class="status-dot idle"></div>
-      <div>
-        <div class="status-label">Среда</div>
-        <div class="status-value compact">{{ report.environment }}</div>
-      </div>
-    </article>
-  </section>
+<div class="sg-tabs" data-tabs>
+  <button class="sg-tab is-active" data-tab-target="resources">Resources</button>
+  <button class="sg-tab" data-tab-target="services">Status &amp; Services</button>
+  <button class="sg-tab" data-tab-target="logs">Logs &amp; Diagnostics</button>
 
-  <section class="brand-dial-grid" aria-label="Resource usage">
-    <article class="brand-dial-card">
-      <div class="brand-dial beta9-load-{{ resources.memory.state }}" style="--dial-value: {{ resources.memory.percent }}%">
-        <div class="brand-dial-center">
-          <strong>{{ resources.memory.percent_text }}</strong>
-          <span>memory</span>
-        </div>
-      </div>
-      <div class="brand-dial-copy">
-        <h2>Память</h2>
-        <p>{{ resources.memory.used }} использовано из {{ resources.memory.total }}. Доступно: {{ resources.memory.available }}.</p>
-      </div>
-    </article>
+  <div data-tab-panel="resources">
+    <section class="sg-card sg-identity-card">
+      <div><div class="sg-card-kicker">Идентификация сервера · единое имя</div><h2 class="sg-server-title"><img class="sg-flag sg-flag-large" src="{{ country_flag_url(server_identity.country_code) }}" alt="{{ server_identity.country_name }}">{{ server_identity.name }}</h2><p>Публичный адрес и страна берутся из фактически настроенного подключения.</p></div>
+      <span class="sg-server-pill"><img class="sg-flag" src="{{ country_flag_url(server_identity.country_code) }}" alt="">{{ server_identity.name }} · {{ server_identity.address }}</span>
+    </section>
 
-    <article class="brand-dial-card">
-      <div class="brand-dial beta9-load-{{ resources.disk.state }}" style="--dial-value: {{ resources.disk.percent }}%">
-        <div class="brand-dial-center">
-          <strong>{{ resources.disk.percent_text }}</strong>
-          <span>disk</span>
-        </div>
-      </div>
-      <div class="brand-dial-copy">
-        <h2>Диск данных</h2>
-        <p>{{ resources.disk.used }} использовано из {{ resources.disk.total }}. Свободно: {{ resources.disk.free }}.</p>
-      </div>
-    </article>
-  </section>
+    <section class="sg-summary-grid sg-summary-grid-four">
+      <article class="sg-summary-card"><span>Сервер</span><strong class="sg-good">Работает</strong><small>SG-Gateway v{{ app_version }}</small></article>
+      <article class="sg-summary-card"><span>Клиенты</span><strong>{{ client_total }}</strong><small>Сохранённые записи</small></article>
+      <article class="sg-summary-card"><span>Подключения</span><strong>{{ connections|selectattr('status','equalto','Configured')|list|length }} / {{ connections|length }}</strong><small>AmneziaWG и Xray Reality</small></article>
+      <article class="sg-summary-card"><span>Трафик сегодня</span><strong>0 B</strong><small>Телеметрия будет подключена позднее</small></article>
+    </section>
 
-  <section class="settings-grid">
-    <article class="tool-panel">
-      <div class="section-heading">
-        <h2>Среда выполнения</h2>
-        <p>Процесс сервера и пути хранения, полученные из диагностики.</p>
+    <section class="sg-resource-card">
+      <div class="sg-resource-heading"><div><h2>Оперативная память</h2><p>Панель, веб-сервер, системные службы и файловый кэш.</p></div><div class="sg-resource-total"><strong>{{ resources.memory.used }} из {{ resources.memory.total }}</strong><small>Доступно {{ resources.memory.available }}</small></div></div>
+      <div class="sg-resource-body">
+        <div class="sg-dial" style="--dial: {{ resources.memory.gradient }}"><div><strong>{{ resources.memory.percent_text }}</strong><span>Память: {{ resources.memory.state_label }}</span></div></div>
+        <div class="sg-resource-rows">{% for row in resources.memory.rows %}<div class="sg-resource-row"><span class="sg-color-dot" style="--dot: {{ row.color }}"></span><span><strong>{{ row.label }}</strong><small>{{ row.note }}</small></span><b>{{ row.value }}</b><em>{{ row.percent }}</em></div>{% endfor %}</div>
       </div>
-      <dl class="detail-list">
-        <div>
-          <dt>Python</dt>
-          <dd>{{ report.runtime.python }}</dd>
-        </div>
-        <div>
-          <dt>Система</dt>
-          <dd>{{ report.runtime.system }} {{ report.runtime.release }}</dd>
-        </div>
-        <div>
-          <dt>Загрузка CPU</dt>
-          <dd>{{ resources.cpu.load }} на {{ resources.cpu.count }} CPU</dd>
-        </div>
-        <div>
-          <dt>Каталог данных</dt>
-          <dd>{{ report.paths.data_dir }}</dd>
-        </div>
-        <div>
-          <dt>База данных</dt>
-          <dd>{{ report.paths.database }}</dd>
-        </div>
-      </dl>
-    </article>
+    </section>
 
-    <article class="tool-panel">
-      <div class="section-heading">
-        <h2>Проверки состояния</h2>
-        <p>Проверки готовности, используемые API состояния и разделом Maintenance.</p>
-      </div>
-      <div class="status-list">
-        {% for check in health_checks %}
-          <div class="status-row">
-            <div>
-              <strong>{{ check.name }}</strong>
-              <span class="subtle">{{ check.message }}</span>
-            </div>
-            <span class="badge {{ 'success' if check.status == 'ok' else '' }}">{{ {'ok': 'Норма', 'warning': 'Предупреждение', 'error': 'Ошибка'}.get(check.status, check.status) }}</span>
-          </div>
-        {% endfor %}
-      </div>
-    </article>
-  </section>
+    <section class="sg-resource-grid">
+      <article class="sg-card"><div class="sg-resource-heading"><div><h2>Системный диск</h2><p>Каталог данных SG-Gateway и свободное место.</p></div><div class="sg-resource-total"><strong>{{ resources.disk.used }} из {{ resources.disk.total }}</strong><small>Свободно {{ resources.disk.free }}</small></div></div><div class="sg-mini-resource"><div class="sg-dial sg-dial-small" style="--dial: {{ resources.disk.gradient }}"><div><strong>{{ resources.disk.percent_text }}</strong><span>Диск: {{ resources.disk.state_label }}</span></div></div></div></article>
+      <article class="sg-card"><h2>Процессор</h2><p>Средняя нагрузка и число доступных логических ядер.</p><div class="sg-cpu-number">{{ resources.cpu.percent }}%</div><div class="sg-progress"><span style="width: {{ resources.cpu.percent }}%"></span></div><dl class="sg-definition"><div><dt>Ядер</dt><dd>{{ resources.cpu.count }}</dd></div><div><dt>Load average</dt><dd>{{ resources.cpu.load }}</dd></div></dl></article>
+    </section>
+  </div>
 
-  <section class="tool-panel">
-    <div class="section-heading">
-      <h2>Действия с системой</h2>
-      <p>Используйте безопасные действия панели, уже доступные в этой версии.</p>
-    </div>
-    <div class="action-grid">
-      <a class="action-card" href="/maintenance">Проверить диагностику и резервные копии</a>
-      <a class="action-card" href="/recovery">Открыть консоль Recovery</a>
-      <a class="action-card" href="/connections">Настроить подключения</a>
-    </div>
-  </section>
+  <div data-tab-panel="services" hidden>
+    <section class="sg-summary-grid">{% for connection in connections %}<article class="sg-service-card"><div class="sg-service-icon"><img class="sg-flag" src="{{ country_flag_url(connection.country_code) }}" alt="{{ connection.country_name }}"></div><div><div class="sg-service-title"><h2>{{ connection.label }}</h2><span class="sg-status {% if connection.status == 'Configured' %}is-ok{% else %}is-muted{% endif %}">{% if connection.status == 'Configured' %}Настроено{% else %}Не настроено{% endif %}</span></div><p>{{ connection.note }}</p><small>{{ connection.port }} · Клиентов: {{ connection.clients }}</small></div></article>{% endfor %}</section>
+    <section class="sg-card"><div class="sg-card-head"><div><h2>Проверки состояния</h2><p>Фактические проверки панели, базы, каталогов и конфигураций.</p></div><span class="sg-count">{{ health_checks|length }}</span></div><div class="sg-health-list">{% for check in health_checks %}<div class="sg-health-row"><span class="sg-health-marker is-{{ check.status }}"></span><span><strong>{{ check.name }}</strong><small>{{ check.detail }}</small></span><span class="sg-status {% if check.status == 'ok' %}is-ok{% else %}is-warning{% endif %}">{{ 'Норма' if check.status == 'ok' else 'Проверить' }}</span></div>{% endfor %}</div></section>
+  </div>
+
+  <div data-tab-panel="logs" hidden>
+    <section class="sg-card"><div class="sg-card-head"><div><h2>Журналы и диагностика</h2><p>Безопасные действия для проверки системы и подготовки отчёта.</p></div><a class="sg-button" href="/maintenance/diagnostics.json">Скачать диагностику</a></div><div class="sg-action-grid"><a class="sg-action-tile" href="/maintenance"><strong>Операции и резервные копии</strong><span>Открыть Maintenance</span></a><a class="sg-action-tile" href="/recovery"><strong>Аварийная страница Recovery</strong><span>Минимальная проверка и восстановление</span></a><a class="sg-action-tile" href="/api/status"><strong>Статус API</strong><span>Получить фактический JSON</span></a></div></section>
+  </div>
+</div>
 {% endblock %}

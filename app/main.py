@@ -199,6 +199,50 @@ def _dashboard_resources() -> dict:
     }
 
 
+
+
+def _sg_gateway_status_label(status: str) -> str:
+    return {"Configured": "Настроено", "Disabled": "Не настроено"}.get(status, status)
+
+
+def _sg_gateway_server_identity(config) -> dict:
+    try:
+        connections = list_connections()
+        selected = next(
+            (item for item in connections if normalize_country_code(item.country_code) != "unknown"),
+            connections[0] if connections else None,
+        )
+        if selected is not None:
+            settings = get_connection_settings(selected.name)
+            code = normalize_country_code(selected.country_code)
+            return {
+                "name": "SG-Gateway",
+                "address": settings.host or config.host,
+                "country_code": code,
+                "country_name": country_name(code),
+            }
+    except Exception:
+        pass
+    return {
+        "name": "SG-Gateway",
+        "address": config.host,
+        "country_code": "unknown",
+        "country_name": country_name("unknown"),
+    }
+
+
+def _sg_gateway_system_context() -> dict:
+    connections = list_connections()
+    return {
+        "report": build_diagnostic_report(),
+        "health_checks": collect_health_checks(),
+        "resources": _dashboard_resources(),
+        "connections": connections,
+        "client_total": count_clients(),
+        "backup_total": len(list_backups()),
+        "release": get_release_manifest(),
+    }
+
 def create_app() -> Flask:
     config = load_config()
     app = Flask(
@@ -220,12 +264,21 @@ def create_app() -> Flask:
 
     @app.context_processor
     def inject_globals():
+        try:
+            panel_health = health_summary()
+        except Exception:
+            panel_health = "warning"
         return {
             "app_version": get_version(),
             "is_authenticated": is_authenticated(),
             "country_options": COUNTRY_OPTIONS,
             "country_name": country_name,
-            "country_flag_url": lambda code: url_for("static", filename=f"flags/{normalize_country_code(code)}.svg"),
+            "country_flag_url": lambda code: url_for(
+                "static", filename=f"flags/{normalize_country_code(code)}.svg"
+            ),
+            "server_identity": _sg_gateway_server_identity(config),
+            "panel_health": panel_health,
+            "connection_status_label": _sg_gateway_status_label,
         }
 
     @app.get("/login")
@@ -251,45 +304,10 @@ def create_app() -> Flask:
 
     @app.get("/")
     def dashboard():
-        connections = list_connections()
-        client_total = count_clients()
-        backup_total = len(list_backups())
-        ready_connections = sum(1 for connection in connections if connection.status == "Configured")
-        connection_total = len(connections) or 1
-        ready_percent = round(ready_connections * 100 / connection_total)
-        activity_percent = min(100, max(8, client_total * 14))
-        dashboard_dials = [
-            {
-                "title": "Готовность подключений",
-                "label": "готово",
-                "value": f"{ready_percent}%",
-                "percent": ready_percent,
-                "status": "normal" if ready_percent == 100 else "warning",
-                "detail": f"Настроено подключений: {ready_connections} из {connection_total}.",
-            },
-            {
-                "title": "Клиенты",
-                "label": "клиентов",
-                "value": str(client_total),
-                "percent": activity_percent,
-                "status": "normal" if client_total else "warning",
-                "detail": "Трафик сегодня: 0 ГБ. Счётчики трафика появятся после подключения телеметрии механизмов.",
-            },
-        ]
-        status_items = [
-            {"label": "Сервер", "value": "Работает", "state": "ok"},
-            {"label": "AmneziaWG", "value": connections[0].status, "state": "idle"},
-            {"label": "Xray", "value": connections[1].status, "state": "idle"},
-            {"label": "Клиенты", "value": str(client_total), "state": "idle"},
-            {"label": "Трафик сегодня", "value": "0 ГБ", "state": "idle"},
-            {"label": "Резервные копии", "value": str(backup_total), "state": "idle"},
-        ]
         return render_template(
-            "dashboard.html",
-            active_page="dashboard",
-            status_items=status_items,
-            dashboard_dials=dashboard_dials,
-            connections=connections,
+            "system.html",
+            active_page="system",
+            **_sg_gateway_system_context(),
         )
 
     @app.get("/recovery")
@@ -303,13 +321,10 @@ def create_app() -> Flask:
 
     @app.get("/system")
     def system():
-        report = build_diagnostic_report()
         return render_template(
             "system.html",
             active_page="system",
-            report=report,
-            health_checks=collect_health_checks(),
-            resources=_dashboard_resources(),
+            **_sg_gateway_system_context(),
         )
 
     @app.get("/routing")
