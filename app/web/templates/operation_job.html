@@ -4,7 +4,10 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-operation-job-v13.css') }}">
 {% endblock %}
 {% block content %}
-<section class="opjob-page" data-status-url="{{ url_for('operation_job_status', job_id=job.job_id) }}">
+<section class="opjob-page"
+         data-kind="{{ job.kind }}"
+         data-target-url="{{ job.target_url or '' }}"
+         data-status-url="{{ url_for('operation_job_status', job_id=job.job_id) }}">
   <header class="opjob-head">
     <div>
       <div class="opjob-kicker">ЖИВОЙ ТЕРМИНАЛ</div>
@@ -31,36 +34,64 @@
   const badge = document.getElementById('opjob-status');
   const message = document.getElementById('opjob-message');
   const target = document.getElementById('opjob-target');
-  let redirected = false;
+  const isTlsSwitch = root.dataset.kind === 'tls_issue';
+  const targetUrl = root.dataset.targetUrl || target.href;
+  let finished = false;
+  let hadSuccessfulPoll = false;
+  let redirectScheduled = false;
+  let consecutiveFailures = 0;
+
+  function scheduleRedirect(text, delay = 1600) {
+    if (redirectScheduled || !targetUrl) return;
+    redirectScheduled = true;
+    finished = true;
+    badge.textContent = 'success';
+    badge.className = 'opjob-status is-success';
+    target.classList.remove('is-hidden');
+    target.href = targetUrl;
+    message.textContent = text;
+    window.setTimeout(() => window.location.replace(targetUrl), delay);
+  }
+
   async function update() {
+    if (finished) return;
     try {
       const response = await fetch(root.dataset.statusUrl, {cache: 'no-store'});
+      if (!response.ok) throw new Error('HTTP ' + response.status);
       const data = await response.json();
+      hadSuccessfulPoll = true;
+      consecutiveFailures = 0;
       log.textContent = data.log || '';
       log.scrollTop = log.scrollHeight;
       badge.textContent = data.status;
       badge.className = 'opjob-status is-' + data.status;
       if (data.status === 'success') {
-        target.classList.remove('is-hidden');
-        message.textContent = 'Готово. Переходим к результату…';
-        if (!redirected && data.target_url) {
-          redirected = true;
-          setTimeout(() => { window.location.href = data.target_url; }, 2500);
-        }
+        if (data.target_url) target.href = data.target_url;
+        scheduleRedirect('Готово. Переходим к результату…', 1800);
         return;
       }
       if (data.status === 'failed') {
-        message.textContent = 'Ошибка. Конфигурация не применена или восстановлена из резервной копии.';
+        finished = true;
+        message.textContent = 'Ошибка. Предыдущая конфигурация сохранена или восстановлена.';
         return;
       }
-      setTimeout(update, 1000);
+      message.textContent = 'Задача выполняется…';
     } catch (error) {
+      consecutiveFailures += 1;
+      if (isTlsSwitch && (hadSuccessfulPoll || consecutiveFailures >= 3)) {
+        scheduleRedirect('Nginx переключил панель на HTTPS. Переходим на новый адрес…', 1100);
+        return;
+      }
       message.textContent = 'Связь с задачей временно потеряна; повторяю…';
-      setTimeout(update, 1800);
     }
+    window.setTimeout(update, isTlsSwitch ? 1000 : 1800);
   }
+
+  target.href = targetUrl || '#';
   log.scrollTop = log.scrollHeight;
-  if (!['success','failed'].includes(badge.textContent.trim())) setTimeout(update, 500);
+  if (!['success', 'failed'].includes(badge.textContent.trim())) {
+    window.setTimeout(update, 500);
+  }
 })();
 </script>
 {% endblock %}

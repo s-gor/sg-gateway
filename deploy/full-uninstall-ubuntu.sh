@@ -159,7 +159,10 @@ remove_network_and_nginx() {
   rm -f \
     /etc/nginx/sites-enabled/sg-gateway \
     /etc/nginx/sites-available/sg-gateway \
-    /etc/letsencrypt/renewal-hooks/deploy/sg-gateway-nginx
+    /etc/nginx/sites-enabled/sg-gateway-acme \
+    /etc/nginx/sites-available/sg-gateway-acme \
+    /etc/letsencrypt/renewal-hooks/deploy/sg-gateway-nginx \
+    /etc/letsencrypt/renewal-hooks/deploy/reload-sg-gateway-nginx.sh
   rm -rf /var/www/sg-gateway-acme
 
   if [[ -d /etc/nginx/sites-enabled \
@@ -332,6 +335,9 @@ verify_removal() {
     /etc/systemd/system/mihomo.service \
     /etc/nginx/sites-available/sg-gateway \
     /etc/nginx/sites-enabled/sg-gateway \
+    /etc/nginx/sites-available/sg-gateway-acme \
+    /etc/nginx/sites-enabled/sg-gateway-acme \
+    /etc/letsencrypt/renewal-hooks/deploy/reload-sg-gateway-nginx.sh \
     /etc/sysctl.d/99-sg-gateway.conf \
     /etc/amnezia/amneziawg \
     /usr/local/bin/wgcf-cli; do

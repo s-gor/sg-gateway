@@ -5,6 +5,7 @@ from typing import Callable
 
 from sg_hostd.operation_jobs import (
     rollback_xray_runtime,
+    run_tls_maintenance,
     start_tls_issue_job,
     start_xray_apply_job,
     start_xray_update_job,
@@ -126,16 +127,48 @@ def _warp_export_json() -> HostCommandResult:
     return _sg_gateway_privileged_result("warp.export_json")
 
 
-def _tls_issue() -> HostCommandResult:
-    return _sg_gateway_privileged_result("tls.issue")
-
-
 def _tls_renew() -> HostCommandResult:
-    return _sg_gateway_privileged_result("tls.renew")
+    try:
+        payload = run_tls_maintenance("renew")
+        return HostCommandResult(
+            command="tls.renew",
+            status="ok",
+            message=str(payload.get("message") or "Сертификат проверен"),
+            payload={
+                key: value
+                for key, value in payload.items()
+                if key not in {"ok", "message"}
+            },
+        )
+    except Exception as exc:
+        return HostCommandResult(
+            command="tls.renew",
+            status="error",
+            message=str(exc),
+            payload={},
+        )
 
 
 def _tls_rollback() -> HostCommandResult:
-    return _sg_gateway_privileged_result("tls.rollback")
+    try:
+        payload = run_tls_maintenance("rollback")
+        return HostCommandResult(
+            command="tls.rollback",
+            status="ok",
+            message=str(payload.get("message") or "HTTPS-конфигурация восстановлена"),
+            payload={
+                key: value
+                for key, value in payload.items()
+                if key not in {"ok", "message"}
+            },
+        )
+    except Exception as exc:
+        return HostCommandResult(
+            command="tls.rollback",
+            status="error",
+            message=str(exc),
+            payload={},
+        )
 
 
 def _clients_apply() -> HostCommandResult:
@@ -164,9 +197,19 @@ def _clients_apply() -> HostCommandResult:
 def _tls_issue_start() -> HostCommandResult:
     try:
         payload = start_tls_issue_job()
-        return HostCommandResult(command="tls.issue.start", status="ok", message=str(payload.get("message") or "HTTPS job started"), payload=payload)
+        return HostCommandResult(
+            command="tls.issue.start",
+            status="ok",
+            message=str(payload.get("message") or "HTTPS job started"),
+            payload=payload,
+        )
     except Exception as exc:
-        return HostCommandResult(command="tls.issue.start", status="error", message=str(exc), payload={})
+        return HostCommandResult(
+            command="tls.issue.start",
+            status="error",
+            message=str(exc),
+            payload={},
+        )
 
 
 def _xray_apply() -> HostCommandResult:
@@ -312,7 +355,6 @@ _COMMANDS: dict[str, Callable[[], HostCommandResult]] = {
     "warp.remove": _warp_remove,
     "warp.test": _warp_test,
     "warp.export_json": _warp_export_json,
-    "tls.issue": _tls_issue,
     "tls.renew": _tls_renew,
     "tls.rollback": _tls_rollback,
     "mihomo.apply": _mihomo_apply,

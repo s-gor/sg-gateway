@@ -24,7 +24,7 @@
       <strong class="{{ 'ok' if tls.https_ready else 'warning' }}">
         {{ 'Активен' if tls.https_ready else 'Не настроен' }}
       </strong>
-      <small>{{ ('https://' ~ tls.domain) if tls.https_ready else 'Защищённый вход ещё не включён' }}</small>
+      <small>{{ tls.public_url if tls.https_ready else 'Защищённый вход ещё не включён' }}</small>
     </article>
 
     <article>
@@ -142,7 +142,7 @@
       </div>
       <div>
         <span>Необходимые порты</span>
-        <strong>TCP 80 · TCP 443</strong>
+        <strong>TCP 80 · TCP {{ tls.public_port }}</strong>
       </div>
     </div>
 
@@ -158,7 +158,7 @@
     </div>
     {% endif %}
 
-    <div class="secv2-live-note sg-ljd-nested"><strong>Процесс выполняется в живом терминале</strong><span>Вы увидите DNS, Certbot, nginx -t, переключение на HTTPS, проверку служб и автоматический откат.</span></div>
+    <div class="secv2-live-note sg-ljd-nested"><strong>Процесс выполняется в живом терминале</strong><span>Вы увидите DNS, Certbot, nginx -t, проверку backend и HTTPS, а при ошибке — автоматический откат.</span></div>
     <div class="secv2-actions">
       <form method="post"
             action="{{ url_for('security_tls_issue') }}">
@@ -231,13 +231,13 @@
       <dl class="secv2-list sg-ljd-nested-group">
         <div>
           <dt>Публичный адрес</dt>
-          <dd>{{ ('https://' ~ tls.domain) if tls.https_ready else 'Не настроен' }}</dd>
+          <dd>{{ tls.public_url if tls.https_ready else 'Не настроен' }}</dd>
         </div>
         <div>
           <dt>Внутренний listener</dt>
           <dd>
             {% if tls.https_ready %}
-              127.0.0.1:{{ tls.panel_port }}
+              127.0.0.1:{{ tls.backend_port }}
             {% else %}
               {{ security.host }}:{{ security.port }}
             {% endif %}
@@ -278,7 +278,7 @@
       </section>
       <section>
         <span>Внутренний proxy_pass</span>
-        <code>http://127.0.0.1:{{ tls.panel_port }}</code>
+        <code>http://127.0.0.1:{{ tls.backend_port }}</code>
       </section>
       <section>
         <span>Последнее действие</span>

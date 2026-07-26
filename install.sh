@@ -82,8 +82,11 @@ MANAGED_PATHS=(
   etc/systemd/system/mihomo.service
   etc/nginx/sites-available/sg-gateway
   etc/nginx/sites-enabled/sg-gateway
+  etc/nginx/sites-available/sg-gateway-acme
+  etc/nginx/sites-enabled/sg-gateway-acme
   etc/nginx/sites-enabled/default
   etc/letsencrypt/renewal-hooks/deploy/sg-gateway-nginx
+  etc/letsencrypt/renewal-hooks/deploy/reload-sg-gateway-nginx.sh
   etc/mihomo
   var/lib/mihomo
   etc/sing-box
@@ -991,6 +994,7 @@ stage_backup_and_prepare() {
   chmod -R a+rX "$PREFIX"
   chmod -R go-w "$PREFIX"
   chmod 0755 "$PREFIX"
+  chmod 0755 "$PREFIX/deploy/configure-panel-access.sh"
 }
 
 stage_system_packages() {

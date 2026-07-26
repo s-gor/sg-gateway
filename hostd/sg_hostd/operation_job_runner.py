@@ -1,39 +1,54 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import traceback
+from pathlib import Path
+
+
+# This module is executed directly from hostd/sg_hostd. The sibling app.py
+# must never shadow the real /opt/sg-gateway/app package.
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_HOSTD_ROOT = _PROJECT_ROOT / "hostd"
+_SCRIPT_DIR = Path(__file__).resolve().parent
+
+for _entry in (str(_SCRIPT_DIR), str(_HOSTD_ROOT), str(_PROJECT_ROOT)):
+    while _entry in sys.path:
+        sys.path.remove(_entry)
+sys.path[:0] = [str(_PROJECT_ROOT), str(_HOSTD_ROOT)]
+
+os.environ.setdefault("SG_GATEWAY_ENV", "production")
+os.environ.setdefault("SG_GATEWAY_DATA_DIR", "/var/lib/sg-gateway")
+os.environ.setdefault("SG_GATEWAY_LOG_DIR", "/var/log/sg-gateway")
+os.environ.setdefault(
+    "SG_GATEWAY_SECURITY_STATE_DIR",
+    "/var/lib/sg-gateway/security",
+)
+os.environ.setdefault(
+    "SG_GATEWAY_OPERATION_JOB_DIR",
+    "/var/lib/sg-gateway/security/jobs",
+)
+os.chdir(_PROJECT_ROOT)
 
 
 def _dump(value) -> None:
     print(json.dumps(value, ensure_ascii=False, indent=2, default=str), flush=True)
 
 
-def run_tls() -> int:
-    from app.security.tls import root_issue
-    print("[HTTPS 1/7] Проверяю подготовленный запрос и DNS", flush=True)
-    _dump(root_issue())
-    print("[HTTPS 6/7] Применяю клиентские runtime после появления сертификата", flush=True)
-    try:
-        from sg_hostd.client_runtime import apply_all_clients
-        result = apply_all_clients()
-        _dump(result)
-        if not result.get("ok"):
-            print("[HTTPS] Сертификат установлен, но не все клиентские runtime применились.", flush=True)
-    except Exception as exc:
-        print(f"[HTTPS] Предупреждение runtime: {exc}", flush=True)
-    print("[HTTPS 7/7] Панель переведена на HTTPS", flush=True)
-    return 0
-
-
 def run_xray() -> int:
     from app.xray.profiles import overview
     from sg_hostd.client_runtime import _apply_xray
+
     state = overview()
     print("[Xray 1/4] Независимые профили:", flush=True)
     for item in state["profiles"]:
         flow = f"; flow {item.flow}" if getattr(item, "flow", "") else ""
-        print(f"  - {item.title}: {item.status}; {item.transport}; порт {item.port}{flow}", flush=True)
+        print(
+            f"  - {item.title}: {item.status}; {item.transport}; "
+            f"порт {item.port}{flow}",
+            flush=True,
+        )
     print("[Xray 2/4] Собираю единый candidate config.json", flush=True)
     print("[Xray 3/4] Выполняю xray run -test и атомарное применение", flush=True)
     result = _apply_xray()
@@ -44,21 +59,19 @@ def run_xray() -> int:
     return 0
 
 
-
-
 def run_xray_update(channel: str) -> int:
     from sg_hostd.xray_update_runtime import update_xray
+
     print("[Xray Update] Подготавливаю безопасное обновление", flush=True)
     result = update_xray(channel)
     _dump(result)
     return 0
 
+
 def main() -> int:
     if len(sys.argv) != 3:
         return 2
     try:
-        if sys.argv[1] == "tls_issue":
-            return run_tls()
         if sys.argv[1] == "xray_apply":
             return run_xray()
         if sys.argv[1] == "xray_update_stable":
