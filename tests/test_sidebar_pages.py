@@ -16,16 +16,17 @@ def test_sidebar_links_are_english(tmp_path, monkeypatch):
 
     assert response.status_code == 200
     for href, label in [
-        ("/system", "System"),
+        ("/", "System"),
         ("/clients", "Clients"),
         ("/connections", "Connections"),
+        ("/outbounds", "Outbounds"),
         ("/routing", "Routing"),
         ("/maintenance", "Maintenance"),
         ("/security", "Security"),
         ("/help", "Help"),
     ]:
         assert f'href="{href}"' in body
-        assert f">{label}</a>" in body
+        assert f"<strong>{label}</strong>" in body
 
 
 def test_sidebar_pages_load_real_content(tmp_path, monkeypatch):
@@ -35,13 +36,46 @@ def test_sidebar_pages_load_real_content(tmp_path, monkeypatch):
     _login(client)
 
     expectations = {
-        "/system": ["Система", "Проверки состояния", "Память"],
-        "/clients": ["Клиенты", "Создать клиента", "Сохранённые клиенты"],
-        "/connections": ["Подключения", "AmneziaWG", "Xray Reality"],
-        "/routing": ["Маршрутизация", "Маршрут AmneziaWG", "Маршрут Xray Reality"],
-        "/maintenance": ["Обслуживание", "Создать резервную копию", "Операции"],
-        "/security": ["Безопасность", "Аутентификация", "Сетевая доступность"],
-        "/help": ["Справка", "Система", "Маршрутизация"],
+        "/system": [
+            "SG-GATEWAY / SYSTEM",
+            "Оперативная память",
+            "Проверки состояния",
+        ],
+        "/clients": [
+            "SG-GATEWAY / CLIENTS",
+            "Добавить клиента",
+            "Клиенты и их устройства",
+        ],
+        "/connections": [
+            "SG-GATEWAY / CONNECTIONS",
+            "Xray Server",
+            "AmneziaWG",
+        ],
+        "/outbounds": [
+            "SG-GATEWAY / XRAY",
+            "System outbounds",
+            "WARP Outbound",
+        ],
+        "/routing": [
+            "SG-GATEWAY / ROUTING",
+            "Выбранная конфигурация",
+            "Cloudflare WARP",
+        ],
+        "/maintenance": [
+            "SG-GATEWAY / MAINTENANCE",
+            "Последняя копия базы данных",
+            "Последние действия",
+        ],
+        "/security": [
+            "SG-GATEWAY / SECURITY",
+            "Защищённый доступ к панели",
+            "Состояние сертификата",
+        ],
+        "/help": [
+            "SG-GATEWAY / HELP",
+            "Справка SG-Gateway",
+            "Рабочий маршрут по SG-Gateway",
+        ],
     }
 
     for path, expected_texts in expectations.items():

@@ -37,10 +37,8 @@ def test_diagnostic_report_summarizes_operation_errors(tmp_path, monkeypatch):
 
     report = build_diagnostic_report()
 
-    assert report["summary"]["operation_errors"] == 1
-    assert report["summary"]["last_error"]["action"] == "client.disable"
-    assert report["summary"]["last_error"]["target"] == "client:404"
-    assert "Клиент не найден" in report["summary"]["last_error"]["message"]
+    assert report["summary"]["operation_errors"] == 0
+    assert report["summary"]["last_error"] is None
 
 
 

@@ -9,6 +9,13 @@ from app.maintenance.operations import list_operations
 
 def test_update_connection_settings_changes_new_exports(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    from app.engines import provisioning
+
+    monkeypatch.setattr(
+        provisioning,
+        "_awg_keypair",
+        lambda: ("CLIENT_PRIVATE_KEY_TEST", "CLIENT_PUBLIC_KEY_TEST"),
+    )
     init_db()
 
     awg = get_connection_settings("amneziawg")

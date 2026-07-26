@@ -12,9 +12,10 @@ def test_system_is_home_and_dashboard_is_removed(tmp_path, monkeypatch):
     _login(client)
     body = client.get("/").get_data(as_text=True)
     assert "SG-GATEWAY / SYSTEM" in body
-    assert 'data-nav-label="System"' in body
-    assert 'data-nav-label="Dashboard"' not in body
-    assert "Трафик сегодня" in body
+    assert 'href="/"' in body
+    assert "<strong>System</strong>" in body
+    assert "Dashboard" not in body
+    assert "Оперативная память" in body
 
 
 def test_flags_are_visible_in_system_shell(tmp_path, monkeypatch):

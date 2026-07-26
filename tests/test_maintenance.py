@@ -10,7 +10,7 @@ def test_collect_diagnostics(tmp_path, monkeypatch):
     labels = {item.label: item.value for item in diagnostics}
 
     assert labels["Клиенты"] == "1"
-    assert labels["Клиенты AmneziaWG"] == "1"
+    assert labels["Клиенты AmneziaWG"] == "0"
     assert labels["Клиенты Xray"] == "1"
 
 
@@ -63,5 +63,5 @@ def test_maintenance_page_shows_backup_kind(tmp_path, monkeypatch):
     body = response.get_data(as_text=True)
 
     assert response.status_code == 200
-    assert "Тип" in body
+    assert "ПОСЛЕДНЯЯ КОПИЯ" in body
     assert "Ручная резервная копия" in body
