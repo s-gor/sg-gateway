@@ -7,6 +7,10 @@ from app.connections.settings import get_connection_settings
 from app.db import get_database_path
 from app.hostd.client import hostd_health, run_hostd_command
 from app.maintenance.backups import get_backup_dir
+from app.mihomo.service import health_status as mihomo_health_status
+from app.security.tls import health_status as tls_health_status
+from app.routing.geofiles import health_status as geofiles_health_status
+from app.xray.salamander_diagnostics import inspect as salamander_diagnostics
 
 
 @dataclass(frozen=True)
@@ -37,9 +41,15 @@ def collect_health_checks() -> list[HealthCheck]:
             message=str(config.data_dir),
         ),
         _hostd_check(),
+        _mihomo_check(),
+        _tls_check(),
+        _geofiles_check(),
     ]
 
     checks.extend(_connection_checks())
+    salamander = _salamander_check()
+    if salamander is not None:
+        checks.append(salamander)
     return checks
 
 
@@ -51,6 +61,53 @@ def health_summary() -> str:
         return "warning"
     return "ok"
 
+
+
+def _geofiles_check() -> HealthCheck:
+    result = geofiles_health_status()
+    return HealthCheck(
+        name="GeoFiles Xray",
+        status=result["status"],
+        message=result["message"],
+    )
+
+
+def _tls_check() -> HealthCheck:
+    result = tls_health_status()
+    return HealthCheck(
+        name="Domain / HTTPS",
+        status=result["status"],
+        message=result["message"],
+    )
+
+
+def _mihomo_check() -> HealthCheck:
+    result = mihomo_health_status()
+    return HealthCheck(
+        name="Mihomo Multi-Protocol",
+        status=result["status"],
+        message=result["message"],
+    )
+
+
+def _salamander_check() -> HealthCheck | None:
+    result = salamander_diagnostics()
+    if result["mode"] != "salamander":
+        return None
+    if result["consistent"] and result["finalmask_udp_active"]:
+        return HealthCheck(
+            name="Hysteria2 Salamander",
+            status="ok",
+            message="FinalMask UDP active; password configured; client URI parameters present",
+        )
+    details = "; ".join(result["safe_lines"])
+    if result.get("live_config_error"):
+        details += f"; {result['live_config_error']}"
+    return HealthCheck(
+        name="Hysteria2 Salamander",
+        status="error",
+        message=details,
+    )
 
 def _hostd_check() -> HealthCheck:
     result = hostd_health()

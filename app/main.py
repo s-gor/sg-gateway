@@ -5,26 +5,61 @@ from pathlib import Path
 from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, send_file, url_for
 
 from app.clients.access import build_access_cards
-from app.clients.exports import build_awg_config, build_subscription, build_xray_link
-from app.clients.qr import build_qr_svg
+from app.clients.exports import (
+    build_awg_config,
+    build_mihomo_yaml,
+    build_mieru_link,
+    build_subscription,
+    build_xray_link,
+    is_export_ready,
+    build_protocol_export,
+    protocol_ready,
+)
+from app.clients.qr import ClientQrError, build_qr_svg
+from app.clients.runtime import ClientWorkflowError, apply_clients_runtime
 from app.clients.repository import (
     count_clients,
     create_client,
+    create_device,
     delete_client,
+    delete_device,
     get_client,
+    get_device,
+    get_primary_device,
     list_clients,
+    list_devices,
+    restore_client_snapshot,
     set_client_enabled,
+    set_device_enabled,
+    snapshot_client,
 )
 from app.config import load_config
+from app.connections.geoip_country import lookup_country_code
 from app.connections.service import list_connections
 from app.connections.settings import get_connection_settings, update_connection_settings
 from app.db import init_db
 from app.help.content import get_topic, list_topics
-from app.maintenance.backups import create_backup, get_backup, list_backups, restore_backup
+from app.maintenance.backups import (
+    confirm_restore_runtime,
+    create_backup,
+    get_backup,
+    list_backups,
+    restore_backup_transaction,
+    restore_safety_backup,
+)
 from app.maintenance.diagnostics import build_diagnostic_report, build_diagnostic_report_json
 from app.maintenance.health import collect_health_checks, health_summary
 from app.maintenance.operations import list_operations
 from app.maintenance.service import collect_diagnostics
+from app.maintenance.xray_updates import overview as xray_update_overview
+from app.routing.geofiles import (
+    GeoFilesError,
+    apply_candidate,
+    overview as geofiles_overview,
+    rollback_latest,
+    stage_pair,
+)
+from app.security.tls import overview as tls_overview
 from app.security.auth import (
     is_authenticated,
     login_user,
@@ -32,6 +67,45 @@ from app.security.auth import (
     should_skip_auth,
     verify_password,
 )
+from app.routing.warp import overview as warp_overview
+from app.routing.templates import (
+    RoutingTemplateError,
+    apply_candidate as apply_routing_template,
+    overview as routing_templates_overview,
+    rollback_latest as rollback_routing_template,
+    stage_template,
+    stage_smart_routing,
+)
+from app.security.tls import (
+    TlsError,
+    issue_certificate,
+    overview as security_tls_overview,
+    renew_certificate,
+    rollback_latest as rollback_tls,
+    stage_request as stage_tls_request,
+)
+from app.mihomo.service import (
+    MihomoError,
+    apply_candidate as apply_mihomo_candidate,
+    disable_client_deployment,
+    ensure_client_deployment,
+    overview as mihomo_overview,
+    restart_service as restart_mihomo_service,
+    rollback_latest as rollback_mihomo,
+    rotate_client_credentials,
+    save_settings as save_mihomo_settings,
+    test_candidate as test_mihomo_candidate,
+)
+from app.xray.profiles import (
+    XrayProfilesError,
+    new_salamander_password,
+    overview as xray_profiles_overview,
+    rollback_transaction as rollback_xray_settings_transaction,
+    salamander_secret,
+    save as save_xray_profiles,
+)
+from app.hostd.client import run_hostd_command
+from app.security.operation_jobs import read_job as read_operation_job
 from app.version import get_release_manifest, get_version
 
 
@@ -206,30 +280,25 @@ def _sg_gateway_status_label(status: str) -> str:
 
 
 def _sg_gateway_server_identity(config) -> dict:
+    address = config.public_address or config.host
+    configured_code = normalize_country_code(getattr(config, "country_code", "unknown"))
+    code = configured_code
     try:
         connections = list_connections()
-        selected = next(
-            (item for item in connections if normalize_country_code(item.country_code) != "unknown"),
-            connections[0] if connections else None,
-        )
+        selected = connections[0] if connections else None
         if selected is not None:
             settings = get_connection_settings(selected.name)
-            code = normalize_country_code(selected.country_code)
-            return {
-                "name": "SG-Gateway",
-                "address": settings.host or config.host,
-                "country_code": code,
-                "country_name": country_name(code),
-            }
+            address = settings.host or address
+        if code == "unknown":
+            code = lookup_country_code(address)
     except Exception:
         pass
     return {
-        "name": "SG-Gateway",
-        "address": config.host,
-        "country_code": "unknown",
-        "country_name": country_name("unknown"),
+        "name": getattr(config, "server_name", "SG-Gateway") or "SG-Gateway",
+        "address": address,
+        "country_code": normalize_country_code(code),
+        "country_name": country_name(code),
     }
-
 
 def _sg_gateway_system_context() -> dict:
     connections = list_connections()
@@ -327,6 +396,15 @@ def create_app() -> Flask:
             **_sg_gateway_system_context(),
         )
 
+    @app.get("/outbounds")
+    def outbounds():
+        return render_template(
+            "outbounds.html",
+            active_page="outbounds",
+            warp=warp_overview(),
+            custom_outbounds=[],
+        )
+
     @app.get("/routing")
     def routing():
         return render_template(
@@ -335,18 +413,178 @@ def create_app() -> Flask:
             connections=list_connections(),
             awg_settings=get_connection_settings("amneziawg"),
             xray_settings=get_connection_settings("xray"),
+            xray_profiles=xray_profiles_overview(),
+            geofiles=geofiles_overview(),
+            routing_templates=routing_templates_overview(),
+            warp=warp_overview(),
+            mihomo=mihomo_overview(),
+            client_total=count_clients(),
         )
+
+    def _warp_action(command: str, success_default: str):
+        result = run_hostd_command(
+            f"warp.{command}",
+            timeout=650 if command in {"install", "recreate"} else 260,
+        )
+        if result.status == "ok":
+            flash(result.message or success_default, "success")
+        else:
+            flash(f"WARP: {result.message or 'операция не выполнена'}", "error")
+        return redirect(url_for("outbounds") + "#warp")
+
+    @app.post("/outbounds/warp/create")
+    @app.post("/routing/warp/install")
+    def outbounds_warp_create():
+        return _warp_action("install", "WARP создан и зарегистрирован.")
+
+    @app.post("/outbounds/warp/enable")
+    @app.post("/routing/warp/enable")
+    def outbounds_warp_enable():
+        return _warp_action("enable", "WARP включён.")
+
+    @app.post("/outbounds/warp/disable")
+    @app.post("/routing/warp/disable")
+    def outbounds_warp_disable():
+        return _warp_action("disable", "WARP выключен.")
+
+    @app.post("/outbounds/warp/recreate")
+    @app.post("/routing/warp/recreate")
+    def outbounds_warp_recreate():
+        return _warp_action("recreate", "Реквизиты WARP пересозданы.")
+
+    @app.post("/outbounds/warp/remove")
+    @app.post("/routing/warp/remove")
+    def outbounds_warp_remove():
+        return _warp_action("remove", "WARP удалён.")
+
+    @app.post("/outbounds/warp/test")
+    @app.post("/routing/warp/test")
+    def outbounds_warp_test():
+        return _warp_action("test", "WARP успешно проверен.")
+
+    @app.get("/outbounds/warp/json")
+    def outbounds_warp_json():
+        result = run_hostd_command("warp.export_json", timeout=70)
+        document = result.payload.get("document") if result.status == "ok" else ""
+        if not isinstance(document, str) or not document.strip():
+            flash(f"WARP: {result.message or 'JSON недоступен'}", "error")
+            return redirect(url_for("outbounds") + "#warp")
+        return Response(
+            document,
+            mimetype="application/json",
+            headers={"Content-Disposition": "attachment; filename=sg-gateway-warp.json"},
+        )
+
+
+    @app.post("/routing/geofiles/check")
+    def geofiles_check():
+        source_id = request.form.get("source_id", "loyalsoldier")
+        geoip_file = request.files.get("geoip_file")
+        geosite_file = request.files.get("geosite_file")
+        try:
+            report = stage_pair(
+                source_id,
+                geoip_url=request.form.get("geoip_url", ""),
+                geosite_url=request.form.get("geosite_url", ""),
+                geoip_upload=geoip_file.stream if geoip_file and geoip_file.filename else None,
+                geosite_upload=(
+                    geosite_file.stream
+                    if geosite_file and geosite_file.filename
+                    else None
+                ),
+                local_geoip=request.form.get("local_geoip", ""),
+                local_geosite=request.form.get("local_geosite", ""),
+                block_ads=bool(request.form.get("roscom_block_ads")),
+                block_windows_telemetry=bool(request.form.get("roscom_block_windows")),
+                block_torrent=bool(request.form.get("roscom_block_torrent")),
+            )
+            flash(
+                (
+                    "GeoFiles проверены: "
+                    f"GeoIP {len(report.geoip.categories)} категорий, "
+                    f"GeoSite {len(report.geosite.categories)} категорий."
+                ),
+                "success",
+            )
+        except GeoFilesError as exc:
+            flash(f"GeoFiles не прошли проверку: {exc}", "error")
+        return redirect(url_for("routing") + "#geofiles")
+
+    @app.post("/routing/geofiles/apply")
+    def geofiles_apply():
+        try:
+            result = apply_candidate()
+            flash(str(result.get("message", "GeoFiles применены.")), "success")
+        except GeoFilesError as exc:
+            flash(f"GeoFiles не применены: {exc}", "error")
+        return redirect(url_for("routing") + "#geofiles")
+
+    @app.post("/routing/geofiles/rollback")
+    def geofiles_rollback():
+        try:
+            result = rollback_latest()
+            flash(str(result.get("message", "GeoFiles восстановлены.")), "success")
+        except GeoFilesError as exc:
+            flash(f"Откат GeoFiles не выполнен: {exc}", "error")
+        return redirect(url_for("routing") + "#geofiles")
+
+
+    @app.post("/routing/smart/preview")
+    def routing_smart_preview():
+        try:
+            preview = stage_smart_routing(request.form)
+            category = "success" if preview.get("ready") else "error"
+            flash(
+                f"Маршрутизация проверена: {preview['title']}. {preview['message']}",
+                category,
+            )
+        except (RoutingTemplateError, GeoFilesError, ValueError) as exc:
+            flash(f"Маршрутизация не подготовлена: {exc}", "error")
+        return redirect(url_for("routing") + "#routing")
+
+    @app.post("/routing/templates/preview")
+    def routing_template_preview():
+        try:
+            preview = stage_template(
+                request.form.get("template_id", ""),
+                request.form.get("mode", "replace_managed"),
+            )
+            flash(
+                f"Routing candidate подготовлен: {preview['title']}.",
+                "success",
+            )
+        except (RoutingTemplateError, GeoFilesError) as exc:
+            flash(f"Routing template не подготовлен: {exc}", "error")
+        return redirect(url_for("routing") + "#routing-templates")
+
+    @app.post("/routing/templates/apply")
+    def routing_template_apply():
+        try:
+            result = apply_routing_template()
+            flash(str(result.get("message", "Routing fragment применён.")), "success")
+        except RoutingTemplateError as exc:
+            flash(f"Routing fragment не применён: {exc}", "error")
+        return redirect(url_for("routing") + "#routing-templates")
+
+    @app.post("/routing/templates/rollback")
+    def routing_template_rollback():
+        try:
+            result = rollback_routing_template()
+            flash(str(result.get("message", "Routing fragment восстановлен.")), "success")
+        except RoutingTemplateError as exc:
+            flash(f"Откат Routing fragment не выполнен: {exc}", "error")
+        return redirect(url_for("routing") + "#routing-templates")
 
     @app.get("/security")
     def security():
-        network_accessible = config.host not in {"127.0.0.1", "localhost", "::1"}
-        default_password = config.admin_password == "admin"
+        network_accessible = bool(config.public_address) or config.host not in {"127.0.0.1", "localhost", "::1"}
+        default_password = not config.admin_password_hash and config.admin_password == "admin"
         return render_template(
             "security.html",
             active_page="security",
             security={
-                "host": config.host,
-                "port": config.port,
+                "host": config.public_address or config.host,
+                "port": config.public_port,
                 "environment": config.environment,
                 "network_accessible": network_accessible,
                 "default_password": default_password,
@@ -361,35 +599,165 @@ def create_app() -> Flask:
                     else "Настроен пользовательский пароль администратора."
                 ),
             },
+        tls=security_tls_overview(),
         )
+
+
+    @app.post("/security/tls/check")
+    def security_tls_check():
+        try:
+            result = stage_tls_request(
+                request.form.get("domain", ""),
+                request.form.get("email", ""),
+            )
+            flash(result["dns"]["message"], "success" if result["dns"]["ok"] else "error")
+        except TlsError as exc:
+            flash(f"Проверка домена не выполнена: {exc}", "error")
+        return redirect(url_for("security"))
+
+    @app.post("/security/tls/issue")
+    def security_tls_issue():
+        result = run_hostd_command("tls.issue.start", timeout=20)
+        if result.status != "ok":
+            flash(f"HTTPS-задача не запущена: {result.message}", "error")
+            return redirect(url_for("security"))
+        return redirect(url_for("operation_job", job_id=str(result.payload.get("job_id") or "")))
+
+    @app.get("/operations/<job_id>")
+    def operation_job(job_id: str):
+        try:
+            job = read_operation_job(job_id)
+        except FileNotFoundError:
+            abort(404)
+        kind = str(job.get("kind") or "")
+        if kind == "tls_issue":
+            active = "security"
+        elif kind.startswith("xray_update_"):
+            active = "maintenance"
+        else:
+            active = "connections"
+        return render_template("operation_job.html", active_page=active, job=job)
+
+    @app.get("/operations/<job_id>/status")
+    def operation_job_status(job_id: str):
+        try:
+            job = read_operation_job(job_id)
+        except FileNotFoundError:
+            abort(404)
+        return jsonify(job)
+
+    @app.post("/connections/xray/apply")
+    def xray_apply_start():
+        result = run_hostd_command("xray.apply.start", timeout=20)
+        if result.status != "ok":
+            flash(f"Xray-задача не запущена: {result.message}", "error")
+            return redirect(url_for("connections") + "#xray-profiles")
+        return redirect(url_for("operation_job", job_id=str(result.payload.get("job_id") or "")))
+
+    @app.post("/connections/xray/test")
+    def xray_runtime_test():
+        result = run_hostd_command("xray.test", timeout=120)
+        flash(result.message or "Xray test завершён", "success" if result.status == "ok" else "error")
+        return redirect(url_for("connections") + "#xray-profiles")
+
+    @app.post("/connections/xray/rollback")
+    def xray_runtime_rollback():
+        result = run_hostd_command("xray.rollback", timeout=120)
+        flash(result.message or "Xray rollback завершён", "success" if result.status == "ok" else "error")
+        return redirect(url_for("connections") + "#xray-profiles")
+
+    @app.post("/security/tls/renew")
+    def security_tls_renew():
+        try:
+            result = renew_certificate()
+            flash(str(result.get("message", "Сертификат проверен.")), "success")
+        except TlsError as exc:
+            flash(f"Сертификат не обновлён: {exc}", "error")
+        return redirect(url_for("security"))
+
+    @app.post("/security/tls/rollback")
+    def security_tls_rollback():
+        try:
+            result = rollback_tls()
+            flash(str(result.get("message", "HTTPS-конфигурация восстановлена.")), "success")
+        except TlsError as exc:
+            flash(f"Откат HTTPS не выполнен: {exc}", "error")
+        return redirect(url_for("security"))
 
     @app.get("/clients")
     def clients():
-        return render_template("clients.html", active_page="clients", clients=list_clients())
+        return render_template(
+            "clients.html",
+            active_page="clients",
+            clients=list_clients(),
+            xray_profiles=xray_profiles_overview(),
+            tls=security_tls_overview(),
+        )
 
     @app.post("/clients")
     def add_client():
-        client_id = create_client(
-            name=request.form.get("name", ""),
-            access=request.form.get("access", "recommended"),
-            expires_at=request.form.get("expires_at") or None,
-        )
-        if client_id:
-            flash("Клиент создан.", "success")
-            return redirect(url_for("client_detail", client_id=client_id))
-        flash("Клиент не создан. Имя должно быть уникальным и содержать не более 80 символов.", "error")
-        return redirect(url_for("clients"))
+        protocols = request.form.getlist("protocols")
+        access = ",".join(protocols)
+        try:
+            client_id = create_client(
+                name=request.form.get("name", ""),
+                access=access,
+                expires_at=request.form.get("expires_at") or None,
+            )
+        except Exception as exc:
+            flash(f"Клиент не создан: не удалось подготовить реквизиты доступа. {exc}", "error")
+            return redirect(url_for("clients"))
+        if not client_id:
+            flash(
+                "Клиент не создан. Имя должно быть уникальным, "
+                "а минимум один протокол должен быть выбран.",
+                "error",
+            )
+            return redirect(url_for("clients"))
+
+        try:
+            result = apply_clients_runtime()
+            flash(
+                str(result.get("message") or "Клиент создан и применён."),
+                "success",
+            )
+        except ClientWorkflowError as exc:
+            # Creation is atomic from the user's point of view. A client whose
+            # candidate runtime failed must not remain as a misleading active
+            # database record. Remove it and re-apply the previous catalogue.
+            delete_client(client_id)
+            restore_note = ""
+            try:
+                apply_clients_runtime()
+                restore_note = " Предыдущий runtime восстановлен."
+            except ClientWorkflowError as restore_exc:
+                restore_note = f" Восстановление runtime: {restore_exc}"
+            flash(
+                f"Клиент не создан: конфигурация не прошла проверку. {exc}."
+                f" Запись клиента удалена.{restore_note}",
+                "error",
+            )
+            return redirect(url_for("clients"))
+        return redirect(url_for("client_detail", client_id=client_id))
 
     @app.get("/clients/<int:client_id>")
     def client_detail(client_id: int):
         client = get_client(client_id)
         if client is None:
             abort(404)
+        devices = list_devices(client_id)
+        device_views = [
+            {"device": device, "access_cards": build_access_cards(client, device)}
+            for device in devices
+        ]
         return render_template(
             "client_detail.html",
             active_page="clients",
             client=client,
-            access_cards=build_access_cards(client),
+            devices=devices,
+            device_views=device_views,
+            xray_profiles=xray_profiles_overview(),
+            tls=security_tls_overview(),
         )
 
     def _build_export(client_id: int, kind: str):
@@ -400,6 +768,8 @@ def create_app() -> Flask:
         builders = {
             "amneziawg": build_awg_config,
             "xray": build_xray_link,
+            "mihomo": build_mihomo_yaml,
+            "mieru": build_mieru_link,
             "subscription": build_subscription,
         }
         builder = builders.get(kind)
@@ -420,25 +790,232 @@ def create_app() -> Flask:
     @app.get("/clients/<int:client_id>/qr/<kind>")
     def client_access_qr(client_id: int, kind: str):
         export = _build_export(client_id, kind)
-        return Response(build_qr_svg(export.body), mimetype="image/svg+xml")
+        try:
+            svg = build_qr_svg(export.body)
+        except ClientQrError as exc:
+            return Response(str(exc), status=409, mimetype="text/plain")
+        return Response(svg, mimetype="image/svg+xml")
+
+    @app.post("/clients/apply")
+    def apply_clients():
+        return_client_id = request.form.get("return_client_id", type=int)
+        try:
+            result = apply_clients_runtime()
+            flash(
+                str(result.get("message") or "Конфигурации применены."),
+                "success",
+            )
+        except ClientWorkflowError as exc:
+            flash(f"Применение конфигураций: {exc}", "error")
+
+        if return_client_id:
+            return redirect(
+                url_for("client_detail", client_id=return_client_id)
+            )
+        return redirect(url_for("clients"))
+
+    def _rollback_client_change(snapshot, reason: Exception) -> str:
+        if snapshot is None:
+            return f"Откат невозможен: исходное состояние не найдено. {reason}"
+        try:
+            restore_client_snapshot(snapshot)
+        except Exception as restore_exc:
+            return f"Ошибка runtime: {reason}. База не восстановлена: {restore_exc}"
+        try:
+            apply_clients_runtime()
+        except ClientWorkflowError as runtime_exc:
+            return (
+                f"Ошибка runtime: {reason}. Состояние клиента возвращено, "
+                f"но повторное применение прежнего runtime не прошло: {runtime_exc}"
+            )
+        return f"Ошибка runtime: {reason}. Изменение отменено, прежний доступ восстановлен."
 
     @app.post("/clients/<int:client_id>/enable")
     def enable_client(client_id: int):
-        if not set_client_enabled(client_id, True):
+        snapshot = snapshot_client(client_id)
+        if snapshot is None or not set_client_enabled(client_id, True):
             abort(404)
+        try:
+            apply_clients_runtime()
+            flash("Клиент включён и применён на сервере.", "success")
+        except ClientWorkflowError as exc:
+            flash(_rollback_client_change(snapshot, exc), "error")
         return redirect(request.referrer or url_for("clients"))
 
     @app.post("/clients/<int:client_id>/disable")
     def disable_client(client_id: int):
-        if not set_client_enabled(client_id, False):
+        snapshot = snapshot_client(client_id)
+        if snapshot is None or not set_client_enabled(client_id, False):
             abort(404)
+        try:
+            apply_clients_runtime()
+            flash("Клиент отключён и удалён из runtime.", "success")
+        except ClientWorkflowError as exc:
+            flash(_rollback_client_change(snapshot, exc), "error")
         return redirect(request.referrer or url_for("clients"))
 
     @app.post("/clients/<int:client_id>/delete")
     def remove_client(client_id: int):
-        if not delete_client(client_id):
+        snapshot = snapshot_client(client_id)
+        if snapshot is None or not delete_client(client_id):
             abort(404)
+        try:
+            apply_clients_runtime()
+            flash("Клиент удалён; runtime обновлён.", "success")
+        except ClientWorkflowError as exc:
+            flash(_rollback_client_change(snapshot, exc), "error")
         return redirect(url_for("clients"))
+
+
+    @app.get("/clients/<int:client_id>/protocols/<kind>")
+    def protocol_export(client_id: int, kind: str):
+        client = get_client(client_id)
+        if client is None:
+            abort(404)
+        if not protocol_ready(client, kind):
+            abort(409)
+        export = build_protocol_export(client, kind)
+        if not export.body:
+            abort(409)
+        return Response(
+            export.body,
+            mimetype=export.media_type,
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="{export.filename}"'
+                )
+            },
+        )
+
+    @app.get("/clients/<int:client_id>/protocols/<kind>/qr")
+    def protocol_qr(client_id: int, kind: str):
+        client = get_client(client_id)
+        if client is None:
+            abort(404)
+        if not protocol_ready(client, kind):
+            abort(409)
+        export = build_protocol_export(client, kind)
+        if not export.body:
+            abort(409)
+        try:
+            svg = build_qr_svg(export.body)
+        except ClientQrError as exc:
+            return Response(str(exc), status=409, mimetype="text/plain")
+        return Response(svg, mimetype="image/svg+xml")
+
+    @app.post("/clients/<int:client_id>/devices")
+    def add_device(client_id: int):
+        client = get_client(client_id)
+        if client is None:
+            abort(404)
+        snapshot = snapshot_client(client_id)
+        protocols = request.form.getlist("protocols")
+        access = ",".join(protocols)
+        try:
+            device_id = create_device(
+                client_id,
+                request.form.get("name", ""),
+                access,
+                request.form.get("expires_at") or None,
+            )
+        except Exception as exc:
+            flash(f"Доступ не создан: не удалось подготовить отдельные реквизиты. {exc}", "error")
+            return redirect(url_for("client_detail", client_id=client_id))
+        if not device_id:
+            flash(
+                "Доступ не создан. Укажите уникальное имя устройства и выберите хотя бы один канал.",
+                "error",
+            )
+            return redirect(url_for("client_detail", client_id=client_id))
+        try:
+            result = apply_clients_runtime()
+            flash(
+                str(result.get("message") or "Новый доступ создан и применён."),
+                "success",
+            )
+        except ClientWorkflowError as exc:
+            flash(_rollback_client_change(snapshot, exc), "error")
+        return redirect(url_for("client_detail", client_id=client_id) + f"#device-{device_id}")
+
+    @app.post("/clients/<int:client_id>/devices/<int:device_id>/enable")
+    def enable_device(client_id: int, device_id: int):
+        if get_device(device_id, client_id) is None:
+            abort(404)
+        snapshot = snapshot_client(client_id)
+        if snapshot is None or not set_device_enabled(device_id, True):
+            abort(404)
+        try:
+            apply_clients_runtime()
+            flash("Доступ включён независимо от остальных устройств.", "success")
+        except ClientWorkflowError as exc:
+            flash(_rollback_client_change(snapshot, exc), "error")
+        return redirect(url_for("client_detail", client_id=client_id) + f"#device-{device_id}")
+
+    @app.post("/clients/<int:client_id>/devices/<int:device_id>/disable")
+    def disable_device(client_id: int, device_id: int):
+        if get_device(device_id, client_id) is None:
+            abort(404)
+        snapshot = snapshot_client(client_id)
+        if snapshot is None or not set_device_enabled(device_id, False):
+            abort(404)
+        try:
+            apply_clients_runtime()
+            flash("Отключён только выбранный доступ. Остальные устройства продолжают работать.", "success")
+        except ClientWorkflowError as exc:
+            flash(_rollback_client_change(snapshot, exc), "error")
+        return redirect(url_for("client_detail", client_id=client_id) + f"#device-{device_id}")
+
+    @app.post("/clients/<int:client_id>/devices/<int:device_id>/delete")
+    def remove_device(client_id: int, device_id: int):
+        device = get_device(device_id, client_id)
+        if device is None:
+            abort(404)
+        if device.is_primary:
+            flash("Основной доступ нельзя удалить отдельно. Можно отключить его или удалить клиента.", "error")
+            return redirect(url_for("client_detail", client_id=client_id))
+        snapshot = snapshot_client(client_id)
+        if snapshot is None or not delete_device(device_id):
+            abort(404)
+        try:
+            apply_clients_runtime()
+            flash("Дополнительный доступ удалён; остальные устройства не изменены.", "success")
+        except ClientWorkflowError as exc:
+            flash(_rollback_client_change(snapshot, exc), "error")
+        return redirect(url_for("client_detail", client_id=client_id))
+
+    @app.get("/clients/<int:client_id>/devices/<int:device_id>/protocols/<kind>")
+    def device_protocol_export(client_id: int, device_id: int, kind: str):
+        client = get_client(client_id)
+        device = get_device(device_id, client_id)
+        if client is None or device is None:
+            abort(404)
+        if not protocol_ready(client, kind, device):
+            abort(409)
+        export = build_protocol_export(client, kind, device)
+        if not export.body:
+            abort(409)
+        return Response(
+            export.body,
+            mimetype=export.media_type,
+            headers={"Content-Disposition": f'attachment; filename="{export.filename}"'},
+        )
+
+    @app.get("/clients/<int:client_id>/devices/<int:device_id>/protocols/<kind>/qr")
+    def device_protocol_qr(client_id: int, device_id: int, kind: str):
+        client = get_client(client_id)
+        device = get_device(device_id, client_id)
+        if client is None or device is None:
+            abort(404)
+        if not protocol_ready(client, kind, device):
+            abort(409)
+        export = build_protocol_export(client, kind, device)
+        if not export.body:
+            abort(409)
+        try:
+            svg = build_qr_svg(export.body)
+        except ClientQrError as exc:
+            return Response(str(exc), status=409, mimetype="text/plain")
+        return Response(svg, mimetype="image/svg+xml")
 
     @app.get("/connections")
     def connections():
@@ -448,6 +1025,9 @@ def create_app() -> Flask:
             connections=list_connections(),
             awg_settings=get_connection_settings("amneziawg"),
             xray_settings=get_connection_settings("xray"),
+            xray_profiles=xray_profiles_overview(),
+            mihomo=mihomo_overview(),
+            client_total=count_clients(),
         )
 
     @app.post("/connections/amneziawg")
@@ -499,17 +1079,154 @@ def create_app() -> Flask:
         flash("Настройки Xray сохранены." if updated else "Настройки Xray не применены. Проверьте адрес и порт.", "success" if updated else "error")
         return redirect(url_for("connections"))
 
+
+
+    @app.post("/connections/xray/profiles")
+    def update_xray_profiles():
+        action = request.form.get("action", "save")
+        transaction_id: int | None = None
+        try:
+            result = save_xray_profiles(request.form, transactional=True)
+            transaction_id = int(result.get("transaction_id") or 0) or None
+        except XrayProfilesError as exc:
+            flash(f"Xray-профили не сохранены: {exc}", "error")
+            return redirect(url_for("connections") + "#xray-profiles")
+
+        if action == "test":
+            runtime = run_hostd_command("xray.test", timeout=120)
+            if transaction_id is not None:
+                rollback_xray_settings_transaction(
+                    transaction_id, status="rolled_back_after_candidate_test"
+                )
+            flash(
+                (runtime.message or "Xray candidate проверен.")
+                + " Изменения не применялись.",
+                "success" if runtime.status == "ok" else "error",
+            )
+            return redirect(url_for("connections") + "#xray-profiles")
+
+        if action == "apply":
+            runtime = run_hostd_command("xray.apply.start", timeout=20)
+            if runtime.status != "ok":
+                if transaction_id is not None:
+                    rollback_xray_settings_transaction(
+                        transaction_id, status="rolled_back_job_start_error"
+                    )
+                flash(f"Xray-задача не запущена: {runtime.message}", "error")
+                return redirect(url_for("connections") + "#xray-profiles")
+            return redirect(
+                url_for(
+                    "operation_job",
+                    job_id=str(runtime.payload.get("job_id") or ""),
+                )
+            )
+
+        if transaction_id is not None:
+            rollback_xray_settings_transaction(
+                transaction_id, status="rolled_back_without_apply"
+            )
+        flash("Для изменения Xray используйте «Сохранить и применить».", "warning")
+        return redirect(url_for("connections") + "#xray-profiles")
+
+    @app.post("/connections/xray/hysteria2/salamander/generate")
+    def generate_hysteria2_salamander_password():
+        return jsonify({"ok": True, "password": new_salamander_password()})
+
+    @app.post("/connections/xray/hysteria2/salamander/secret")
+    def reveal_hysteria2_salamander_password():
+        try:
+            secret = salamander_secret()
+        except XrayProfilesError as exc:
+            return jsonify({"ok": False, "message": str(exc)}), 404
+        return jsonify({"ok": True, "password": secret})
+
+    @app.post("/connections/mihomo")
+    def update_mihomo():
+        if not save_mihomo_settings(request.form):
+            flash("Настройки Mihomo не сохранены.", "error")
+            return redirect(url_for("connections") + "#mihomo")
+        action = request.form.get("action", "save")
+        try:
+            if action == "test":
+                result = test_mihomo_candidate()
+                flash(str(result.get("message", "Candidate проверен.")), "success")
+            elif action == "apply":
+                result = apply_mihomo_candidate()
+                flash(str(result.get("message", "Mihomo применён.")), "success")
+            elif action == "restart":
+                result = restart_mihomo_service()
+                flash(str(result.get("message", "Mihomo перезапущен.")), "success")
+            elif action == "rollback":
+                result = rollback_mihomo()
+                flash(str(result.get("message", "Mihomo восстановлен.")), "success")
+            else:
+                flash("Настройки Mihomo сохранены.", "success")
+        except MihomoError as exc:
+            flash(f"Mihomo: {exc}", "error")
+        return redirect(url_for("connections") + "#mihomo")
+
+    @app.post("/clients/<int:client_id>/mihomo/enable")
+    def enable_client_mihomo(client_id: int):
+        if not ensure_client_deployment(client_id):
+            abort(404)
+        try:
+            result = apply_mihomo_candidate()
+            flash(str(result.get("message", "Mihomo-доступ включён.")), "success")
+        except MihomoError as exc:
+            flash(f"Credentials созданы, runtime пока не применён: {exc}", "error")
+        return redirect(url_for("client_detail", client_id=client_id))
+
+    @app.post("/clients/<int:client_id>/mihomo/disable")
+    def disable_client_mihomo(client_id: int):
+        if not disable_client_deployment(client_id):
+            abort(404)
+        try:
+            result = apply_mihomo_candidate()
+            flash(str(result.get("message", "Mihomo-доступ отключён.")), "success")
+        except MihomoError as exc:
+            flash(f"Доступ отключён в базе, runtime: {exc}", "error")
+        return redirect(url_for("client_detail", client_id=client_id))
+
+    @app.post("/clients/<int:client_id>/mihomo/rotate")
+    def rotate_client_mihomo(client_id: int):
+        if not rotate_client_credentials(client_id):
+            abort(404)
+        try:
+            result = apply_mihomo_candidate()
+            flash(str(result.get("message", "Credentials перевыпущены.")), "success")
+        except MihomoError as exc:
+            flash(f"Credentials перевыпущены, runtime: {exc}", "error")
+        return redirect(url_for("client_detail", client_id=client_id))
+
     @app.get("/maintenance")
     def maintenance():
+        tab = request.args.get("tab", "backups").strip().lower()
+        if tab not in {"backups", "updates"}:
+            tab = "backups"
+        updates = None
+        if tab == "updates":
+            updates = xray_update_overview(refresh=request.args.get("refresh") == "1")
         return render_template(
             "maintenance.html",
             active_page="maintenance",
+            active_tab=tab,
+            xray_updates=updates,
             diagnostics=collect_diagnostics(),
             health_checks=collect_health_checks(),
             backups=list_backups(),
             operations=list_operations(),
             release=get_release_manifest(),
         )
+
+    @app.post("/maintenance/xray/update/<channel>")
+    def xray_update_start(channel: str):
+        if channel not in {"stable", "prerelease"}:
+            abort(404)
+        result = run_hostd_command(f"xray.update.{channel}.start", timeout=20)
+        if result.status != "ok":
+            flash(f"Обновление Xray не запущено: {result.message}", "error")
+            return redirect(url_for("maintenance", tab="updates"))
+        return redirect(url_for("operation_job", job_id=str(result.payload.get("job_id") or "")))
 
     @app.post("/maintenance/backups")
     def create_backup_route():
@@ -519,10 +1236,37 @@ def create_app() -> Flask:
 
     @app.post("/maintenance/backups/<name>/restore")
     def restore_backup_route(name: str):
-        if not restore_backup(name):
-            flash("Резервная копия не найдена.", "error")
+        restored = restore_backup_transaction(name)
+        if not restored.ok or restored.backup is None:
+            flash(restored.message, "error")
             return redirect(url_for("maintenance"))
-        flash(f"Резервная копия восстановлена: {name}", "success")
+
+        runtime = run_hostd_command("xray.restore.apply", timeout=180)
+        if runtime.status != "ok":
+            rollback_ok = restore_safety_backup(restored.safety_backup)
+            recovery = (
+                run_hostd_command("xray.restore.apply", timeout=180)
+                if rollback_ok
+                else None
+            )
+            recovery_note = (
+                " Прежняя база и Xray восстановлены."
+                if recovery is not None and recovery.status == "ok"
+                else " Автоматическое восстановление прежнего runtime требует проверки."
+            )
+            flash(
+                "Restore отменён: восстановленный Xray candidate не применился. "
+                + runtime.message
+                + recovery_note,
+                "error",
+            )
+            return redirect(url_for("maintenance"))
+
+        confirm_restore_runtime(restored.backup.name)
+        flash(
+            f"Резервная копия восстановлена и Xray проверен: {restored.backup.name}",
+            "success",
+        )
         return redirect(url_for("maintenance"))
 
     @app.get("/maintenance/backups/<name>/download")
@@ -573,15 +1317,18 @@ def create_app() -> Flask:
 
     @app.get("/health")
     def health():
-        report = build_diagnostic_report()
-        status_code = 200 if report["health"] in {"ok", "warning"} else 503
+        # Liveness endpoint used by systemd/Nginx and the installer.
+        # Optional engines (Mihomo, AWG, TLS, GeoFiles) are intentionally not
+        # part of liveness: a panel can be healthy while those features are
+        # unconfigured or stopped. Full diagnostics remain available through
+        # /api/status and Maintenance.
         return jsonify(
             {
                 "service": "sg-gateway-panel",
                 "version": get_version(),
-                "status": report["health"],
+                "status": "ok",
             }
-        ), status_code
+        ), 200
 
     return app
 

@@ -1,38 +1,29 @@
-# Install
+# Installation
 
-SG-Gateway is Docker-first, with a small host helper.
+Use a fresh Ubuntu server. From a checked-out SG-Gateway repository:
 
-## Dry Run
-
-```sh
-./deploy/install.sh
+```bash
+chmod +x install.sh
+sudo ./install.sh
 ```
 
-The dry run prints every action without changing the host.
+The current production installer is the root-level `install.sh`. It installs a
+native systemd runtime and does not use Docker.
 
-## Real Install
+Important defaults in 021:
 
-```sh
-SG_GATEWAY_DRY_RUN=0 ./deploy/install.sh
-```
+- panel HTTPS port: `63443`;
+- Xray Reality TCP port: `443`;
+- AmneziaWG: fixed UDP `585`;
+- XHTTP Reality: `8444`;
+- XHTTP TLS: `8445`;
+- Hysteria 2: `8446`.
 
-## Default Paths
+The installer writes its protected log to:
 
 ```text
-/opt/sg-gateway
-/var/lib/sg-gateway
-/var/log/sg-gateway
+/var/log/sg-gateway-installer-021.log
 ```
 
-## Services
-
-- `sg-gateway-panel`: Dockerized web panel.
-- `sg-hostd`: local host helper, bound to `127.0.0.1:8090`.
-- `sg-gateway-xray`: separate Xray runtime.
-
-## Safety
-
-- The panel does not mount Docker socket.
-- The panel does not execute shell commands.
-- Host operations must go through allow-listed `sg-hostd` commands.
-- Installer dry-run is the default.
+Do not publish that log without reviewing it, even though the installer applies
+credential redaction.

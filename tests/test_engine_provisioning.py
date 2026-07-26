@@ -1,3 +1,6 @@
+import shutil
+
+import pytest
 import json
 import uuid
 
@@ -13,6 +16,8 @@ def test_xray_provisioning_generates_uuid():
 
 
 def test_amneziawg_provisioning_generates_keys():
+    if shutil.which("awg") is None:
+        pytest.skip("awg binary is not installed in the source-test container")
     object_id, config_json = build_engine_config("amneziawg", 7, "Irina")
     payload = json.loads(config_json)
 

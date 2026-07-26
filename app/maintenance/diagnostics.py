@@ -12,7 +12,12 @@ from app.hostd.client import hostd_health
 from app.maintenance.backups import list_backups
 from app.maintenance.health import collect_health_checks, health_summary
 from app.maintenance.operations import list_operations, log_operation
+from app.mihomo.service import overview as mihomo_overview
+from app.routing.templates import overview as routing_templates_overview
+from app.security.tls import overview as security_tls_overview
+from app.routing.geofiles import overview as geofiles_overview
 from app.version import get_release_manifest, get_version
+from app.xray.salamander_diagnostics import inspect as salamander_diagnostics
 
 
 def build_diagnostic_report() -> dict:
@@ -26,6 +31,7 @@ def build_diagnostic_report() -> dict:
     last_error = error_operations[0] if error_operations else None
     health_checks = collect_health_checks()
     hostd = hostd_health()
+    hysteria2_salamander = salamander_diagnostics()
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -33,6 +39,11 @@ def build_diagnostic_report() -> dict:
         "version": get_version(),
         "release": get_release_manifest(),
         "environment": config.environment,
+        "server": {
+            "name": config.server_name,
+            "public_address": config.public_address,
+            "country_code": config.country_code,
+        },
         "health": health_summary(),
         "hostd": {
             "url": config.hostd_url,
@@ -75,6 +86,11 @@ def build_diagnostic_report() -> dict:
             }
             for item in health_checks
         ],
+        "geofiles": geofiles_overview(),
+        "routing_templates": routing_templates_overview(),
+        "tls": security_tls_overview(),
+        "mihomo": mihomo_overview(),
+        "hysteria2_salamander": hysteria2_salamander,
         "connections": [
             {
                 "name": item.name,

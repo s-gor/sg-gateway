@@ -1,150 +1,525 @@
 {% extends "base.html" %}
+{% block title %}SG-Gateway · Maintenance{% endblock %}
 
-{% block title %}SG-Gateway · Обслуживание{% endblock %}
+{% block head %}
+  {{ super() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='sg-maintenance-v2.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='sg-maintenance-updates-v31.css') }}">
+{% endblock %}
 
 {% block content %}
-  <header class="topbar">
+{% set ns = namespace(ok=0, idle=0, warning=0, error=0) %}
+{% for check in health_checks %}
+  {% if check.status == 'ok' %}{% set ns.ok = ns.ok + 1 %}{% endif %}
+  {% if check.status == 'idle' %}{% set ns.idle = ns.idle + 1 %}{% endif %}
+  {% if check.status == 'warning' %}{% set ns.warning = ns.warning + 1 %}{% endif %}
+  {% if check.status == 'error' %}{% set ns.error = ns.error + 1 %}{% endif %}
+{% endfor %}
+{% set issues = ns.warning + ns.error %}
+{% set overall = 'error' if ns.error else ('warning' if ns.warning else 'ok') %}
+{% set overall_label = {'ok':'В норме', 'warning':'Требует внимания', 'error':'Есть ошибки'}[overall] %}
+{% set operation_titles = {
+  'connection.update': 'Обновлены настройки подключения',
+  'backup.create': 'Создана резервная копия',
+  'backup.restore': 'Восстановлена резервная копия',
+  'diagnostics.download': 'Скачана диагностика',
+  'client.create': 'Создан клиент',
+  'client.enable': 'Клиент включён',
+  'client.disable': 'Клиент отключён',
+  'client.delete': 'Клиент удалён',
+  'mihomo.client.enable': 'Добавлен Mihomo-доступ',
+  'mihomo.client.disable': 'Mihomo-доступ отключён',
+  'mihomo.client.rotate': 'Mihomo-доступ перевыпущен',
+  'mihomo.apply': 'Применена конфигурация Mihomo',
+  'mihomo.restart': 'Mihomo перезапущен',
+  'mihomo.rollback': 'Mihomo восстановлен',
+  'xray.update': 'Обновлён Xray Core'
+} %}
+{% set health_titles = {
+  'Mihomo Multi-Protocol': 'Mihomo',
+  'Domain / HTTPS': 'Домен и HTTPS',
+  'GeoFiles Xray': 'GeoFiles Xray'
+} %}
+
+<section class="mtv2-page">
+  <header class="mtv2-heading">
     <div>
-      <h1>Обслуживание</h1>
-      <p>Резервные копии, проверки состояния, диагностика и история операций SG-Gateway.</p>
+      <div class="mtv2-kicker"><span></span> SG-GATEWAY / MAINTENANCE</div>
+      <h1>Maintenance</h1>
+      <p>{{ 'Безопасное обновление Xray Core с проверкой и автоматическим откатом.' if active_tab == 'updates' else 'Резервные копии, диагностика, проверки состояния и журнал операций.' }}</p>
     </div>
-    <div class="topbar-actions">
-      <a class="button" href="/api/version">Версия</a>
-      <a class="button" href="/api/status">Статус JSON</a>
-      <a class="button" href="/maintenance/diagnostics.json">Скачать диагностику</a>
-      <form method="post" action="/maintenance/backups">
-        <button class="button primary" type="submit">Создать резервную копию</button>
+
+    {% if active_tab == 'backups' %}
+    <div class="mtv2-heading-actions">
+      <form method="post" action="{{ url_for('create_backup_route') }}">
+        <button class="button primary sg-ljd-key-action" type="submit">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v12M7 10l5 5 5-5"/>
+            <path d="M5 19h14"/>
+          </svg>
+          Создать копию
+        </button>
       </form>
+      <a class="button" href="{{ url_for('download_diagnostics') }}">Скачать диагностику</a>
     </div>
+    {% else %}
+    <div class="mtv2-heading-actions">
+      <a class="button primary sg-ljd-key-action" href="{{ url_for('maintenance', tab='updates', refresh=1) }}">Проверить Xray</a>
+    </div>
+    {% endif %}
   </header>
 
-  <section class="status-grid">
-    {% for item in diagnostics %}
-      <article class="status-card">
-        <div class="status-dot {{ item.state }}"></div>
-        <div>
-          <div class="status-label">{{ item.label }}</div>
-          <div class="status-value compact">{{ item.value }}</div>
+  <nav class="mtv31-tabs" aria-label="Разделы Maintenance">
+    <a class="{{ 'is-active' if active_tab == 'backups' else '' }}" href="{{ url_for('maintenance', tab='backups') }}">Backups</a>
+    <a class="{{ 'is-active' if active_tab == 'updates' else '' }}" href="{{ url_for('maintenance', tab='updates') }}">Updates</a>
+  </nav>
+
+  {% if active_tab == 'updates' %}
+  <section class="mtv31-update-summary sg-ljd-strip">
+    <article>
+      <span>SG-GATEWAY</span>
+      <strong>{{ release.version }}</strong>
+      <small>Установленная версия панели</small>
+    </article>
+    <article>
+      <span>XRAY CORE</span>
+      <strong>{{ 'v' ~ xray_updates.installed if xray_updates and xray_updates.installed else 'Не найден' }}</strong>
+      <small>Установленный серверный движок</small>
+    </article>
+    <article>
+      <span>МИНИМАЛЬНАЯ ВЕРСИЯ</span>
+      <strong>v{{ xray_updates.minimum if xray_updates else '26.6.27' }}</strong>
+      <small>Ниже этой версии XHTTP + Encryption не поддерживается</small>
+    </article>
+    <article>
+      <span>ЗАЩИТА ОБНОВЛЕНИЙ</span>
+      <strong>Автоматический откат</strong>
+      <small>Бинарник Xray обновляется отдельно от базы и конфигурации</small>
+    </article>
+  </section>
+
+  <article class="mtv2-panel mtv31-xray-update-panel sg-ljd-card-large">
+    <header class="mtv2-panel-head">
+      <div>
+        <div class="mtv2-card-kicker">XRAY CORE</div>
+        <h2>Обновление серверного Xray</h2>
+        <p>Скачивается только официальный бинарник Xray. База SG-Gateway, клиенты, ссылки, конфигурация, HTTPS и сертификаты не изменяются.</p>
+      </div>
+      <span class="mtv31-update-badge">БЕЗОПАСНОЕ ОБНОВЛЕНИЕ</span>
+    </header>
+
+    {% if xray_updates and xray_updates.error %}
+    <div class="mtv31-update-error sg-ljd-nested">
+      <strong>Проверка релизов не выполнена</strong>
+      <span>{{ xray_updates.error }}</span>
+      <a class="button" href="{{ url_for('maintenance', tab='updates', refresh=1) }}">Повторить</a>
+    </div>
+    {% endif %}
+
+    <div class="mtv31-channel-grid">
+      {% set stable = xray_updates.stable if xray_updates else none %}
+      <section class="mtv31-channel-card stable">
+        <div class="mtv31-channel-head">
+          <div>
+            <span>STABLE</span>
+            <h3>Стабильная версия</h3>
+          </div>
+          <strong>{{ 'v' ~ stable.release.version if stable and stable.release else '—' }}</strong>
         </div>
-      </article>
-    {% endfor %}
-  </section>
+        <p>Обычный рекомендуемый канал. Предварительные релизы полностью игнорируются.</p>
+        <div class="mtv31-channel-message {{ stable.state if stable else 'unavailable' }}">
+          {{ stable.message if stable else 'Нажмите «Проверить Xray».' }}
+        </div>
+        <div class="mtv31-channel-actions">
+          <a class="button" href="{{ url_for('maintenance', tab='updates', refresh=1) }}">Проверить</a>
+          {% if stable and stable.can_install %}
+          <form method="post" action="{{ url_for('xray_update_start', channel='stable') }}">
+            <button class="button primary" type="submit">Обновить до v{{ stable.release.version }}</button>
+          </form>
+          {% else %}
+          <button class="button" type="button" disabled>{{ 'Обновлять нечего' if stable and stable.state == 'current' else 'Понижение запрещено' if stable and stable.state == 'blocked' else 'Недоступно' }}</button>
+          {% endif %}
+        </div>
+      </section>
 
-  <section class="tool-panel">
-    <div class="section-heading">
-      <h2>Версия</h2>
-      <p>{{ release.name }} {{ release.version }} · канал {{ release.channel }}</p>
+      {% set prerelease = xray_updates.prerelease if xray_updates else none %}
+      <section class="mtv31-channel-card prerelease">
+        <div class="mtv31-channel-head">
+          <div>
+            <span>PRE-RELEASE</span>
+            <h3>Предварительная версия</h3>
+          </div>
+          <strong>{{ 'v' ~ prerelease.release.version if prerelease and prerelease.release else '—' }}</strong>
+        </div>
+        <p>Только для осознанного теста новых функций. Этот канал никогда не выбирается автоматически.</p>
+        <div class="mtv31-channel-message {{ prerelease.state if prerelease else 'unavailable' }}">
+          {{ prerelease.message if prerelease else 'Нажмите «Проверить Xray».' }}
+        </div>
+        <div class="mtv31-channel-actions">
+          <a class="button" href="{{ url_for('maintenance', tab='updates', refresh=1) }}">Проверить</a>
+          {% if prerelease and prerelease.can_install %}
+          <form method="post" action="{{ url_for('xray_update_start', channel='prerelease') }}">
+            <button class="button mtv31-prerelease-action" type="submit">Установить для теста</button>
+          </form>
+          {% else %}
+          <button class="button" type="button" disabled>{{ 'Установлена' if prerelease and prerelease.state == 'current' else 'Понижение запрещено' if prerelease and prerelease.state == 'blocked' else 'Недоступно' }}</button>
+          {% endif %}
+        </div>
+      </section>
     </div>
+
+    <div class="mtv31-safety-note sg-ljd-nested">
+      <strong>Как выполняется обновление</strong>
+      <span>SG-Gateway проверяет официальный SHA-256, запускает новым бинарником <code>xray run -test</code>, сохраняет прежний Xray, атомарно заменяет файл и проверяет службу. При любой ошибке прежний бинарник возвращается автоматически.</span>
+    </div>
+  </article>
+  {% else %}
+
+  <section class="mtv2-summary sg-ljd-strip">
+    <article>
+      <div class="mtv2-summary-icon {{ overall }}">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3 5 6v5c0 4.8 2.9 8.1 7 10 4.1-1.9 7-5.2 7-10V6l-7-3Z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+      </div>
+      <div>
+        <span>СОСТОЯНИЕ</span>
+        <strong class="{{ overall }}">{{ overall_label }}</strong>
+        <small>{{ ns.ok }} в норме · {{ issues }} требуют внимания</small>
+      </div>
+    </article>
+
+    <article>
+      <div class="mtv2-summary-icon blue">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 6c0-1.1 3.1-2 7-2s7 .9 7 2-3.1 2-7 2-7-.9-7-2Z"/>
+          <path d="M5 6v12c0 1.1 3.1 2 7 2s7-.9 7-2V6"/>
+        </svg>
+      </div>
+      <div>
+        <span>РЕЗЕРВНЫЕ КОПИИ</span>
+        <strong>{{ backups | length }}</strong>
+        <small>{{ backups[0].created_at if backups else 'Копий пока нет' }}</small>
+      </div>
+    </article>
+
+    <article>
+      <div class="mtv2-summary-icon violet">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 4h14v16H5z"/>
+          <path d="M8 8h8M8 12h8M8 16h5"/>
+        </svg>
+      </div>
+      <div>
+        <span>ОПЕРАЦИИ</span>
+        <strong>{{ operations | length }}</strong>
+        <small>Последние записи системного журнала</small>
+      </div>
+    </article>
+
+    <article>
+      <div class="mtv2-summary-icon green">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 17h16M7 17V7h10v10M9 10h6M9 13h6"/>
+        </svg>
+      </div>
+      <div>
+        <span>ВЕРСИЯ</span>
+        <strong class="green">{{ release.version }}</strong>
+        <small>{{ release.name }} · {{ release.channel }}</small>
+      </div>
+    </article>
   </section>
 
-  <section class="table-panel section-block">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Проверка</th>
-          <th>Статус</th>
-          <th>Сообщение</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for check in health_checks %}
-          <tr>
-            <td><strong>{{ check.name }}</strong></td>
-            <td>
-              <span class="badge {{ 'success' if check.status == 'ok' else '' }}">
-                {{ {'ok': 'Норма', 'warning': 'Предупреждение', 'error': 'Ошибка'}.get(check.status, check.status) }}
-              </span>
-            </td>
-            <td>{{ check.message }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </section>
+  <article class="mtv2-panel mtv2-backup-panel sg-ljd-card-large">
+    <header class="mtv2-panel-head">
+      <div>
+        <div class="mtv2-card-kicker">РЕЗЕРВНЫЕ КОПИИ</div>
+        <h2>Последняя копия базы данных</h2>
+        <p>Ручная SQLite-копия и страховочная копия перед восстановлением.</p>
+      </div>
+      <form method="post" action="{{ url_for('create_backup_route') }}">
+        <button class="button primary" type="submit">Создать сейчас</button>
+      </form>
+    </header>
 
-  <section class="table-panel section-block">
     {% if backups %}
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Копия</th>
-            <th>Тип</th>
-            <th>Создана</th>
-            <th>Размер</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for backup in backups %}
-            <tr>
-              <td><strong>{{ backup.name }}</strong></td>
-              <td>{{ backup.kind }}</td>
-              <td>{{ backup.created_at }}</td>
-              <td>{{ backup.size_bytes }} байт</td>
-              <td class="actions-cell">
-                <div class="inline-actions">
-                  <a class="button small" href="/maintenance/backups/{{ backup.name }}/download">Скачать</a>
-                  <form method="post" action="/maintenance/backups/{{ backup.name }}/restore">
-                    <button class="button small" type="submit">Восстановить</button>
-                  </form>
-                </div>
-              </td>
-            </tr>
+      {% set backup = backups[0] %}
+      <div class="mtv2-latest-backup sg-ljd-nested">
+        <div class="mtv2-backup-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 6c0-1.1 3.1-2 7-2s7 .9 7 2-3.1 2-7 2-7-.9-7-2Z"/>
+            <path d="M5 6v12c0 1.1 3.1 2 7 2s7-.9 7-2V6"/>
+          </svg>
+        </div>
+
+        <div class="mtv2-backup-primary">
+          <span>ПОСЛЕДНЯЯ КОПИЯ</span>
+          <strong>{{ backup.created_at }}</strong>
+          <small>{{ backup.kind }} · <span data-bytes="{{ backup.size_bytes }}">{{ backup.size_bytes }} B</span></small>
+        </div>
+
+        <div class="mtv2-backup-actions">
+          <a class="button" href="{{ url_for('download_backup_route', name=backup.name) }}">Скачать</a>
+          <form method="post"
+                action="{{ url_for('restore_backup_route', name=backup.name) }}"
+                data-sg-confirm="Восстановить базу из этой копии? Перед заменой текущей базы будет создана страховочная копия." data-sg-confirm-title="Восстановить базу" data-sg-confirm-button="Восстановить" data-sg-confirm-tone="danger">
+            <button class="button mtv2-restore" type="submit">Восстановить</button>
+          </form>
+        </div>
+
+        <details class="mtv2-backup-details">
+          <summary>Подробности</summary>
+          <code>{{ backup.name }}</code>
+        </details>
+      </div>
+
+      {% if backups | length > 1 %}
+      <details class="mtv2-older-backups sg-ljd-nested-group">
+        <summary>Другие резервные копии — {{ backups | length - 1 }}</summary>
+        <div>
+          {% for backup in backups[1:] %}
+          <article>
+            <div>
+              <strong>{{ backup.created_at }}</strong>
+              <small>{{ backup.kind }} · <span data-bytes="{{ backup.size_bytes }}">{{ backup.size_bytes }} B</span></small>
+            </div>
+            <div class="mtv2-backup-actions">
+              <a class="button" href="{{ url_for('download_backup_route', name=backup.name) }}">Скачать</a>
+              <form method="post"
+                    action="{{ url_for('restore_backup_route', name=backup.name) }}"
+                    data-sg-confirm="Восстановить эту резервную копию? Перед заменой будет создана страховочная копия текущего состояния." data-sg-confirm-title="Восстановить резервную копию" data-sg-confirm-button="Восстановить" data-sg-confirm-tone="danger">
+                <button class="button mtv2-restore" type="submit">Восстановить</button>
+              </form>
+            </div>
+          </article>
           {% endfor %}
-        </tbody>
-      </table>
+        </div>
+      </details>
+      {% endif %}
     {% else %}
-      <div class="empty-state">
-        <h2>Резервных копий пока нет</h2>
-        <p>Создайте первую резервную копию перед изменением адресов, клиентов или выполнением восстановления.</p>
+      <div class="mtv2-empty sg-ljd-nested">
+        <strong>Резервных копий пока нет</strong>
+        <span>Создайте первую копию перед изменением подключений или клиентов.</span>
       </div>
     {% endif %}
+  </article>
+
+  <section class="mtv2-main-grid">
+    <article class="mtv2-panel mtv2-health-panel sg-ljd-card-large">
+      <header class="mtv2-panel-head">
+        <div>
+          <div class="mtv2-card-kicker">ПРОВЕРКИ СОСТОЯНИЯ</div>
+          <h2>{{ issues }} требуют внимания</h2>
+          <p>Сначала показаны проблемы. Нормальные проверки свёрнуты ниже.</p>
+        </div>
+        <a class="button" href="{{ url_for('api_status') }}">Status API</a>
+      </header>
+
+      {% if issues %}
+      <div class="mtv2-health-issues sg-ljd-nested-group">
+        {% for check in health_checks %}
+          {% if check.status in ['warning', 'error'] %}
+          <article>
+            <span class="mtv2-health-dot {{ check.status }}"></span>
+            <div>
+              <strong>{{ health_titles.get(check.name, check.name) }}</strong>
+              <small>
+                {% if 'AmneziaWG host integration is not connected yet' in check.message %}
+                  Runtime AmneziaWG ещё не подключён
+                {% elif 'Xray runtime status is currently reported by Docker/Compose later' in check.message %}
+                  Runtime Xray ещё не подключён
+                {% elif 'Mihomo установлен, но конфигурация ещё не применена' in check.message %}
+                  Mihomo установлен, но конфигурация ещё не применена
+                {% else %}
+                  {{ check.message }}
+                {% endif %}
+              </small>
+            </div>
+            <span class="mtv2-health-status {{ check.status }}">
+              {{ 'Ошибка' if check.status == 'error' else 'Внимание' }}
+            </span>
+          </article>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="mtv2-all-ok sg-ljd-nested">
+        <strong>Все проверки в норме</strong>
+        <span>База, каталоги и подключённые службы доступны.</span>
+      </div>
+      {% endif %}
+
+      {% if ns.ok or ns.idle %}
+      <details class="mtv2-ok-checks sg-ljd-nested-group">
+        <summary>Ещё {{ ns.ok + ns.idle }} обычных проверок</summary>
+        <div>
+          {% for check in health_checks %}
+            {% if check.status in ['ok', 'idle'] %}
+            <article>
+              <span class="mtv2-health-dot {{ check.status }}"></span>
+              <div>
+                <strong>{{ health_titles.get(check.name, check.name) }}</strong>
+                <small>{{ check.message }}</small>
+              </div>
+              <span class="mtv2-health-status {{ check.status }}">{{ 'Норма' if check.status == 'ok' else 'Не используется' }}</span>
+            </article>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+    </article>
+
+    <article class="mtv2-panel mtv2-recovery-panel sg-ljd-card-large">
+      <header class="mtv2-panel-head">
+        <div>
+          <div class="mtv2-card-kicker">ВОССТАНОВЛЕНИЕ</div>
+          <h2>Инструменты восстановления</h2>
+          <p>Три шага для безопасного возврата к рабочей базе.</p>
+        </div>
+        <a class="button primary" href="{{ url_for('recovery') }}">Открыть Recovery</a>
+      </header>
+
+      <div class="mtv2-recovery-steps sg-ljd-nested-group">
+        <article>
+          <span>01</span>
+          <div>
+            <strong>Проверить состояние</strong>
+            <small>Убедиться, что проблема связана с базой или настройками.</small>
+          </div>
+        </article>
+        <article>
+          <span>02</span>
+          <div>
+            <strong>Выбрать копию</strong>
+            <small>Использовать нужную ручную или страховочную копию.</small>
+          </div>
+        </article>
+        <article>
+          <span>03</span>
+          <div>
+            <strong>Восстановить</strong>
+            <small>Текущая база сохранится как отдельная pre-restore копия.</small>
+          </div>
+        </article>
+      </div>
+
+      <div class="mtv2-recovery-note sg-ljd-nested">
+        <strong>Страховочная копия создаётся автоматически</strong>
+        <span>Восстановление не уничтожает текущую базу без возможности возврата.</span>
+      </div>
+    </article>
   </section>
 
-  <section class="table-panel section-block">
+  <article class="mtv2-panel mtv2-diagnostics-panel sg-ljd-card-large">
+    <header class="mtv2-panel-head">
+      <div>
+        <div class="mtv2-card-kicker">ДИАГНОСТИКА</div>
+        <h2>Сводка панели</h2>
+        <p>Полезные показатели без повторения верхней сводки.</p>
+      </div>
+      <a class="button" href="{{ url_for('download_diagnostics') }}">Скачать JSON</a>
+    </header>
+
+    <div class="mtv2-diagnostics-grid">
+      {% for item in diagnostics %}
+        {% if item.label not in ['Состояние', 'Резервные копии', 'Операции'] %}
+        <div>
+          <span>{{ item.label }}</span>
+          <strong class="{{ item.state }}">{{ item.value }}</strong>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="mtv2-panel mtv2-operations-panel sg-ljd-card-large">
+    <header class="mtv2-panel-head">
+      <div>
+        <div class="mtv2-card-kicker">ИСТОРИЯ ОПЕРАЦИЙ</div>
+        <h2>Последние действия</h2>
+        <p>На основной странице показаны только пять последних записей.</p>
+      </div>
+      <span class="mtv2-count">{{ operations | length }} записей</span>
+    </header>
+
     {% if operations %}
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Время</th>
-            <th>Действие</th>
-            <th>Объект</th>
-            <th>Результат</th>
-            <th>Сообщение</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for operation in operations %}
-            <tr>
-              <td>{{ operation.created_at }}</td>
-              <td>{{ operation.action }}</td>
-              <td>{{ operation.target }}</td>
-              <td>
-                <span class="badge {{ 'success' if operation.status == 'ok' else '' }}">
-                  {{ {'ok': 'Успешно', 'warning': 'Предупреждение', 'error': 'Ошибка'}.get(operation.status, operation.status) }}
-                </span>
-              </td>
-              <td>{{ operation.message }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    {% else %}
-      <div class="empty-state">
-        <h2>Операций пока нет</h2>
-        <p>Здесь появятся операции с клиентами, резервными копиями, подключениями и диагностикой.</p>
-      </div>
-    {% endif %}
-  </section>
+    <div class="mtv2-operation-list sg-ljd-nested-group">
+      {% for operation in operations[:5] %}
+      <article>
+        <time>{{ operation.created_at }}</time>
+        <div class="mtv2-operation-copy">
+          <strong>{{ operation_titles.get(operation.action, operation.action) }}</strong>
+          <small>{{ operation.target }}</small>
+        </div>
+        <span class="mtv2-operation-status {{ operation.status }}">
+          {{ 'Успешно' if operation.status == 'ok' else 'Ошибка' }}
+        </span>
+        <p>{{ operation.message }}</p>
+      </article>
+      {% endfor %}
+    </div>
 
-  <section class="tool-panel">
-    <div class="section-heading">
-      <h2>Инструменты восстановления</h2>
-      <p>Используйте консоль Recovery для компактного просмотра состояния и последних точек восстановления.</p>
+    {% if operations | length > 5 %}
+    <details class="mtv2-more-operations">
+      <summary>Показать всю историю — ещё {{ operations | length - 5 }}</summary>
+      <div class="mtv2-operation-list sg-ljd-nested-group">
+        {% for operation in operations[5:] %}
+        <article>
+          <time>{{ operation.created_at }}</time>
+          <div class="mtv2-operation-copy">
+            <strong>{{ operation_titles.get(operation.action, operation.action) }}</strong>
+            <small>{{ operation.target }}</small>
+          </div>
+          <span class="mtv2-operation-status {{ operation.status }}">
+            {{ 'Успешно' if operation.status == 'ok' else 'Ошибка' }}
+          </span>
+          <p>{{ operation.message }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+    {% else %}
+    <div class="mtv2-empty sg-ljd-nested">
+      <strong>История операций пока пуста</strong>
+      <span>Действия с клиентами, копиями и подключениями появятся автоматически.</span>
     </div>
-    <div class="button-row">
-      <a class="button" href="/recovery">Открыть Recovery</a>
-      <a class="button" href="/system">Открыть обзор системы</a>
-    </div>
-  </section>
+    {% endif %}
+  </article>
+
+  {% endif %}
+
+  <footer class="mtv2-footer">
+    <span>{{ release.name }} {{ release.version }} · {{ release.channel }}</span>
+    <span>SQLite backups · health checks · operation log</span>
+  </footer>
+</section>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+  (() => {
+    function formatBytes(value) {
+      const bytes = Number(value);
+      if (!Number.isFinite(bytes) || bytes < 0) return `${value} B`;
+      const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+      let size = bytes;
+      let index = 0;
+      while (size >= 1024 && index < units.length - 1) {
+        size /= 1024;
+        index += 1;
+      }
+      const digits = index === 0 ? 0 : 1;
+      return `${size.toFixed(digits)} ${units[index]}`;
+    }
+
+    document.querySelectorAll("[data-bytes]").forEach(element => {
+      element.textContent = formatBytes(element.dataset.bytes);
+    });
+  })();
+  </script>
 {% endblock %}

@@ -7,19 +7,30 @@ __pycache__/
 .venv/
 venv/
 
-# Runtime
-data/
+# Runtime and local state
 logs/
 backups/
 *.db
 *.sqlite
 
-# Environment
+# The clean seed database is part of SG-Gateway source.
+!data/
+!data/sg-gateway.sqlite
+
+# Environment and secrets
 .env
 .env.*
 !.env.example
 
-# OS / editors
+# Generated release artifacts
+*.run
+*.zip
+*.patch
+*.tar
+*.tar.gz
+*.sha256
+
+# OS and editors
 .DS_Store
 Thumbs.db
 .idea/

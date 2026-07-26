@@ -1,0 +1,182 @@
+.mtv31-tabs {
+  display: flex;
+  gap: 8px;
+  margin: -8px 0 22px;
+  border-bottom: 1px solid var(--border, rgba(57, 76, 68, .22));
+}
+
+.mtv31-tabs a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  color: var(--muted, #66736d);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.mtv31-tabs a.is-active {
+  color: var(--accent, #356f5f);
+}
+
+.mtv31-tabs a.is-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: #b58a46;
+}
+
+.mtv31-update-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.mtv31-update-summary article {
+  min-width: 0;
+  padding: 22px;
+  border-right: 1px solid var(--border, rgba(57, 76, 68, .18));
+}
+
+.mtv31-update-summary article:last-child { border-right: 0; }
+.mtv31-update-summary span,
+.mtv31-channel-head span {
+  display: block;
+  margin-bottom: 12px;
+  color: #48677a;
+  font-size: .73rem;
+  font-weight: 900;
+  letter-spacing: .11em;
+}
+
+.mtv31-update-summary strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text, #27312d);
+  font-size: 1.35rem;
+  line-height: 1.15;
+}
+
+.mtv31-update-summary small {
+  color: var(--muted, #748079);
+  line-height: 1.45;
+}
+
+.mtv31-xray-update-panel { overflow: hidden; }
+
+.mtv31-update-badge {
+  align-self: flex-start;
+  padding: 8px 13px;
+  border: 1px solid rgba(56, 82, 72, .48);
+  border-radius: 999px;
+  color: #394c44;
+  font-size: .7rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+
+.mtv31-channel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 20px;
+  border-top: 1px solid var(--border, rgba(57, 76, 68, .16));
+}
+
+.mtv31-channel-card {
+  padding: 22px;
+  border: 1px solid rgba(82, 109, 98, .28);
+  border-radius: 15px;
+  background: rgba(244, 248, 249, .72);
+}
+
+.mtv31-channel-card.stable { border-color: rgba(56, 177, 126, .32); }
+.mtv31-channel-card.prerelease { border-color: rgba(177, 135, 67, .34); }
+.mtv31-channel-card.stable .mtv31-channel-head span { color: #38ae7d; }
+.mtv31-channel-card.prerelease .mtv31-channel-head span { color: #a77932; }
+
+.mtv31-channel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.mtv31-channel-head h3 {
+  margin: 0;
+  color: var(--text, #27312d);
+  font-size: 1.22rem;
+}
+
+.mtv31-channel-head > strong {
+  color: var(--text, #27312d);
+  font-size: 1.25rem;
+  white-space: nowrap;
+}
+
+.mtv31-channel-card > p {
+  min-height: 48px;
+  margin: 16px 0;
+  color: var(--muted, #748079);
+  line-height: 1.5;
+}
+
+.mtv31-channel-message {
+  min-height: 62px;
+  margin: 14px 0 16px;
+  padding: 13px 14px;
+  border: 1px solid rgba(73, 108, 132, .25);
+  border-radius: 11px;
+  color: #4c6472;
+  background: rgba(255, 255, 255, .42);
+  line-height: 1.45;
+}
+
+.mtv31-channel-message.available { border-color: rgba(181, 138, 70, .35); color: #8d672c; }
+.mtv31-channel-message.current { border-color: rgba(56, 177, 126, .35); color: #2e7e5c; }
+.mtv31-channel-message.blocked { border-color: rgba(73, 108, 132, .3); color: #4e6675; }
+
+.mtv31-channel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.mtv31-channel-actions form { margin: 0; }
+.mtv31-channel-actions .button[disabled] { opacity: .58; cursor: not-allowed; }
+.mtv31-prerelease-action { border-color: rgba(181, 138, 70, .48); color: #8c6427; }
+
+.mtv31-safety-note,
+.mtv31-update-error {
+  display: grid;
+  gap: 7px;
+  margin: 0 20px 20px;
+  padding: 16px 18px;
+}
+
+.mtv31-safety-note span,
+.mtv31-update-error span { color: var(--muted, #748079); line-height: 1.5; }
+.mtv31-update-error { border-color: rgba(180, 89, 70, .35); }
+.mtv31-update-error .button { justify-self: start; margin-top: 4px; }
+
+@media (max-width: 1050px) {
+  .mtv31-update-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mtv31-update-summary article:nth-child(2) { border-right: 0; }
+  .mtv31-channel-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .mtv31-update-summary { grid-template-columns: 1fr; }
+  .mtv31-update-summary article { border-right: 0; border-bottom: 1px solid var(--border, rgba(57, 76, 68, .18)); }
+  .mtv31-update-summary article:last-child { border-bottom: 0; }
+  .mtv31-channel-grid { padding: 14px; }
+  .mtv31-channel-head { display: grid; }
+}

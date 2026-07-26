@@ -10,7 +10,11 @@ def test_build_access_cards_for_recommended_client(tmp_path, monkeypatch):
     cards = build_access_cards(client)
     titles = [card.title for card in cards]
 
-    assert "AmneziaWG" in titles
-    assert "Xray Reality" in titles
-    assert "SG Client" in titles
-    assert all(card.qr_url.startswith(f"/clients/{client_id}/qr/") for card in cards)
+    assert "VLESS XHTTP Reality" in titles
+    assert "Mieru" in titles
+    assert "Доступ SG Client" in titles
+    assert "AmneziaWG" not in titles
+    assert all(
+        f"/clients/{client_id}/devices/" in card.export_url
+        for card in cards if card.export_url
+    )

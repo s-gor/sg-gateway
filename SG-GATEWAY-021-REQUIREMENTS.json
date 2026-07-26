@@ -1,0 +1,16 @@
+{
+  "version": "0.1.0-021",
+  "artifact_type": "full-clean-ec2-installer",
+  "invariants": {
+    "amneziawg_udp_port": 585,
+    "sg_admin_enter_means_yes": true,
+    "installer_prints_client_links": false,
+    "installer_prints_subscription_base64": false,
+    "installer_prints_pem_or_private_keys": false,
+    "warp_created_automatically": true,
+    "hysteria2_salamander_preserved": true,
+    "clients_row_typography": "approved-v018-scale",
+    "client_detail_bottom_add_device_button": false,
+    "technical_links": "always-open"
+  }
+}

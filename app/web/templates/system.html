@@ -1,50 +1,280 @@
 {% extends "base.html" %}
-{% block title %}System · SG-Gateway{% endblock %}
+{% block title %}SG-Gateway · System{% endblock %}
+
+{% block head %}
+  {{ super() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='sg-system-visual-v1.css') }}">
+{% endblock %}
+
 {% block content %}
-<section class="sg-page-head">
-  <div><div class="sg-eyebrow">SG-GATEWAY / SYSTEM</div><h1>System</h1><p>Система: ресурсы, состояние служб, журналы и диагностика</p></div>
-  <a class="sg-button sg-button-secondary" href="/system">Обновить данные</a>
-</section>
+{% set health_label = {'ok':'В норме', 'warning':'Требует внимания', 'error':'Ошибка'}.get(report.health, report.health) %}
+{% set health_class = {'ok':'success', 'warning':'warning', 'error':'danger'}.get(report.health, 'warning') %}
+{% set hostd_label = {'ok':'Работает', 'warning':'Предупреждение', 'error':'Ошибка'}.get(report.hostd.status, report.hostd.status) %}
+{% set configured_connections = connections | selectattr('status', 'equalto', 'Configured') | list %}
 
-<div class="sg-tabs" data-tabs>
-  <button class="sg-tab is-active" data-tab-target="resources">Resources</button>
-  <button class="sg-tab" data-tab-target="services">Status &amp; Services</button>
-  <button class="sg-tab" data-tab-target="logs">Logs &amp; Diagnostics</button>
+<section class="sv1-page">
+  <header class="sv1-heading">
+    <div>
+      <div class="sv1-kicker"><span></span> SG-GATEWAY / SYSTEM</div>
+      <h1>System</h1>
+      <p>Ресурсы, службы и состояние собственного сервера SG-Gateway.</p>
+    </div>
 
-  <div data-tab-panel="resources">
-    <section class="sg-card sg-identity-card">
-      <div><div class="sg-card-kicker">Идентификация сервера · единое имя</div><h2 class="sg-server-title"><img class="sg-flag sg-flag-large" src="{{ country_flag_url(server_identity.country_code) }}" alt="{{ server_identity.country_name }}">{{ server_identity.name }}</h2><p>Публичный адрес и страна берутся из фактически настроенного подключения.</p></div>
-      <span class="sg-server-pill"><img class="sg-flag" src="{{ country_flag_url(server_identity.country_code) }}" alt="">{{ server_identity.name }} · {{ server_identity.address }}</span>
-    </section>
+    <div class="sv1-heading-actions">
+      <a class="button primary sg-ljd-key-action" href="{{ url_for('download_diagnostics') }}">
+        Скачать диагностику
+      </a>
+      <a class="button" href="{{ url_for('maintenance') }}">Maintenance</a>
+    </div>
+  </header>
 
-    <section class="sg-summary-grid sg-summary-grid-four">
-      <article class="sg-summary-card"><span>Сервер</span><strong class="sg-good">Работает</strong><small>SG-Gateway v{{ app_version }}</small></article>
-      <article class="sg-summary-card"><span>Клиенты</span><strong>{{ client_total }}</strong><small>Сохранённые записи</small></article>
-      <article class="sg-summary-card"><span>Подключения</span><strong>{{ connections|selectattr('status','equalto','Configured')|list|length }} / {{ connections|length }}</strong><small>AmneziaWG и Xray Reality</small></article>
-      <article class="sg-summary-card"><span>Трафик сегодня</span><strong>0 B</strong><small>Телеметрия будет подключена позднее</small></article>
-    </section>
-
-    <section class="sg-resource-card">
-      <div class="sg-resource-heading"><div><h2>Оперативная память</h2><p>Панель, веб-сервер, системные службы и файловый кэш.</p></div><div class="sg-resource-total"><strong>{{ resources.memory.used }} из {{ resources.memory.total }}</strong><small>Доступно {{ resources.memory.available }}</small></div></div>
-      <div class="sg-resource-body">
-        <div class="sg-dial" style="--dial: {{ resources.memory.gradient }}"><div><strong>{{ resources.memory.percent_text }}</strong><span>Память: {{ resources.memory.state_label }}</span></div></div>
-        <div class="sg-resource-rows">{% for row in resources.memory.rows %}<div class="sg-resource-row"><span class="sg-color-dot" style="--dot: {{ row.color }}"></span><span><strong>{{ row.label }}</strong><small>{{ row.note }}</small></span><b>{{ row.value }}</b><em>{{ row.percent }}</em></div>{% endfor %}</div>
+  <section class="sv1-summary sg-ljd-system-summary">
+    <article class="sv1-summary-card sv1-summary-health sg-ljd-card">
+      <div class="sv1-summary-icon">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3 5 6v5c0 4.8 2.9 8.1 7 10 4.1-1.9 7-5.2 7-10V6l-7-3Z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
       </div>
-    </section>
+      <div>
+        <div class="sv1-summary-label">Состояние системы</div>
+        <div class="sv1-summary-value {{ health_class }}">{{ health_label }}</div>
+        <div class="sv1-summary-note">Проверки панели, данных, hostd и подключений</div>
+      </div>
+    </article>
 
-    <section class="sg-resource-grid">
-      <article class="sg-card"><div class="sg-resource-heading"><div><h2>Системный диск</h2><p>Каталог данных SG-Gateway и свободное место.</p></div><div class="sg-resource-total"><strong>{{ resources.disk.used }} из {{ resources.disk.total }}</strong><small>Свободно {{ resources.disk.free }}</small></div></div><div class="sg-mini-resource"><div class="sg-dial sg-dial-small" style="--dial: {{ resources.disk.gradient }}"><div><strong>{{ resources.disk.percent_text }}</strong><span>Диск: {{ resources.disk.state_label }}</span></div></div></div></article>
-      <article class="sg-card"><h2>Процессор</h2><p>Средняя нагрузка и число доступных логических ядер.</p><div class="sg-cpu-number">{{ resources.cpu.percent }}%</div><div class="sg-progress"><span style="width: {{ resources.cpu.percent }}%"></span></div><dl class="sg-definition"><div><dt>Ядер</dt><dd>{{ resources.cpu.count }}</dd></div><div><dt>Load average</dt><dd>{{ resources.cpu.load }}</dd></div></dl></article>
-    </section>
-  </div>
+    <article class="sv1-summary-card sg-ljd-card">
+      <div class="sv1-summary-icon blue">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M5 21v-2a7 7 0 0 1 14 0v2"/>
+        </svg>
+      </div>
+      <div>
+        <div class="sv1-summary-label">Клиенты</div>
+        <div class="sv1-summary-value">{{ client_total }}</div>
+        <div class="sv1-summary-note">Записей в клиентской базе</div>
+      </div>
+    </article>
 
-  <div data-tab-panel="services" hidden>
-    <section class="sg-summary-grid">{% for connection in connections %}<article class="sg-service-card"><div class="sg-service-icon"><img class="sg-flag" src="{{ country_flag_url(connection.country_code) }}" alt="{{ connection.country_name }}"></div><div><div class="sg-service-title"><h2>{{ connection.label }}</h2><span class="sg-status {% if connection.status == 'Configured' %}is-ok{% else %}is-muted{% endif %}">{% if connection.status == 'Configured' %}Настроено{% else %}Не настроено{% endif %}</span></div><p>{{ connection.note }}</p><small>{{ connection.port }} · Клиентов: {{ connection.clients }}</small></div></article>{% endfor %}</section>
-    <section class="sg-card"><div class="sg-card-head"><div><h2>Проверки состояния</h2><p>Фактические проверки панели, базы, каталогов и конфигураций.</p></div><span class="sg-count">{{ health_checks|length }}</span></div><div class="sg-health-list">{% for check in health_checks %}<div class="sg-health-row"><span class="sg-health-marker is-{{ check.status }}"></span><span><strong>{{ check.name }}</strong><small>{{ check.detail }}</small></span><span class="sg-status {% if check.status == 'ok' %}is-ok{% else %}is-warning{% endif %}">{{ 'Норма' if check.status == 'ok' else 'Проверить' }}</span></div>{% endfor %}</div></section>
-  </div>
+    <article class="sv1-summary-card sg-ljd-card">
+      <div class="sv1-summary-icon violet">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 6c0-1.1 3.1-2 7-2s7 .9 7 2-3.1 2-7 2-7-.9-7-2Z"/>
+          <path d="M5 6v6c0 1.1 3.1 2 7 2s7-.9 7-2V6M5 12v6c0 1.1 3.1 2 7 2s7-.9 7-2v-6"/>
+        </svg>
+      </div>
+      <div>
+        <div class="sv1-summary-label">Резервные копии</div>
+        <div class="sv1-summary-value">{{ backup_total }}</div>
+        <div class="sv1-summary-note">Доступно для восстановления</div>
+      </div>
+    </article>
 
-  <div data-tab-panel="logs" hidden>
-    <section class="sg-card"><div class="sg-card-head"><div><h2>Журналы и диагностика</h2><p>Безопасные действия для проверки системы и подготовки отчёта.</p></div><a class="sg-button" href="/maintenance/diagnostics.json">Скачать диагностику</a></div><div class="sg-action-grid"><a class="sg-action-tile" href="/maintenance"><strong>Операции и резервные копии</strong><span>Открыть Maintenance</span></a><a class="sg-action-tile" href="/recovery"><strong>Аварийная страница Recovery</strong><span>Минимальная проверка и восстановление</span></a><a class="sg-action-tile" href="/api/status"><strong>Статус API</strong><span>Получить фактический JSON</span></a></div></section>
-  </div>
-</div>
+    <article class="sv1-summary-card sg-ljd-card">
+      <div class="sv1-summary-icon green">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 12h4l2-7 4 14 2-7h6"/>
+        </svg>
+      </div>
+      <div>
+        <div class="sv1-summary-label">Подключения</div>
+        <div class="sv1-summary-value">{{ configured_connections | length }} / {{ connections | length }}</div>
+        <div class="sv1-summary-note">Настроено в базе SG-Gateway</div>
+      </div>
+    </article>
+  </section>
+
+  <section class="sv1-resource-grid">
+    <article class="sv1-resource-card sg-ljd-card">
+      <header class="sv1-card-head">
+        <div>
+          <div class="sv1-card-kicker">ПАМЯТЬ</div>
+          <h2>Оперативная память</h2>
+        </div>
+        <span class="sv1-state-pill {{ resources.memory.state }}">{{ resources.memory.state_label }}</span>
+      </header>
+
+      <div class="sv1-resource-main">
+        <div class="sv1-donut"
+             style="--sv1-gradient: {{ resources.memory.gradient }};">
+          <div class="sv1-donut-center">
+            <strong>{{ resources.memory.percent_text }}</strong>
+            <span>использовано</span>
+          </div>
+        </div>
+
+        <div class="sv1-resource-copy">
+          <div class="sv1-resource-number">{{ resources.memory.used }}</div>
+          <div class="sv1-resource-total">из {{ resources.memory.total }}</div>
+          <div class="sv1-resource-available">
+            Доступно: <strong>{{ resources.memory.available }}</strong>
+          </div>
+          <div class="sv1-resource-available">
+            Swap используется: <strong>{{ resources.memory.swap_used }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="sv1-memory-legend">
+        {% for item in resources.memory.rows %}
+        <div class="sv1-legend-row">
+          <span class="sv1-legend-dot" style="--legend-color: {{ item.color }}"></span>
+          <div>
+            <strong>{{ item.label }}</strong>
+            <small>{{ item.note }}</small>
+          </div>
+          <span>{{ item.value }}</span>
+          <em>{{ item.percent }}</em>
+        </div>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="sv1-resource-card sg-ljd-card">
+      <header class="sv1-card-head">
+        <div>
+          <div class="sv1-card-kicker">ХРАНИЛИЩЕ</div>
+          <h2>Диск данных</h2>
+        </div>
+        <span class="sv1-state-pill {{ resources.disk.state }}">{{ resources.disk.state_label }}</span>
+      </header>
+
+      <div class="sv1-resource-main">
+        <div class="sv1-donut"
+             style="--sv1-gradient: {{ resources.disk.gradient }};">
+          <div class="sv1-donut-center">
+            <strong>{{ resources.disk.percent_text }}</strong>
+            <span>занято</span>
+          </div>
+        </div>
+
+        <div class="sv1-resource-copy">
+          <div class="sv1-resource-number">{{ resources.disk.used }}</div>
+          <div class="sv1-resource-total">из {{ resources.disk.total }}</div>
+          <div class="sv1-resource-available">
+            Свободно: <strong>{{ resources.disk.free }}</strong>
+          </div>
+          <div class="sv1-resource-available">
+            Каталог: <strong>{{ report.paths.data_dir }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="sv1-disk-bar">
+        <span style="width: {{ resources.disk.percent }}%"></span>
+      </div>
+      <div class="sv1-disk-labels">
+        <span>Использовано {{ resources.disk.percent_text }}</span>
+        <span>Свободно {{ resources.disk.free_percent }}%</span>
+      </div>
+    </article>
+
+    <article class="sv1-resource-card sv1-cpu-card sg-ljd-card">
+      <header class="sv1-card-head">
+        <div>
+          <div class="sv1-card-kicker">ПРОЦЕССОР</div>
+          <h2>CPU и среда</h2>
+        </div>
+        <span class="sv1-state-pill normal">Норма</span>
+      </header>
+
+      <div class="sv1-cpu-value">
+        <strong>{{ resources.cpu.percent }}%</strong>
+        <span>текущая оценка загрузки</span>
+      </div>
+
+      <div class="sv1-cpu-bar">
+        <span style="width: {{ resources.cpu.percent }}%"></span>
+      </div>
+
+      <div class="sv1-runtime-list sg-ljd-nested-group">
+        <div><span>Load average</span><strong>{{ resources.cpu.load }}</strong></div>
+        <div><span>CPU</span><strong>{{ resources.cpu.count }}</strong></div>
+        <div><span>Python</span><strong>{{ report.runtime.python }}</strong></div>
+        <div><span>Система</span><strong>{{ report.runtime.system }} {{ report.runtime.release }}</strong></div>
+        <div><span>Среда</span><strong>{{ report.environment }}</strong></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="sv1-two-column sv1-primary-lower-grid">
+    <article class="sv1-panel sv1-actions-panel sg-ljd-card-large">
+      <header class="sv1-panel-head">
+        <div>
+          <div class="sv1-card-kicker">БЫСТРЫЕ ДЕЙСТВИЯ</div>
+          <h2>Частые операции</h2>
+          <p>Прямые действия без повторения пунктов основного меню.</p>
+        </div>
+      </header>
+
+      <div class="sv1-action-grid sg-ljd-tile-grid">
+        <a class="sg-ljd-tile" href="{{ url_for('clients', new='1') }}">
+          <span class="sv1-action-icon blue">
+            <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M3 21v-2a6 6 0 0 1 12 0v2M17 11h4M19 9v4"/></svg>
+          </span>
+          <div><strong>Создать клиента</strong><small>Сразу открыть форму нового доступа</small></div>
+          <span>→</span>
+        </a>
+
+        <a class="sg-ljd-tile" href="{{ url_for('connections') }}#xray-profiles">
+          <span class="sv1-action-icon violet">
+            <svg viewBox="0 0 24 24"><path d="M7 7h10v4H7zM5 17h14v3H5zM9 11v6M15 11v6M12 3v4"/></svg>
+          </span>
+          <div><strong>Настроить подключение</strong><small>Выбрать и применить серверные профили</small></div>
+          <span>→</span>
+        </a>
+
+        <form class="sv1-action-form" method="post" action="{{ url_for('create_backup_route') }}">
+          <button class="sv1-action-button sg-ljd-tile" type="submit">
+            <span class="sv1-action-icon green">
+              <svg viewBox="0 0 24 24"><path d="M5 6c0-1.1 3.1-2 7-2s7 .9 7 2-3.1 2-7 2-7-.9-7-2ZM5 6v12c0 1.1 3.1 2 7 2s7-.9 7-2V6"/></svg>
+            </span>
+            <span class="sv1-action-copy"><strong>Создать резервную копию</strong><small>Сохранить текущую базу и настройки</small></span>
+            <span>→</span>
+          </button>
+        </form>
+
+        <a class="sg-ljd-tile" href="{{ url_for('download_diagnostics') }}">
+          <span class="sv1-action-icon warning">
+            <svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+          </span>
+          <div><strong>Скачать диагностику</strong><small>Получить актуальный технический отчёт</small></div>
+          <span>→</span>
+        </a>
+      </div>
+    </article>
+
+    <article class="sv1-panel sv1-health-panel sg-ljd-card-large">
+      <header class="sv1-panel-head">
+        <div>
+          <div class="sv1-card-kicker">HEALTH CHECKS</div>
+          <h2>Проверки состояния</h2>
+          <p>Проверки, используемые API и разделом Maintenance.</p>
+        </div>
+        <a class="button" href="{{ url_for('api_status') }}">Status API</a>
+      </header>
+
+      <div class="sv1-check-list sg-ljd-nested-group">
+        {% for check in health_checks %}
+        <div class="sv1-check-row">
+          <span class="sv1-check-dot {{ check.status }}"></span>
+          <div>
+            <strong>{{ check.name }}</strong>
+            <small>{{ check.message }}</small>
+          </div>
+          <span class="sv1-check-status {{ check.status }}">
+            {{ {'ok':'Норма', 'idle':'Не используется', 'warning':'Внимание', 'error':'Ошибка'}.get(check.status, check.status) }}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <footer class="sv1-page-footer">
+    <span>Отчёт сформирован: {{ report.generated_at }}</span>
+    <span>SG-Gateway v{{ report.version }} · native systemd runtime</span>
+  </footer>
+</section>
 {% endblock %}

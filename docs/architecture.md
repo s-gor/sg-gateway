@@ -1,40 +1,34 @@
 # Architecture
 
-SG-Gateway is built around a simple rule: the panel manages configuration, but
-user traffic must continue even if the panel is unavailable.
+SG-Gateway manages one standalone Ubuntu server. It has no Controller, Node,
+Cluster or Cascade roles.
 
 ## Components
 
-- `panel`: web interface, client database, exports, jobs, diagnostics,
-  backups, help content and security posture views.
-- `xray`: Xray runtime container.
-- `amneziawg`: host kernel module and interface controlled through `sg-hostd`.
-- `sg-hostd`: limited host helper for allow-listed system operations.
+- `app/`: web panel, database access, clients, exports, Routing, GeoFiles,
+  maintenance, recovery and security.
+- `hostd/`: privileged allow-listed host operations.
+- `engines/`: common engine interfaces.
+- Xray: VLESS and Hysteria 2 runtime.
+- AmneziaWG: WireGuard-compatible tunnel runtime on UDP 585.
+- Mihomo: managed Mieru, AnyTLS and TUIC listeners.
+- sing-box: managed runtime used only for supported functions.
+- Nginx: panel reverse proxy and certificate integration.
 
-## Panel Navigation
-
-The panel is organized as English operational sections:
-
-- `Dashboard`: compact gateway summary and connection readiness.
-- `System`: health checks, runtime details, resource usage and safe links.
-- `Clients`: unified client records and generated access artifacts.
-- `Connections`: editable AmneziaWG and Xray endpoint settings.
-- `Routing`: read-only effective route summary derived from connection settings.
-- `Maintenance`: diagnostics, backups, restore actions and operation history.
-- `Security`: authentication state, bind address exposure and recovery guidance.
-- `Help`: short operator notes for the main workflows.
-
-`Recovery` remains a minimal emergency page outside the primary side menu.
-
-## Configuration Lifecycle
+## Configuration lifecycle
 
 ```text
-draft
-  -> validated
-  -> backup
-  -> applied
-  -> health checked
-  -> active
+candidate -> validate -> backup -> apply -> health check -> active
 ```
 
-On failure, SG-Gateway must restore the last known good configuration.
+A failed application must restore the previous database/configuration state and
+leave the last known working runtime available.
+
+## Filesystem
+
+```text
+/opt/sg-gateway
+/etc/sg-gateway
+/var/lib/sg-gateway
+/var/log/sg-gateway
+```

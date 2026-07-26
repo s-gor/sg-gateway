@@ -1,18 +1,396 @@
 {
   "name": "sg-gateway",
-  "version": "0.17.0-mvp",
-  "channel": "mvp",
-  "images": {
-    "panel": "sg-gateway-panel:0.17.0-mvp",
-    "xray": "ghcr.io/xtls/xray-core:25.6.8"
-  },
+  "version": "0.1.0-021",
+  "channel": "clean-rebuild-warp-salamander-awg585",
+  "runtime": "native-systemd",
   "services": [
-    "panel",
+    "sg-gateway",
+    "sg-hostd",
     "xray",
-    "sg-hostd"
+    "sg-gateway-awg",
+    "mihomo",
+    "sg-gateway-singbox",
+    "nginx"
   ],
   "rollback": {
-    "keep_previous_versions": 1,
-    "requires_backup": true
+    "requires_backup": true,
+    "atomic_application": true,
+    "restores_service_state": true
+  },
+  "theme": "SG Luxury Jade Depth strict",
+  "theme_css": "app/web/static/sg-luxury-jade-depth-v2.css",
+  "images": {
+    "panel": "native-systemd:sg-gateway",
+    "xray": "native-binary:xray"
+  },
+  "xray": {
+    "required_version": "v26.6.27",
+    "channel": "bootstrap-pinned-updatable",
+    "vless_encryption": true,
+    "xhttp_vision": true,
+    "bootstrap_version": "v26.6.27",
+    "minimum_version": "v26.6.27",
+    "updates": {
+      "stable": true,
+      "prerelease": true,
+      "downgrade_blocked": true,
+      "automatic_rollback": true,
+      "official_sha256": true
+    },
+    "vless_pair_validation": "xray-tested-full-mlkem768",
+    "vless_authentication": "ML-KEM-768",
+    "preview31_32_invalid_pair_migration": true,
+    "xhttp_modes": [
+      "auto",
+      "stream-one",
+      "stream-up",
+      "packet-up"
+    ],
+    "server_xhttp_mode": "auto",
+    "exports": {
+      "links": true,
+      "qr_mlkem768": true,
+      "sg_client_subscription": true
+    },
+    "default_client_xhttp_reality_mode": "stream-one",
+    "hysteria2_salamander": {
+      "minimum_version": "v26.3.27",
+      "installed_line_minimum": "v26.6.27",
+      "scope": "server-inbound",
+      "configuration_path": "streamSettings.finalmask.udp",
+      "managed_layer": "salamander",
+      "preserve_finalmask_quic_params": true,
+      "transactional_candidate_test": true,
+      "uri_parameters": [
+        "obfs=salamander",
+        "obfs-password"
+      ],
+      "qr_and_subscription_consistency": true,
+      "password_bytes": 24,
+      "password_encoding": "base64url-no-padding",
+      "backup_restore": true,
+      "diagnostics_redacted": true
+    }
+  },
+  "client_creation": {
+    "atomic": true,
+    "first_client": "sg-admin",
+    "default_profile": "xhttp_reality",
+    "first_access": [
+      "xhttp_reality",
+      "mieru",
+      "sgclient"
+    ],
+    "lifecycle_rollback": true,
+    "credentials_preserved_on_rollback": true,
+    "migration": "legacy-client-to-primary-device",
+    "credentials_preserved_during_migration": true,
+    "independent_device_access": true,
+    "default_access_bundle": [
+      "xhttp_reality",
+      "mieru",
+      "sgclient"
+    ]
+  },
+  "clients_ui": {
+    "summary_strip": false,
+    "selected_row": "light-readable-accent",
+    "detail_card": "one-simple-card-per-device",
+    "localized_runtime_statuses": true,
+    "device_actions": [
+      "qr",
+      "copy",
+      "disable",
+      "delete-additional"
+    ],
+    "technical_profiles": "always-open-without-toggle",
+    "primary_access_label": "Основное устройство",
+    "empty_state_blocks": false,
+    "empty_state_action": "header-add-client-button-only",
+    "visible_device_actions": [
+      "copy-subscription",
+      "qr",
+      "download",
+      "disable",
+      "delete-additional"
+    ],
+    "device_metadata_blocks": false,
+    "compact_device_modal": true,
+    "list_layout": "single-full-width-client-list",
+    "selected_client_side_panel": false,
+    "list_columns": [
+      "client",
+      "server",
+      "status",
+      "devices",
+      "expiry",
+      "open"
+    ],
+    "list_protocol_badges": false,
+    "list_client_id": false,
+    "list_actions": [
+      "open"
+    ],
+    "light_palette": "clean-white-graphite-deep-jade",
+    "dark_palette": "crisp-graphite",
+    "small_text_scope": "all-current-pages-readable-v3-client-detail-preserved",
+    "duplicate_bottom_add_device_removed": true,
+    "list_row_typography": "approved-v018-scale-restored"
+  },
+  "installer_update": {
+    "preserve_existing_mihomo_runtime": true,
+    "mihomo_config_permissions": "root:root 0600",
+    "remove_stale_new_file": true,
+    "payload_fallthrough_fixed": true,
+    "application_smoke_test": "render-contract-not-runtime-health",
+    "runtime_health_stage": "stage-9-live-services",
+    "preview36_health_503_fixed": true,
+    "panel_health_contract": "liveness-only-http-200",
+    "full_diagnostics_endpoint": "/api/status",
+    "optional_runtimes_do_not_block_install": true,
+    "final_stage_visible_substeps": 5,
+    "preview37_stage9_503_fixed": true,
+    "routing_help_endpoint_fix": true,
+    "template_endpoint_audit": true,
+    "stage9_exact_failure_logging": true,
+    "preserve_working_xray_on_update": true,
+    "rollback_restores_previous_active_services": true,
+    "rollback_verifies_previous_active_services": true,
+    "implicit_direct_fallback": true,
+    "preview42_stage9_runtime_failure_hardened": true,
+    "native_dialog_audit": true,
+    "xhttp_reality_stream_one_migration": true,
+    "preview46_device_detail_smoke_test": true,
+    "preview47_clients_empty_blocks_removed": true,
+    "preview48_warp_secret_permissions": true,
+    "preview48_warp_endpoint_audit": true,
+    "clients_simple_hotfix1_login_css_false_negative_fixed": true,
+    "clients_simple_css_verification": "served-static-file-plus-base-template-link",
+    "clients_clarity_hotfix2": true,
+    "clients_always_open_hotfix3": true,
+    "hysteria2_salamander_v016": true,
+    "runtime_settings_transaction": true,
+    "restore_rebuilds_xray_candidate": true,
+    "warp_panel_port_v017": true,
+    "safe_client_terminal_output": true,
+    "amneziawg_udp_port": 585,
+    "global_readable_typography_v018": true,
+    "readable_typography_scope": [
+      "clients-list",
+      "system",
+      "connections",
+      "xray-profiles",
+      "mihomo",
+      "outbounds",
+      "routing",
+      "geofiles",
+      "maintenance",
+      "updates",
+      "security",
+      "help",
+      "operations",
+      "login",
+      "recovery"
+    ],
+    "client_detail_typography_preserved": true,
+    "client_list_row_typography_v020": "reverted-to-approved-018-scale",
+    "sg_admin_enter_defaults_to_yes": true,
+    "permanent_log_secret_redaction": true,
+    "pem_and_profile_output_redaction": true,
+    "final_success_output": "compact-status-only",
+    "amneziawg_udp_port_invariant": "database-seed-backend-ui-firewall-runtime-profile",
+    "clean_install_database_assertion": true,
+    "rejected_v019_double_typography_removed": true,
+    "version": "021-rebuilt"
+  },
+  "routing_ui": {
+    "source": "SG Client 096",
+    "layout": "routing-plus-geofiles-plus-warp-three-tabs",
+    "light_theme": "Luxury Jade exact palette",
+    "dark_theme": "Graphite exact palette",
+    "smart_presets": [
+      "direct",
+      "ads_block",
+      "blocked_warp",
+      "all_warp",
+      "custom"
+    ],
+    "custom_rules": [
+      "direct",
+      "warp",
+      "block"
+    ],
+    "live_xray_integration": true,
+    "final_outbound": "direct-or-explicit-warp",
+    "forbidden_outbounds": [
+      "vpn",
+      "proxy",
+      "xray"
+    ],
+    "bundled_geofiles": "SG Client 096 RunetFreedom pair",
+    "roscomvpn_source": true,
+    "roscomvpn_compatibility": "direct-block-separate-preset",
+    "paired_geofiles_only": true,
+    "active_category_audit": true,
+    "full_xray_candidate_test": true,
+    "atomic_apply_and_rollback": true,
+    "separate_country_geoip": true,
+    "real_outbounds": [
+      "direct",
+      "warp",
+      "block"
+    ]
+  },
+  "mieru_export": {
+    "profile": "default",
+    "client_name_fragment": true
+  },
+  "geofiles": {
+    "active_path": "/usr/local/share/xray",
+    "compatibility_path": "/usr/share/xray",
+    "state_path": "/var/lib/sg-gateway/geofiles",
+    "country_database": "/opt/sg-gateway/assets/geoip/sg-country-geoip.dat",
+    "families": [
+      "standard",
+      "roscomvpn",
+      "custom"
+    ]
+  },
+  "ui_safety": {
+    "native_browser_dialogs_removed": true,
+    "internal_confirmation_modal": true,
+    "covers_all_templates": true,
+    "forbidden_calls": [
+      "confirm",
+      "alert",
+      "prompt"
+    ],
+    "theme_support": [
+      "dark-graphite",
+      "light-luxury-jade"
+    ],
+    "keyboard_escape_cancel": true,
+    "destructive_action_tone": true,
+    "xray_status_cards_theme_fixed": true,
+    "connections_theme_audit": true,
+    "readable_typography_v3": true,
+    "large_headings_unchanged": true,
+    "approved_client_detail_unchanged": true
+  },
+  "client_access_model": {
+    "user_entity": "clients",
+    "tables": [
+      "clients",
+      "devices",
+      "device_credentials"
+    ],
+    "profile_storage": "derived-from-device-credentials-and-server-endpoints",
+    "legacy_migration": "one-primary-device-per-existing-client",
+    "legacy_credentials_preserved": true,
+    "vless_uuid_per_device": true,
+    "vless_uuid_shared_by_device_profiles": true,
+    "hysteria_auth_per_device": true,
+    "mieru_username_password_per_device": true,
+    "server_endpoint_parameters_shared": [
+      "reality_public_key",
+      "short_id",
+      "sni",
+      "path",
+      "vless_client_encryption"
+    ],
+    "independent_enable_disable": true,
+    "personal_subscription_per_device": true,
+    "personal_subscription_qr": true,
+    "simple_ui": true,
+    "sg_panel_transfer_status": "wait-for-real-sg-gateway-validation"
+  },
+  "warp": {
+    "automatic_on_full_install": true,
+    "default_state": "active",
+    "source": "SG-Panel FIX40 verified WARP contract",
+    "registration": "ArchiveNetwork wgcf-cli v0.3.6",
+    "generation": "register + generate --xray",
+    "candidate_before_live": true,
+    "ipv4_endpoint": "162.159.192.1:2408",
+    "xray_outbound": "native-wireguard",
+    "tag": "warp",
+    "no_kernel_tun": true,
+    "changes_system_routes": false,
+    "one_click_create_and_activate": true,
+    "actions": [
+      "export-json",
+      "test",
+      "disable",
+      "enable-legacy",
+      "recreate",
+      "remove"
+    ],
+    "trace_verification": "cloudflare-cdn-cgi-trace",
+    "fail_closed": true,
+    "silent_direct_fallback": false,
+    "secret_files": "root-only-0600",
+    "legacy_wgcf_profile_migration": true
+  },
+  "installer_lineage": "sg-gateway-020-over-019-retest-sanitized-output",
+  "installer_requirements": {
+    "single_spinner": true,
+    "quiet_technical_output": true,
+    "same_ec2_retry": true,
+    "server_name_prompt": true,
+    "public_ip_fallbacks": 4,
+    "country_flag_detection": true,
+    "optional_sg_admin": true,
+    "domain_optional": true,
+    "sg_admin_default": "yes-on-enter",
+    "secret_safe_permanent_log": true
+  },
+  "installer_preview54": {
+    "sg_panel_progress_style": true,
+    "persistent_prefix": "[SG-Gateway]",
+    "single_spinner": true,
+    "quiet_technical_output": true,
+    "stage6_empty_host_repair": [
+      "xray",
+      "amneziawg",
+      "mihomo"
+    ],
+    "exact_traceback_summary": true,
+    "single_error_handler": true,
+    "hostname_rollback": true,
+    "same_ec2_retry": true
+  },
+  "vless_sg_panel_port": {
+    "source": "SG-Panel Preview 9 FIX36",
+    "scope": [
+      "VLESS Reality TCP",
+      "VLESS XHTTP Reality"
+    ],
+    "server_contract": {
+      "reality_destination_key": "dest",
+      "reality_tcp_network": "tcp",
+      "xhttp_server_mode": "auto",
+      "flow": "xtls-rprx-vision"
+    },
+    "client_contract": {
+      "reality_tcp_type": "tcp",
+      "xhttp_client_mode": "stream-one",
+      "spider_x": "/",
+      "fingerprint_normalized": true
+    },
+    "clients_storage_changed": false
+  },
+  "sg_gateway_015": {
+    "base": "full backend/UI from Preview 54 (UI lineage preserved from Preview 47)",
+    "migration_from": "SG-Gateway 013 minimal confirmed EC2 base",
+    "panel_port": 63443,
+    "xray_preservation": "Reality X25519, ShortID and full ML-KEM-768 pair from 013 are preserved",
+    "xray_contract": "VLESS Reality TCP + XHTTP Reality + XTLS Vision; server auto, client stream-one",
+    "ui": "all Flask routes, handlers, databases and templates installed together; not a CSS overlay",
+    "automatic_client_creation": false,
+    "panel_credentials": "013 PBKDF2 password hash and session secret are preserved; no password prompt during migration"
+  },
+  "build": "full-clean-ec2-retest-v020",
+  "health_ui": {
+    "unused_optional_mihomo": "idle-not-error"
   }
 }

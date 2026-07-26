@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ job.title }} · SG-Gateway{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='sg-operation-job-v13.css') }}">
+{% endblock %}
+{% block content %}
+<section class="opjob-page" data-status-url="{{ url_for('operation_job_status', job_id=job.job_id) }}">
+  <header class="opjob-head">
+    <div>
+      <div class="opjob-kicker">ЖИВОЙ ТЕРМИНАЛ</div>
+      <h1>{{ job.title }}</h1>
+      <p>Не закрывайте вкладку. Журнал обновляется автоматически; при ошибке конфигурация откатывается.</p>
+    </div>
+    <span id="opjob-status" class="opjob-status is-{{ job.status }}">{{ job.status }}</span>
+  </header>
+  <div class="opjob-steps sg-ljd-nested"><span class="is-active">Подготовка</span><i></i><span>Проверка</span><i></i><span>Применение</span><i></i><span>Готово</span></div>
+  <article class="opjob-terminal">
+    <div class="opjob-terminal-bar"><span></span><span></span><span></span><strong>SG-Gateway task · {{ job.job_id }}</strong></div>
+    <pre id="opjob-log">{{ job.log }}</pre>
+  </article>
+  <footer class="opjob-actions">
+    <a class="button" href="{{ job.back_url or url_for('security') }}">Вернуться</a>
+    <a id="opjob-target" class="button primary{% if job.status != 'success' %} is-hidden{% endif %}" href="{{ job.target_url or '#' }}">Открыть результат</a>
+    <span id="opjob-message">{% if job.status == 'success' %}Готово. Выполняется переход…{% elif job.status == 'failed' %}Задача завершилась ошибкой. Подробности выше.{% else %}Задача выполняется…{% endif %}</span>
+  </footer>
+</section>
+<script>
+(() => {
+  const root = document.querySelector('.opjob-page');
+  const log = document.getElementById('opjob-log');
+  const badge = document.getElementById('opjob-status');
+  const message = document.getElementById('opjob-message');
+  const target = document.getElementById('opjob-target');
+  let redirected = false;
+  async function update() {
+    try {
+      const response = await fetch(root.dataset.statusUrl, {cache: 'no-store'});
+      const data = await response.json();
+      log.textContent = data.log || '';
+      log.scrollTop = log.scrollHeight;
+      badge.textContent = data.status;
+      badge.className = 'opjob-status is-' + data.status;
+      if (data.status === 'success') {
+        target.classList.remove('is-hidden');
+        message.textContent = 'Готово. Переходим к результату…';
+        if (!redirected && data.target_url) {
+          redirected = true;
+          setTimeout(() => { window.location.href = data.target_url; }, 2500);
+        }
+        return;
+      }
+      if (data.status === 'failed') {
+        message.textContent = 'Ошибка. Конфигурация не применена или восстановлена из резервной копии.';
+        return;
+      }
+      setTimeout(update, 1000);
+    } catch (error) {
+      message.textContent = 'Связь с задачей временно потеряна; повторяю…';
+      setTimeout(update, 1800);
+    }
+  }
+  log.scrollTop = log.scrollHeight;
+  if (!['success','failed'].includes(badge.textContent.trim())) setTimeout(update, 500);
+})();
+</script>
+{% endblock %}

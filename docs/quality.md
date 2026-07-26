@@ -1,36 +1,24 @@
-# Quality Checks
+# Quality checks
 
-SG-Gateway has a lightweight quality gate for early MVP work.
-
-## Local Check
+Before publishing changes:
 
 ```powershell
-.\scripts\check.ps1
+.\scripts\ci-local.ps1
 ```
 
-It checks:
+or on Linux:
 
-- Python syntax
-- release manifest consistency
-- Docker Compose config, when Docker is available
-- pytest, when `.venv` exists
-
-## Full Local Test
-
-```powershell
-.\scripts\test.ps1
-.\scripts\check.ps1
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+bash -n install.sh
+bash -n build-run.sh
 ```
 
-## GitHub Actions
+The repository also checks:
 
-The `CI` workflow runs on push and pull requests to `main`.
-
-It checks:
-
-- Python dependencies
-- syntax
-- release manifest
-- Docker Compose config
-- panel tests
-- hostd tests
+- Python syntax;
+- JSON manifests;
+- Jinja templates;
+- the clean SQLite seed and AmneziaWG UDP 585 invariant;
+- self-contained installer payload verification.

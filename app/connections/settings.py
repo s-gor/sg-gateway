@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
+from app.constants import AMNEZIAWG_UDP_PORT
 from app.db import connect
 from app.maintenance.operations import log_operation
 
@@ -56,7 +57,7 @@ def _clean_port(port: int | str) -> int | None:
 
 def update_connection_settings(engine: str, host: str, port: int | str, config: dict) -> bool:
     clean_host = _clean_host(host)
-    clean_port = _clean_port(port)
+    clean_port = AMNEZIAWG_UDP_PORT if engine == "amneziawg" else _clean_port(port)
     if clean_host is None or clean_port is None:
         log_operation(
             action="connection.update",

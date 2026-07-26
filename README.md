@@ -1,146 +1,88 @@
 # SG-Gateway
 
-AmneziaWG and Xray. Simple, stable, and focused.
+SG-Gateway is a native Ubuntu control panel for one independent VPN/proxy server.
+It is a separate project and does not use Controller, SG-Node or Cascade.
 
-SG-Gateway is a Docker-first control panel for one server, one client list,
-and two connection engines:
+**Current GitHub baseline:** `0.1.0-021`
 
-- AmneziaWG
-- Xray VLESS Reality
+## What 021 contains
 
-The project is intentionally small in scope. It does not include clusters,
-nodes, cascades, controllers, remote workers, or multi-server orchestration.
+- native Ubuntu and systemd deployment, without Docker;
+- one client catalogue with independent device accesses;
+- AmneziaWG on fixed UDP port `585`;
+- Xray VLESS Reality TCP, VLESS XHTTP Reality, VLESS XHTTP TLS and Hysteria 2;
+- Hysteria 2 Salamander FinalMask support;
+- Mieru, AnyTLS and TUIC through the managed Mihomo runtime;
+- WARP outbound with automatic creation during clean installation;
+- Routing and GeoFiles management;
+- QR codes, technical links and SG Client subscriptions;
+- diagnostics, backups, recovery and security pages;
+- secret redaction in installer output and permanent logs.
 
-## Product Principles
+## Production layout
 
-- One human-friendly client database.
-- Panel failure must not stop existing user connections.
-- Every config change is validated before apply.
-- Every risky operation has backup and rollback.
-- Docker is used for application services.
-- Host-level operations are delegated to a small, limited host helper.
+```text
+/opt/sg-gateway       application
+/etc/sg-gateway       configuration
+/var/lib/sg-gateway   database and runtime state
+/var/log/sg-gateway   logs
+```
 
-## Current MVP
+Main services include the panel, host helper, Xray, AmneziaWG, Mihomo,
+sing-box and Nginx. Existing user traffic is designed to continue if the web
+panel is temporarily unavailable.
 
-- English panel navigation
-- Dashboard
-- System overview
-- Unified clients
-- Client detail cards
-- SQLite storage
-- Editable connection settings
-- Routing overview
-- Security posture overview
-- Generated AmneziaWG client payloads
-- Generated Xray UUID payloads
-- Downloadable access exports
-- QR codes for access exports
-- Maintenance diagnostics
-- Downloadable diagnostic report
-- Health checks
-- Recovery page
-- Database backup and restore
-- Operation log
-- Docker panel runtime
-- sg-hostd allow-listed command contract
-- Panel-side sg-hostd client
-- Dry-run installer
-- Release manifest and version endpoint
-- Built-in user help
-- Panel login
-- Local check script and CI workflow
-- Local Windows development scripts
+## Install from the checked-out source
 
-## Panel Sections
+Use a fresh supported Ubuntu EC2/VPS and run:
 
-The side menu is intentionally small and operational:
+```bash
+chmod +x install.sh
+sudo ./install.sh
+```
 
-- `Dashboard`: gateway summary, readiness and connection cards.
-- `System`: service health, runtime details, resource usage and safe system links.
-- `Clients`: unified client records, access profiles, status and enable/disable actions.
-- `Connections`: editable AmneziaWG and Xray endpoint settings.
-- `Routing`: read-only view of effective client traffic paths.
-- `Maintenance`: backups, health checks, diagnostics and operation history.
-- `Security`: authentication, bind address exposure and recovery posture.
-- `Help`: short operator notes for each section.
+The installer performs candidate checks, creates backups before risky changes,
+validates runtime configuration and redacts private credentials from its log.
 
-## Local Development on Windows
+## Full uninstall
 
-Run:
+```bash
+chmod +x deploy/full-uninstall-ubuntu.sh
+sudo ./deploy/full-uninstall-ubuntu.sh
+```
+
+The uninstaller requires an explicit confirmation before removing application
+files and data.
+
+## Local development on Windows
 
 ```powershell
 .\scripts\run-dev.ps1
-```
-
-Then open:
-
-```text
-http://127.0.0.1:8080
-```
-
-Default MVP password:
-
-```text
-admin
-```
-
-Run tests:
-
-```powershell
 .\scripts\test.ps1
-```
-
-Run checks:
-
-```powershell
 .\scripts\check.ps1
 ```
 
-Run the same local quality gate used before commits:
+## Build the self-contained 021 installer
 
-```powershell
-.\scripts\ci-local.ps1
+```bash
+chmod +x build-run.sh
+./build-run.sh
 ```
 
-Docker development:
+The builder excludes Git metadata, virtual environments, caches and generated
+artifacts from the embedded source payload. The resulting `.run` supports:
 
-```powershell
-.\scripts\docker-dev.ps1
+```bash
+./SG-Gateway-021-FULL-CLEAN-EC2-REBUILT.run --verify-only
+./SG-Gateway-021-FULL-CLEAN-EC2-REBUILT.run --extract-only ./SG-Gateway-021-SOURCE
 ```
 
-## Install Dry Run
+## Repository rules
 
-```sh
-./deploy/install.sh
-```
-
-## First Release Scope
-
-- AmneziaWG access
-- Xray VLESS Reality access
-- Unified clients
-- English operational panel pages
-- QR codes and export links
-- Backup and restore
-- Diagnostics
-- Safe update and rollback
-- Docker Compose deployment
-
-## Repository Layout
-
-```text
-sg-gateway/
-|-- app/             Web panel and product modules
-|-- engines/         Engine adapters for AmneziaWG and Xray
-|-- hostd/           Limited host helper service
-|-- deploy/          Install, update, rollback, uninstall assets
-|-- docker/          Container build files
-|-- migrations/      Database migrations
-|-- scripts/         Local development helpers
-|-- tests/           Automated tests
-`-- docs/            Architecture and operator docs
-```
-
-## Status
-
-Early MVP scaffold.
+- `main` is the only active development branch at this stage.
+- SG-Gateway must not be mixed with SG-Panel or SG-AWG-Panel sources.
+- Working runtime behaviour is changed only after a confirmed defect or an
+  explicitly approved feature.
+- Generated installers, ZIP files, patches, local databases and secrets are not
+  committed. The clean seed database `data/sg-gateway.sqlite` is the only SQLite
+  file intentionally tracked.

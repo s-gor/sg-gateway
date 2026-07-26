@@ -37,11 +37,14 @@ def hostd_health() -> HostdResult:
     )
 
 
-def run_hostd_command(command: str) -> HostdResult:
+def run_hostd_command(
+    command: str,
+    timeout: float = 5,
+) -> HostdResult:
     url = f"{load_config().hostd_url.rstrip('/')}/commands/{command}"
     request = urllib.request.Request(url, method="POST")
     try:
-        with urllib.request.urlopen(request, timeout=5) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8")

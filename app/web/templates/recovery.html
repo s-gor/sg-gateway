@@ -1,12 +1,20 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru" data-theme="dark">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+      try {
+        const savedTheme = localStorage.getItem("sg-gateway-theme");
+        document.documentElement.dataset.theme = savedTheme === "light" ? "light" : "dark";
+      } catch (_) {}
+    </script>
     <title>SG-Gateway · Recovery</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='sg-luxury-jade-depth-v2.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='sg-readable-typography-v3.css') }}">
   </head>
-  <body>
+  <body class="sg-body">
     <main class="recovery-shell">
       <header class="recovery-header">
         <div class="brand">
@@ -23,15 +31,15 @@
         </div>
       </header>
 
-      <section class="tool-panel">
+      <section class="tool-panel sg-ljd-card-large">
         <div class="section-heading">
           <h1>Состояние: {{ health.upper() }}</h1>
           <p>Эта страница намеренно упрощена: состояние, проверки, последние резервные копии и быстрые ссылки панели.</p>
         </div>
       </section>
 
-      <section class="table-panel section-block">
-        <table class="data-table">
+      <section class="table-panel section-block sg-ljd-card-large">
+        <table class="data-table sg-ljd-table">
           <thead>
             <tr>
               <th>Проверка</th>
@@ -43,7 +51,7 @@
             {% for check in health_checks %}
               <tr>
                 <td><strong>{{ check.name }}</strong></td>
-                <td><span class="badge {{ 'success' if check.status == 'ok' else '' }}">{{ {'ok': 'Норма', 'warning': 'Предупреждение', 'error': 'Ошибка'}.get(check.status, check.status) }}</span></td>
+                <td><span class="badge {{ 'success' if check.status == 'ok' else ('idle' if check.status == 'idle' else '') }}">{{ {'ok': 'Норма', 'idle': 'Не используется', 'warning': 'Предупреждение', 'error': 'Ошибка'}.get(check.status, check.status) }}</span></td>
                 <td>{{ check.message }}</td>
               </tr>
             {% endfor %}
@@ -51,9 +59,9 @@
         </table>
       </section>
 
-      <section class="table-panel">
+      <section class="table-panel sg-ljd-card-large">
         {% if backups %}
-          <table class="data-table">
+          <table class="data-table sg-ljd-table">
             <thead>
               <tr>
                 <th>Последние резервные копии</th>
@@ -76,7 +84,7 @@
             </tbody>
           </table>
         {% else %}
-          <div class="empty-state">
+          <div class="empty-state sg-ljd-nested">
             <h2>Резервных копий пока нет</h2>
             <p>Последние резервные копии появятся здесь после создания первой копии.</p>
           </div>
