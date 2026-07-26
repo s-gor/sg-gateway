@@ -32,9 +32,18 @@ Main services include the panel, host helper, Xray, AmneziaWG, Mihomo,
 sing-box and Nginx. Existing user traffic is designed to continue if the web
 panel is temporarily unavailable.
 
-## Install from the checked-out source
+## Install directly from GitHub main
 
-Use a fresh supported Ubuntu EC2/VPS and run:
+Use a fresh supported Ubuntu EC2/VPS and run this single command:
+
+```bash
+sudo apt-get update && sudo apt-get install -y ca-certificates curl tar gzip && curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | sudo bash
+```
+
+The GitHub bootstrap downloads the current `main` source into a temporary
+directory, validates the required files and starts the native `install.sh`.
+
+## Install from the checked-out source
 
 ```bash
 chmod +x install.sh
@@ -44,15 +53,24 @@ sudo ./install.sh
 The installer performs candidate checks, creates backups before risky changes,
 validates runtime configuration and redacts private credentials from its log.
 
-## Full uninstall
+## Full uninstall directly from GitHub
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/full-uninstall-ubuntu.sh | sudo bash
+```
+
+Enter `DELETE SG-GATEWAY` when prompted. The uninstaller removes SG-Gateway
+application files, configuration, databases, backups, systemd services,
+SG-managed Xray, AmneziaWG, Mihomo, sing-box and WARP helper runtimes, all
+firewall rules opened by the installer, and SG-Gateway Nginx/sysctl files.
+Generic Ubuntu packages such as Nginx, Certbot and Python are intentionally kept.
+
+The same uninstaller can be run from a checked-out source:
 
 ```bash
 chmod +x deploy/full-uninstall-ubuntu.sh
 sudo ./deploy/full-uninstall-ubuntu.sh
 ```
-
-The uninstaller requires an explicit confirmation before removing application
-files and data.
 
 ## Local development on Windows
 
