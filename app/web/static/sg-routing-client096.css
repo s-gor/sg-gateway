@@ -11,9 +11,9 @@ html[data-theme="dark"] body.page-routing {
   --r096-line-strong: #34506B;
   --r096-text: #F4F7FA;
   --r096-muted: #8A9AAF;
-  --r096-accent: #35D69A;
-  --r096-accent-soft: #14372D;
-  --r096-accent-line: #2A7A5C;
+  --r096-accent: #7FB2E0;
+  --r096-accent-soft: rgba(71, 122, 170, .22);
+  --r096-accent-line: #4E82B1;
   --r096-selected: #182A3E;
   --r096-warning: #E9C46A;
   --r096-warning-soft: #3A321A;
@@ -65,14 +65,16 @@ body.page-routing { color: var(--r096-text); }
 .r096-header-button,
 .r096-secondary-button { border: 1px solid var(--r096-line); background: var(--r096-raised); color: var(--r096-text); }
 .r096-primary-button { border: 1px solid var(--r096-warning); background: linear-gradient(180deg, #5F8874 0%, #3E6B57 100%); color: #fff; box-shadow: var(--r096-shadow); }
-html[data-theme="dark"] .r096-primary-button { border-color: var(--r096-accent-line); background: linear-gradient(180deg, #1A493F 0%, #143A33 100%); color: #EDF8F4; box-shadow: none; }
+html[data-theme="dark"] .r096-primary-button { border-color: var(--r096-accent-line); background: linear-gradient(180deg, #477AAA 0%, #315E8C 100%); color: #F4F7FA; box-shadow: 0 8px 18px rgba(0, 0, 0, .22); }
 .r096-primary-button:disabled,
 .r096-secondary-button:disabled { opacity: .48; cursor: not-allowed; }
 
-.r096-tabs { display: flex; min-height: 50px; align-items: stretch; gap: 4px; padding: 0 18px; border-inline: 1px solid var(--r096-line-strong); border-bottom: 1px solid var(--r096-line); background: var(--r096-soft); }
-.r096-tabs button { min-width: 150px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--r096-muted); padding: 0 18px; font: inherit; font-size: 13px; font-weight: 750; cursor: pointer; }
-.r096-tabs button:hover { color: var(--r096-text); }
-.r096-tabs button.active { color: var(--r096-accent); border-bottom-color: var(--r096-accent); }
+.r096-tabs { display: flex; min-height: 62px; align-items: center; gap: 8px; padding: 11px 18px; border-inline: 1px solid var(--r096-line-strong); border-bottom: 1px solid var(--r096-line); background: var(--r096-soft); }
+.r096-tabs button { display: inline-flex; align-items: center; justify-content: center; min-width: 0; min-height: 38px; border: 1px solid var(--r096-line); border-radius: 10px; background: var(--r096-raised); color: var(--r096-text); padding: 8px 15px; font: inherit; font-size: 12px; font-weight: 750; line-height: 1.2; cursor: pointer; box-shadow: none; transition: border-color .16s ease, box-shadow .16s ease, filter .16s ease; }
+.r096-tabs button:hover { border-color: var(--r096-line-strong); color: var(--r096-text); filter: brightness(1.025); }
+html[data-theme="light"] .r096-tabs button { box-shadow: 0 2px 5px rgba(43, 52, 46, .10); }
+html[data-theme="light"] .r096-tabs button.active { border-color: #5C846F; background: linear-gradient(180deg, #6F9A84 0%, #527D69 100%); color: #FFFFFF; box-shadow: 0 10px 22px rgba(69, 111, 92, .20), 0 2px 5px rgba(43, 52, 46, .12); }
+html[data-theme="dark"] .r096-tabs button.active { border-color: #4E82B1; background: linear-gradient(180deg, #477AAA 0%, #315E8C 100%); color: #F4F7FA; box-shadow: 0 8px 18px rgba(0, 0, 0, .22); }
 
 .r096-panel { display: grid; gap: 12px; padding: 14px 18px 22px; border-inline: 1px solid var(--r096-line-strong); background: var(--r096-bg); }
 .r096-panel[hidden] { display: none; }
@@ -273,4 +275,37 @@ html[data-theme="dark"] .r096-primary-button { border-color: var(--r096-accent-l
   .r096-warp-summary,
   .r096-warp-head { align-items:stretch; flex-direction:column; }
   .r096-warp-grid { grid-template-columns:1fr; }
+}
+
+/* SG-Gateway 021 accumulated UI: neutral inactive buttons, color only when selected */
+html[data-theme="dark"] body.page-routing .r096-rule-tabs button,
+html[data-theme="dark"] body.page-routing .r096-segments span,
+html[data-theme="dark"] body.page-routing .r096-choice-card span {
+  border: 1px solid #34506B;
+  background: #162438;
+  color: #F4F7FA;
+  box-shadow: none;
+}
+html[data-theme="dark"] body.page-routing .r096-rule-tabs button:hover,
+html[data-theme="dark"] body.page-routing .r096-segments label:not(.disabled):hover span,
+html[data-theme="dark"] body.page-routing .r096-choice-card:not(.disabled):hover span {
+  border-color: #4E82B1;
+  background: #192A40;
+  color: #FFFFFF;
+}
+html[data-theme="dark"] body.page-routing .r096-rule-tabs button.active,
+html[data-theme="dark"] body.page-routing .r096-segments input:checked + span,
+html[data-theme="dark"] body.page-routing .r096-choice-card input:checked + span {
+  border: 1px solid #4E82B1;
+  background: linear-gradient(180deg, #477AAA 0%, #315E8C 100%);
+  color: #FFFFFF;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .22);
+}
+html[data-theme="light"] body.page-routing .r096-rule-tabs button.active,
+html[data-theme="light"] body.page-routing .r096-segments input:checked + span,
+html[data-theme="light"] body.page-routing .r096-choice-card input:checked + span {
+  border: 1px solid #5C846F;
+  background: linear-gradient(180deg, #6F9A84 0%, #527D69 100%);
+  color: #FFFFFF;
+  box-shadow: 0 10px 22px rgba(69, 111, 92, .20), 0 2px 5px rgba(43, 52, 46, .12);
 }

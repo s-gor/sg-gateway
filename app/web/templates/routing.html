@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}SG-Gateway · Маршрутизация{% endblock %}
+{% block title %}SG-Gateway · Routing{% endblock %}
 
 {% block content %}
 {% set candidate = routing_templates.candidate or {} %}
@@ -15,14 +15,14 @@
   <header class="r096-heading">
     <div>
       <div class="r096-kicker"><span></span> SG-GATEWAY / ROUTING</div>
-      <h1>Маршрутизация</h1>
+      <h1>Routing</h1>
       <p>Единая схема правил для серверного Xray и связанных GeoFiles.</p>
     </div>
     <a class="r096-header-button" href="{{ url_for('help_index') }}">Справка</a>
   </header>
 
-  <nav class="r096-tabs" aria-label="Разделы маршрутизации">
-    <button type="button" data-r096-tab="routing" class="active">Маршрутизация</button>
+  <nav class="r096-tabs" aria-label="Разделы Routing">
+    <button type="button" data-r096-tab="routing" class="active">Routing</button>
     <button type="button" data-r096-tab="geofiles">GeoFiles</button>
   </nav>
 
