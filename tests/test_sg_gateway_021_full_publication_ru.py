@@ -35,20 +35,40 @@ def test_client_detail_uses_routing_frame_and_title_size():
     assert "font-size: 27px !important" in css
 
 
-def test_russian_publication_files_are_present():
+def test_russian_publication_has_user_and_technical_roads():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     docs = (ROOT / "docs/README.md").read_text(encoding="utf-8")
+    technical = (ROOT / "docs/TECHNICAL.md").read_text(encoding="utf-8")
 
     for marker in (
-        "Самостоятельная веб-панель",
-        "Установка из GitHub",
+        "Лёгкая и быстрая веб-панель",
+        "Семейный VPN без серверной акробатики",
+        "Без квантовой механики",
+        "VLESS Reality TCP + XTLS Vision",
+        "VLESS XHTTP Reality + XTLS Vision + VLESS Encryption",
+        "VLESS XHTTP TLS + XTLS Vision + VLESS Encryption",
+        "А где подсчёт трафика?",
+        "Установка",
         "Обновление",
         "Полное удаление",
-        "XMUX для РФ",
-        "Документация",
+        "Техническое устройство SG-Gateway",
     ):
         assert marker in readme
 
-    assert "Документация SG-Gateway" in docs
-    assert "INSTALLATION.md" in docs
+    assert "Пользовательская" in docs
+    assert "Техническая" in docs
+    assert "TECHNICAL.md" in docs
     assert "security.md" in docs
+
+    for marker in (
+        "Матрица Xray-профилей",
+        "XTLS Vision",
+        "VLESS Encryption",
+        "XMUX для российских сетей",
+        "flow=xtls-rprx-vision",
+        "ML-KEM-768",
+        "127.0.0.1:18080",
+        "UDP `585`",
+        "Осознанные ограничения",
+    ):
+        assert marker in technical

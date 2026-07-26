@@ -2,15 +2,41 @@
 
 Документация относится к линии **SG-Gateway 021** и версии приложения **`0.1.0-021`**.
 
-## С чего начать
+## Две дороги
 
-1. [Установка и обновление](INSTALLATION.md)
-2. [Руководство пользователя](USER-GUIDE.md)
-3. [Connections и клиентские профили](CONNECTIONS.md)
-4. [Routing и GeoFiles](ROUTING.md)
-5. [HTTPS и безопасность](security.md)
-6. [Maintenance и диагностика](MAINTENANCE.md)
-7. [Полное удаление](UNINSTALL.md)
+### Пользовательская
+
+Для установки и обычной работы:
+
+1. [Главный README](../README.md)
+2. [Установка и обновление](INSTALLATION.md)
+3. [Руководство пользователя](USER-GUIDE.md)
+4. [Connections и клиентские профили](CONNECTIONS.md)
+5. [Routing и GeoFiles](ROUTING.md)
+6. [HTTPS и безопасность](security.md)
+7. [Maintenance и диагностика](MAINTENANCE.md)
+8. [Полное удаление](UNINSTALL.md)
+
+### Техническая
+
+Для пользователя, который хочет понимать устройство профилей и служб:
+
+- [Техническое устройство SG-Gateway](TECHNICAL.md)
+
+В техническом документе подробно разобраны:
+
+- XTLS Vision;
+- VLESS Encryption;
+- XHTTP;
+- XMUX для РФ;
+- REALITY и TLS;
+- AmneziaWG;
+- Mihomo;
+- WARP;
+- Routing и GeoFiles;
+- службы, порты и размещение файлов;
+- обновление и сохранность данных;
+- осознанные ограничения проекта.
 
 ## Разделы панели
 
