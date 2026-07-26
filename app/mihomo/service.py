@@ -107,11 +107,23 @@ def _tls_paths(domain: str) -> tuple[Path, Path]:
     )
 
 
+# SG-Gateway Mihomo TLS readiness from public state
 def _tls_ready(domain: str) -> bool:
+    # The web panel is intentionally unprivileged and must not inspect
+    # /etc/letsencrypt directly. The privileged HTTPS transaction writes
+    # a panel-readable tls-state.json after Nginx and the certificate pass.
     if not domain:
         return False
-    cert, key = _tls_paths(domain)
-    return cert.is_file() and key.is_file()
+
+    state = _tls_state()
+    state_domain = str(state.get("domain") or "").strip().lower()
+    certificate = state.get("certificate")
+    return bool(
+        state_domain == domain.strip().lower()
+        and state.get("https_ready") is not False
+        and isinstance(certificate, dict)
+        and certificate
+    )
 
 
 def _deployment_config(device_id: int) -> dict[str, Any] | None:

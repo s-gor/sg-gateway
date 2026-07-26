@@ -149,6 +149,31 @@
                   </select>
                   <small>Сервер остаётся в auto и принимает все четыре режима. Выбор меняет клиентские ссылки, QR и SG Client subscription.</small>
                 </label>
+
+                <section class="xps2-xmux">
+                  <div class="xps2-xmux-main">
+                    <div class="xps2-xmux-copy">
+                      <span>Клиентский XMUX</span>
+                      <strong>XMUX для РФ</strong>
+                      <small>Постоянный клиентский профиль для XHTTP-ссылок, QR и SG Client subscription.</small>
+                    </div>
+                  </div>
+                  <details class="xps2-xmux-details">
+                    <summary>
+                      <span class="xps2-xmux-show">Показать параметры</span>
+                      <span class="xps2-xmux-hide">Скрыть параметры</span>
+                    </summary>
+                    <div class="xps2-xmux-grid">
+                      <div><span>Максимальная параллельность</span><small>maxConcurrency</small><strong>{{ profile.xmux.maxConcurrency }}</strong></div>
+                      <div><span>Максимум соединений</span><small>maxConnections</small><strong>{{ profile.xmux.maxConnections }}</strong></div>
+                      <div><span>Повторное использование соединения</span><small>cMaxReuseTimes</small><strong>{{ profile.xmux.cMaxReuseTimes }}</strong></div>
+                      <div><span>Запросов на HTTP-соединение</span><small>hMaxRequestTimes</small><strong>{{ profile.xmux.hMaxRequestTimes }}</strong></div>
+                      <div><span>Время повторного использования, сек.</span><small>hMaxReusableSecs</small><strong>{{ profile.xmux.hMaxReusableSecs }}</strong></div>
+                      <div><span>Интервал Keep-Alive</span><small>hKeepAlivePeriod</small><strong>{{ profile.xmux.hKeepAlivePeriod }}</strong></div>
+                    </div>
+                    <p>Рекомендуемый профиль для российских сетей. Серверный inbound не меняется.</p>
+                  </details>
+                </section>
                 {% endif %}
                 {% if profile.encryption_required %}
                 <div class="xps2-flow-field">

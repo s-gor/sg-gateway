@@ -1,12 +1,40 @@
-# Security
+# HTTPS и безопасность
 
-- The panel runs as an unprivileged service account.
-- Privileged actions are delegated to the allow-listed host helper.
-- Runtime configuration is validated before application.
-- Risky changes use backup and rollback.
-- Installer logs are mode `0600` and redact connection links, subscriptions,
-  PEM blocks, private keys, tokens and long generated credentials.
-- `.env`, local databases, logs and generated release artifacts are ignored by
-  Git. Only the clean seed database is tracked.
-- Recovery and certificate operations must not expose private material in the
-  normal interface or diagnostics.
+## Модель доступа
+
+Веб-панель работает от отдельного непривилегированного пользователя. Привилегированные операции выполняет ограниченный hostd.
+
+Backend слушает только локальный адрес:
+
+```text
+127.0.0.1:18080
+```
+
+Публичный доступ обслуживает Nginx.
+
+## Включение HTTPS
+
+1. направьте A-запись домена на публичный IPv4;
+2. откройте `Security`;
+3. введите домен;
+4. выполните проверку;
+5. запустите живую операцию получения сертификата;
+6. после успеха откройте новый HTTPS-адрес.
+
+## Транзакция HTTPS
+
+Привилегированный скрипт проверяет DNS, Certbot, Nginx, backend и внешний HTTPS. Перед изменениями сохраняются Nginx и TLS-state. Любая ошибка запускает автоматический rollback.
+
+## Доступ к сертификату
+
+Веб-процесс не читает `/etc/letsencrypt` напрямую. Root-транзакция записывает безопасный `tls-state.json`, из которого панель и Mihomo получают публичное состояние сертификата.
+
+## Секреты
+
+В обычный интерфейс и постоянные журналы не должны попадать:
+
+- пароли администратора;
+- приватные ключи;
+- VLESS Encryption/Decryption целиком;
+- PEM-блоки;
+- готовые клиентские ссылки и subscriptions.

@@ -58,6 +58,18 @@ XHTTP_MODE_OPTIONS = (
 )
 VLESS_ENCRYPTION_PLACEHOLDER = "PLACEHOLDER_VLESS_ENCRYPTION"
 
+# Client-only XHTTP XMUX preset confirmed for Russian networks.
+# maxConcurrency stays 0 because Xray forbids a positive maxConcurrency together
+# with a positive maxConnections.
+XHTTP_XMUX_RF = {
+    "maxConcurrency": 0,
+    "maxConnections": 6,
+    "cMaxReuseTimes": 0,
+    "hMaxRequestTimes": "600-900",
+    "hMaxReusableSecs": "1800-3000",
+    "hKeepAlivePeriod": 0,
+}
+
 
 class XrayProfilesError(RuntimeError):
     pass
@@ -80,6 +92,8 @@ class XrayProfile:
     encryption_required: bool = False
     encryption_ready: bool = False
     mode: str = ""
+    xmux_enabled: bool = False
+    xmux: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -204,10 +218,12 @@ def _values(config: dict[str, Any], legacy_port: int) -> dict[str, Any]:
         "xhttp_reality_port": _port(config.get("xhttp_reality_port"), 8444),
         "xhttp_reality_path": _path(config.get("xhttp_reality_path"), "/sg-xhttp-reality"),
         "xhttp_reality_mode": _mode(config.get("xhttp_reality_mode"), "stream-one"),
+        "xhttp_reality_xmux_enabled": True,
         "xhttp_tls_enabled": _bool(config.get("xhttp_tls_enabled"), False),
         "xhttp_tls_port": _port(config.get("xhttp_tls_port"), 8445),
         "xhttp_tls_path": _path(config.get("xhttp_tls_path"), "/sg-xhttp-tls"),
         "xhttp_tls_mode": _mode(config.get("xhttp_tls_mode"), "auto"),
+        "xhttp_tls_xmux_enabled": True,
         "hysteria2_enabled": _bool(config.get("hysteria2_enabled"), False),
         "hysteria2_port": _port(config.get("hysteria2_port"), 8446),
         "hysteria2_obfs_mode": salamander_mode,
@@ -225,6 +241,7 @@ def _prepare(form: Any) -> PreparedXraySettings:
     settings, config, tls = _config()
     current = _values(config, int(settings.port or 443))
     tls_ready = bool(tls.get("https_ready"))
+    encryption_ready = _vless_encryption_ready(config.get("vless_encryption"))
 
     values: dict[str, Any] = {
         "reality_tcp_enabled": bool(form.get("reality_tcp_enabled")),
@@ -235,6 +252,7 @@ def _prepare(form: Any) -> PreparedXraySettings:
         "xhttp_reality_mode": _mode(
             form.get("xhttp_reality_mode"), str(current["xhttp_reality_mode"])
         ),
+        "xhttp_reality_xmux_enabled": True,
         "xhttp_tls_enabled": (
             bool(form.get("xhttp_tls_enabled"))
             if tls_ready else bool(current["xhttp_tls_enabled"])
@@ -248,6 +266,7 @@ def _prepare(form: Any) -> PreparedXraySettings:
         "xhttp_tls_mode": _mode(
             form.get("xhttp_tls_mode"), str(current["xhttp_tls_mode"])
         ),
+        "xhttp_tls_xmux_enabled": True,
         "hysteria2_enabled": (
             bool(form.get("hysteria2_enabled"))
             if tls_ready else bool(current["hysteria2_enabled"])
@@ -407,6 +426,7 @@ def overview() -> dict[str, Any]:
         note: str,
         flow: str = "",
         mode_key: str = "",
+        xmux_enabled_key: str = "",
     ) -> XrayProfile:
         enabled = bool(values[enabled_key])
         obfs_ready = not (
@@ -454,6 +474,8 @@ def overview() -> dict[str, Any]:
             encryption_required=encryption_required,
             encryption_ready=encryption_ready if encryption_required else False,
             mode=str(values[mode_key]) if mode_key else "",
+            xmux_enabled=True if xmux_enabled_key else False,
+            xmux=dict(XHTTP_XMUX_RF) if xmux_enabled_key else None,
         )
 
     profiles = [
@@ -471,6 +493,7 @@ def overview() -> dict[str, Any]:
             note="XHTTP + REALITY с обязательными VLESS Encryption и XTLS Vision.",
             flow=REALITY_TCP_FLOW,
             mode_key="xhttp_reality_mode",
+            xmux_enabled_key="xhttp_reality_xmux_enabled",
         ),
         profile(
             "xhttp_tls", "VLESS XHTTP TLS", "XHTTP / TCP", "TLS",
@@ -480,6 +503,7 @@ def overview() -> dict[str, Any]:
             note="XHTTP + TLS с обязательными VLESS Encryption и XTLS Vision.",
             flow=REALITY_TCP_FLOW,
             mode_key="xhttp_tls_mode",
+            xmux_enabled_key="xhttp_tls_xmux_enabled",
         ),
         profile(
             "hysteria2", "Hysteria 2", "QUIC / UDP", "TLS",
@@ -501,6 +525,7 @@ def overview() -> dict[str, Any]:
         "version_ready": version_ready,
         "xhttp_modes": XHTTP_MODES,
         "xhttp_mode_options": XHTTP_MODE_OPTIONS,
+        "xhttp_xmux_rf": dict(XHTTP_XMUX_RF),
         "key_ready": key_ready,
         "vless_encryption_ready": encryption_ready,
         "vless_encryption_algorithm": (

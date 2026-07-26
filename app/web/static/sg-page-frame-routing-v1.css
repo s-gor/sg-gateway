@@ -174,3 +174,128 @@ html[data-theme="light"]
     margin-left: 10px !important;
   }
 }
+
+/* SG-Gateway 021 · client detail uses the exact Routing page frame */
+.dv16-page {
+  display: grid !important;
+  gap: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid var(--sgpf-line-strong) !important;
+  border-radius: 16px !important;
+  background: var(--sgpf-page-bg) !important;
+  box-shadow: var(--sgpf-shadow) !important;
+  overflow: hidden;
+}
+
+.dv16-heading {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  gap: 20px !important;
+  min-height: 78px !important;
+  margin: 0 !important;
+  padding: 12px 18px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--sgpf-line-strong) !important;
+  border-radius: 16px 16px 0 0 !important;
+  background: var(--sgpf-header) !important;
+  box-shadow: var(--sgpf-shadow) !important;
+}
+
+.dv16-heading > div:first-child {
+  min-width: 0;
+}
+
+.dv16-heading h1 {
+  margin: 6px 0 2px !important;
+  color: var(--sgpf-text) !important;
+  font-size: 27px !important;
+  line-height: 1.05 !important;
+  font-weight: 750 !important;
+  letter-spacing: 0 !important;
+}
+
+.dv16-heading p {
+  margin: 0 !important;
+  color: var(--sgpf-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+.dv16-heading .cd10-kicker {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  color: var(--sgpf-accent) !important;
+  font-size: 10px !important;
+  font-weight: 850 !important;
+  letter-spacing: .15em !important;
+  line-height: 1.2 !important;
+}
+
+.dv16-heading .cd10-kicker span {
+  width: 6px !important;
+  height: 6px !important;
+  flex: 0 0 6px;
+  border-radius: 50% !important;
+  background: var(--sgpf-accent) !important;
+}
+
+.dv16-heading-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  max-width: 760px !important;
+}
+
+.dv16-heading-actions form {
+  margin: 0 !important;
+}
+
+.dv16-heading-actions .button {
+  min-height: 38px !important;
+  border-radius: 10px !important;
+  padding: 8px 15px !important;
+  font-size: 12px !important;
+  font-weight: 750 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap;
+}
+
+.dv16-client-state {
+  margin-top: 10px !important;
+}
+
+.dv16-devices {
+  display: grid !important;
+  gap: 14px !important;
+  margin: 14px 18px 18px !important;
+}
+
+@media (max-width: 1000px) {
+  .dv16-heading {
+    display: grid !important;
+    align-items: stretch !important;
+  }
+
+  .dv16-heading-actions {
+    justify-content: flex-start !important;
+    max-width: none !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .dv16-heading {
+    padding: 12px 10px !important;
+  }
+
+  .dv16-devices {
+    margin: 10px !important;
+  }
+}

@@ -184,6 +184,10 @@ def build_xray_profile_link(
             "xhttp_reality": "xhttp_reality_mode",
             "xhttp_tls": "xhttp_tls_mode",
         }.get(profile_id, "")
+        xmux_key = {
+            "xhttp_reality": "xhttp_reality_xmux_enabled",
+            "xhttp_tls": "xhttp_tls_xmux_enabled",
+        }.get(profile_id, "")
         if port_key:
             legacy_default = pending.previous_port if profile_id == "reality_tcp" else profile.port
             profile = type("AppliedProfile", (), {
@@ -192,6 +196,8 @@ def build_xray_profile_link(
                 "port": int(current_config.get(port_key) or legacy_default),
                 "path": str(current_config.get(path_key) or profile.path) if path_key else "",
                 "mode": str(current_config.get(mode_key) or getattr(profile, "mode", "")) if mode_key else "",
+                "xmux_enabled": True if xmux_key else False,
+                "xmux": getattr(profile, "xmux", None),
             })()
 
     def usable(value: object) -> bool:
@@ -244,14 +250,18 @@ def build_xray_profile_link(
                 path=profile.path,
                 encryption=vless_encryption,
                 client_mode=getattr(profile, "mode", "") or "stream-one",
+                xmux=(
+                    getattr(profile, "xmux", None)
+                    if getattr(profile, "xmux_enabled", False)
+                    else None
+                ),
             )
     elif profile_id == "xhttp_tls":
         domain = str(state.get("tls_domain") or "")
         if not vless_encryption or "PLACEHOLDER" in vless_encryption.upper():
             body = ""
         else:
-            query = urlencode(
-                {
+            query_values = {
                     "type": "xhttp",
                     "security": "tls",
                     "flow": REALITY_TCP_FLOW,
@@ -262,7 +272,13 @@ def build_xray_profile_link(
                     "path": profile.path,
                     "mode": getattr(profile, "mode", "") or "auto",
                 }
-            )
+            if getattr(profile, "xmux_enabled", False) and getattr(profile, "xmux", None):
+                query_values["extra"] = json.dumps(
+                    {"xmux": dict(profile.xmux)},
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                )
+            query = urlencode(query_values)
             body = f"vless://{user_id}@{host}:{profile.port}?{query}#{safe_name}"
     elif profile_id == "hysteria2":
         domain = str(state.get("tls_domain") or "")

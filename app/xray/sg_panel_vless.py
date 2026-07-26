@@ -7,6 +7,7 @@ server and client contract for the two domain-free channels used by SG-Gateway:
 VLESS Reality TCP and VLESS XHTTP Reality.
 """
 
+import json
 import re
 from typing import Any
 from urllib.parse import quote
@@ -155,9 +156,18 @@ def xhttp_reality_link(
     path: str,
     encryption: str,
     client_mode: str = VLESSENC_CLIENT_MODE_DEFAULT,
+    xmux: dict[str, Any] | None = None,
 ) -> str:
     fp = quote(fingerprint_for_xray(fingerprint), safe="")
     encrypted = quote(str(encryption), safe="-._~")
+    extra = ""
+    if xmux:
+        extra_json = json.dumps(
+            {"xmux": dict(xmux)},
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        extra = f"&extra={quote(extra_json, safe='')}"
     query = (
         f"encryption={encrypted}&flow={REALITY_TCP_FLOW}"
         "&type=xhttp&security=reality"
@@ -166,7 +176,7 @@ def xhttp_reality_link(
         f"&sid={quote(str(short_id), safe='')}"
         f"&path={quote(str(path), safe='')}"
         f"&mode={quote(str(client_mode or VLESSENC_CLIENT_MODE_DEFAULT), safe='-_')}"
-        "&spx=%2F"
+        f"{extra}&spx=%2F"
     )
     return (
         f"vless://{uuid}@{host}:{int(port)}?{query}"
