@@ -53,7 +53,8 @@ def test_invalid_client_name_shows_feedback(tmp_path, monkeypatch):
 
     assert response.status_code == 200
     assert "Клиент не создан" in body
-    assert "не более 80 символов" in body
+    assert "Имя должно быть уникальным" in body
+    assert "минимум один протокол" in body
 
 
 

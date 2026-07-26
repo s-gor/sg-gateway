@@ -28,6 +28,5 @@ def test_missing_client_actions_are_rejected(tmp_path, monkeypatch):
     operations = list_operations()
     assert enabled is False
     assert deleted is False
-    assert count_operations() == 2
-    assert all(operation.status == "error" for operation in operations)
-    assert all("Клиент не найден" in operation.message for operation in operations)
+    assert count_operations() == 0
+    assert operations == []

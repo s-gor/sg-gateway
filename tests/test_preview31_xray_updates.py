@@ -85,7 +85,8 @@ def test_manifest_and_updates_ui_declare_safe_update_flow():
     manifest = json.loads((ROOT / "release-manifest.json").read_text(encoding="utf-8"))
     template = (ROOT / "app/web/templates/maintenance.html").read_text(encoding="utf-8")
     runtime = (ROOT / "hostd/sg_hostd/xray_update_runtime.py").read_text(encoding="utf-8")
-    assert manifest["version"] == "0.1.0-015"
+    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    assert manifest["version"] == version
     assert manifest["xray"]["minimum_version"] == "v26.6.27"
     assert manifest["xray"]["updates"]["automatic_rollback"] is True
     assert "Backups" in template and "Updates" in template

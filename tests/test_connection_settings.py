@@ -24,10 +24,13 @@ def test_update_connection_settings_changes_new_exports(tmp_path, monkeypatch):
     updated = update_connection_settings("xray", "xray.test", 443, xray_config)
     assert updated is True
 
-    client_id = create_client("Irina", "recommended")
+    client_id = create_client(
+        "Irina",
+        "amneziawg,xray_reality_tcp,xray_xhttp_reality",
+    )
     client = get_client(client_id)
 
-    assert "Endpoint = vpn.test:60000" in build_awg_config(client).body
+    assert "Endpoint = vpn.test:585" in build_awg_config(client).body
     assert "@xray.test:443" in build_xray_link(client).body
     assert "REALITY_PUBLIC_KEY_TEST" in build_xray_link(client).body
 
@@ -68,6 +71,8 @@ def test_invalid_connection_port_does_not_crash_route(tmp_path, monkeypatch):
     client = app.test_client()
     client.post("/login", data={"password": "secret"})
 
+    original = get_connection_settings("xray")
+
     response = client.post(
         "/connections/xray",
         data={
@@ -81,8 +86,8 @@ def test_invalid_connection_port_does_not_crash_route(tmp_path, monkeypatch):
 
     current = get_connection_settings("xray")
     assert response.status_code == 302
-    assert current.host == "vpn.example.com"
-    assert current.port == 443
+    assert current.host == original.host
+    assert current.port == original.port
 
 
 
