@@ -13,7 +13,6 @@ def test_sidebar_links_are_english(tmp_path, monkeypatch):
 
     response = client.get("/")
     body = response.get_data(as_text=True)
-
     assert response.status_code == 200
     for href, label in [
         ("/", "System"),
@@ -34,7 +33,6 @@ def test_sidebar_pages_load_real_content(tmp_path, monkeypatch):
     monkeypatch.setenv("SG_GATEWAY_ADMIN_PASSWORD", "secret")
     client = create_app().test_client()
     _login(client)
-
     expectations = {
         "/system": [
             "SG-GATEWAY / SYSTEM",
@@ -52,7 +50,7 @@ def test_sidebar_pages_load_real_content(tmp_path, monkeypatch):
             "AmneziaWG",
         ],
         "/outbounds": [
-            "SG-GATEWAY / XRAY",
+            "SG-GATEWAY / OUTBOUNDS",
             "System outbounds",
             "WARP Outbound",
         ],
@@ -77,7 +75,6 @@ def test_sidebar_pages_load_real_content(tmp_path, monkeypatch):
             "Рабочий маршрут по SG-Gateway",
         ],
     }
-
     for path, expected_texts in expectations.items():
         response = client.get(path)
         body = response.get_data(as_text=True)

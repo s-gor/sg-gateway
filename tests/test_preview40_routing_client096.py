@@ -18,9 +18,19 @@ def test_routing_layout_is_ported_from_sg_client_096():
     assert 'data-r096-tab="geofiles"' in template
 
 
-def test_routing_themes_match_sg_client_096_palettes():
+def test_routing_themes_match_current_sg_gateway_palettes():
     css = (ROOT / "app/web/static/sg-routing-client096.css").read_text(encoding="utf-8")
-    for color in ("#0B121C", "#111D2B", "#35D69A", "#E5ECE7", "#F8F5EE", "#456F5C", "#B88A45"):
+    for color in (
+        "#0B121C",
+        "#111D2B",
+        "#7FB2E0",
+        "#477AAA",
+        "#315E8C",
+        "#E5ECE7",
+        "#F8F5EE",
+        "#456F5C",
+        "#B88A45",
+    ):
         assert color in css
 
 
@@ -49,10 +59,8 @@ def test_smart_routing_builds_real_candidate(tmp_path, monkeypatch):
     monkeypatch.setenv("SG_GATEWAY_GEOFILES_STATE_DIR", str(tmp_path / "geo-state"))
     monkeypatch.setenv("SG_GATEWAY_XRAY_ASSET_DIR", str(ROOT / "assets/geofiles"))
     monkeypatch.setenv("SG_GATEWAY_ROUTING_STATE_DIR", str(tmp_path / "routing"))
-
     from app.db import init_db
     from app.routing.templates import stage_smart_routing
-
     init_db()
     candidate = stage_smart_routing(
         {
