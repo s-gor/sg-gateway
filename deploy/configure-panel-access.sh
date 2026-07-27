@@ -329,7 +329,9 @@ configure_https(){
   HOST="${HOST,,}"
   [[ "$HOST" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]] || fail "некорректное доменное имя"
 
-  local public_ip resolved cert_dir cert_file key_file backup_dir https_authority committed=0
+  local public_ip resolved cert_dir cert_file key_file backup_dir https_authority
+  SG_HTTPS_BACKUP_DIR=""
+  SG_HTTPS_COMMITTED=0
   public_ip="$(detect_public_ipv4)"
   [[ "$public_ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || fail "не удалось определить публичный IPv4"
   resolved="$(getent ahostsv4 "$HOST" | awk '{print $1}' | sort -u || true)"
@@ -339,12 +341,14 @@ configure_https(){
   fi
 
   backup_dir="$(create_backup)"
+  SG_HTTPS_BACKUP_DIR="$backup_dir"
+  SG_HTTPS_COMMITTED=0
   rollback(){
     local rc=$?
     trap - EXIT ERR INT TERM
-    if [[ $committed -eq 0 ]]; then
+    if [[ ${SG_HTTPS_COMMITTED:-0} -eq 0 && -n ${SG_HTTPS_BACKUP_DIR:-} ]]; then
       log "HTTPS не настроен, восстанавливаю предыдущую конфигурацию"
-      restore_backup "$backup_dir"
+      restore_backup "$SG_HTTPS_BACKUP_DIR"
     fi
     exit "$rc"
   }
@@ -476,7 +480,7 @@ EOF_HOOK
 
   write_state "$HOST" issue "HTTPS включён и проверен" "$(basename "$backup_dir")"
   apply_client_runtime
-  committed=1
+  SG_HTTPS_COMMITTED=1
   trap - EXIT ERR INT TERM
   log "HTTPS настроен: https://$HOST:$PUBLIC_PORT"
   log "Backend: 127.0.0.1:$BACKEND_PORT"

@@ -83,7 +83,7 @@
               {% set tls_locked = profile.tls_required and not xray_profiles.tls_ready %}
               {% set encryption_locked = profile.encryption_required and not profile.encryption_ready %}
               {% set locked = tls_locked or encryption_locked %}
-              {% set initial_label = 'Нужен HTTPS' if tls_locked else ('Нужен VLESS Encryption' if encryption_locked else ('Работает сейчас' if profile.enabled and profile.ready and xray_profiles.service_active else ('Включён' if profile.enabled else 'Выключен'))) %}
+              {% set initial_label = 'Нужен HTTPS' if tls_locked else ('Нужен VLESS Encryption' if encryption_locked else ('Работает сейчас' if profile.enabled and profile.ready and xray_profiles.service_active else ('Включён' if profile.enabled else ('Готов к включению' if profile.tls_required and xray_profiles.tls_ready else 'Выключен')))) %}
               <input class="xps2-selector" type="checkbox"
                      id="xps2-{{ profile.id }}"
                      name="{{ profile.id }}_enabled"
