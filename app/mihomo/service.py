@@ -859,6 +859,9 @@ def _render_server_yaml(
 def build_candidate() -> dict[str, Any]:
     _ensure_dirs()
     settings = _settings_payload()
+    # SG-Gateway working split runtime: Mihomo serves Mieru only.
+    settings["anytls_enabled"] = False
+    settings["tuic_enabled"] = False
     deployments = list_protocol_deployments()
     _validate_settings(settings, deployments)
     body = _render_server_yaml(settings, deployments)

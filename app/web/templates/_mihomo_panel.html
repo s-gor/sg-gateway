@@ -4,9 +4,9 @@
   {% set tuic_state = mihomo.protocols|selectattr('id', 'equalto', 'tuic')|first %}
   <header class="mhv2-head">
     <div>
-      <div class="mhv2-kicker">MIHOMO MULTI-PROTOCOL</div>
+      <div class="mhv2-kicker">MIHOMO + SING-BOX</div>
       <h2>Mieru · AnyTLS · TUIC v5</h2>
-      <p>Три независимых listener одного Mihomo Core.</p>
+      <p>Три независимых listener двух движков.</p>
     </div>
     <span class="mhv2-state {{ 'ok' if mihomo.service_active else 'warning' }}">
       {{ 'Работает' if mihomo.service_active else 'Не запущен' }}
@@ -221,7 +221,9 @@
   </form>
 
   <p class="mhv2-runtime-note">
-    Переключатели управляют реальными listener одного Mihomo Core. Выключенный протокол удаляется из рабочей конфигурации, перестаёт слушать порт и не выдаётся в клиентские ссылки и subscription.
+    Mieru обслуживается Mihomo. AnyTLS и TUIC v5 обслуживаются отдельным
+    sing-box. Ошибка дополнительного движка не блокирует клиентов, Xray или
+    установку панели.
   </p>
 </section>
 

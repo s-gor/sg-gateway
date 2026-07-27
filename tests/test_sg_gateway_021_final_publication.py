@@ -9,23 +9,24 @@ def read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-def test_mihomo_switches_control_live_exports():
+def test_working_mihomo_and_singbox_split_is_published():
     service = read("app/mihomo/service.py")
+    helper = read("app/mihomo/helper.py")
     exports = read("app/clients/exports.py")
+    runtime = read("hostd/sg_hostd/client_runtime.py")
     panel = read("app/web/templates/_mihomo_panel.html")
 
-    assert "def protocol_active(" in service
-    assert "def adopt_legacy_live_settings(" in service
-    assert 'settings["mieru_enabled"]' in service
-    assert 'settings["anytls_enabled"]' in service
-    assert 'settings["tuic_enabled"]' in service
-    assert 'mihomo_protocol_active("mieru")' in exports
-    assert 'mihomo_protocol_active("anytls")' in exports
-    assert 'mihomo_protocol_active("tuic")' in exports
-    assert "sg-runtime-switch" in panel
-    assert "state_label" in panel
-    assert "state_note" in panel
-    assert "Не применено" in panel
+    assert "SG-Gateway working split runtime" in service
+    assert 'settings["anytls_enabled"] = False' in service
+    assert 'settings["tuic_enabled"] = False' in service
+    assert "def _verify_listeners" not in helper
+    assert "mihomo_protocol_active" not in exports
+    assert "mihomo_applied_settings" not in exports
+    assert "critical_results = [" in runtime
+    assert "optional_results.extend(_apply_singbox())" in runtime
+    assert "ok = all(result.ok for result in critical_results)" in runtime
+    assert "MIHOMO + SING-BOX" in panel
+    assert "Mieru обслуживается Mihomo" in panel
 
 
 def test_global_controls_and_gateway_favicon_are_loaded():
@@ -79,12 +80,15 @@ def test_maintenance_has_no_duplicate_summaries_and_checks_are_open():
     assert "SG-Gateway 021 · Maintenance Updates dark-theme" in updates_css
 
 
-def test_user_and_technical_docs_describe_real_mihomo_state():
+def test_user_and_technical_docs_describe_working_engine_split():
     readme = read("README.md")
     connections = read("docs/CONNECTIONS.md")
     technical = read("docs/TECHNICAL.md")
 
-    marker = "выключенный профиль удаляется из live-конфигурации"
-    assert marker in readme
-    assert marker.capitalize() in connections or marker in connections
-    assert "Выключенный listener удаляется из live-конфигурации Mihomo" in technical
+    assert "Mieru** обслуживается Mihomo" in readme
+    assert "AnyTLS** обслуживается отдельным sing-box" in readme
+    assert "Mieru обслуживается Mihomo" in connections
+    assert "AnyTLS и TUIC v5 обслуживаются отдельным" in connections
+    assert "| Mihomo Core | Mieru |" in technical
+    assert "| sing-box | AnyTLS и TUIC v5 |" in technical
+    assert "не откатывают изменение клиента" in technical
