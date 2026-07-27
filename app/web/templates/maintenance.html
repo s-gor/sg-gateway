@@ -75,29 +75,6 @@
   </nav>
 
   {% if active_tab == 'updates' %}
-  <section class="mtv31-update-summary sg-ljd-strip">
-    <article>
-      <span>SG-GATEWAY</span>
-      <strong>{{ release.version }}</strong>
-      <small>Установленная версия панели</small>
-    </article>
-    <article>
-      <span>XRAY CORE</span>
-      <strong>{{ 'v' ~ xray_updates.installed if xray_updates and xray_updates.installed else 'Не найден' }}</strong>
-      <small>Установленный серверный движок</small>
-    </article>
-    <article>
-      <span>МИНИМАЛЬНАЯ ВЕРСИЯ</span>
-      <strong>v{{ xray_updates.minimum if xray_updates else '26.6.27' }}</strong>
-      <small>Ниже этой версии XHTTP + Encryption не поддерживается</small>
-    </article>
-    <article>
-      <span>ЗАЩИТА ОБНОВЛЕНИЙ</span>
-      <strong>Автоматический откат</strong>
-      <small>Бинарник Xray обновляется отдельно от базы и конфигурации</small>
-    </article>
-  </section>
-
   <article class="mtv2-panel mtv31-xray-update-panel sg-ljd-card-large">
     <header class="mtv2-panel-head">
       <div>
@@ -312,9 +289,8 @@
         <div>
           <div class="mtv2-card-kicker">ПРОВЕРКИ СОСТОЯНИЯ</div>
           <h2>{{ issues }} требуют внимания</h2>
-          <p>Сначала показаны проблемы. Нормальные проверки свёрнуты ниже.</p>
+          <p>Сначала показаны проблемы. Нормальные проверки показаны ниже.</p>
         </div>
-        <a class="button" href="{{ url_for('api_status') }}">Status API</a>
       </header>
 
       {% if issues %}
@@ -352,8 +328,7 @@
       {% endif %}
 
       {% if ns.ok or ns.idle %}
-      <details class="mtv2-ok-checks sg-ljd-nested-group">
-        <summary>Ещё {{ ns.ok + ns.idle }} обычных проверок</summary>
+      <div class="mtv2-ok-checks sg-ljd-nested-group">
         <div>
           {% for check in health_checks %}
             {% if check.status in ['ok', 'idle'] %}
@@ -368,7 +343,7 @@
             {% endif %}
           {% endfor %}
         </div>
-      </details>
+      </div>
       {% endif %}
     </article>
 
@@ -413,29 +388,26 @@
     </article>
   </section>
 
-  <article class="mtv2-panel mtv2-diagnostics-panel sg-ljd-card-large">
-    <header class="mtv2-panel-head">
-      <div>
-        <div class="mtv2-card-kicker">ДИАГНОСТИКА</div>
-        <h2>Сводка панели</h2>
-        <p>Полезные показатели без повторения верхней сводки.</p>
-      </div>
-      <a class="button" href="{{ url_for('download_diagnostics') }}">Скачать JSON</a>
-    </header>
-
-    <div class="mtv2-diagnostics-grid">
-      {% for item in diagnostics %}
-        {% if item.label not in ['Состояние', 'Резервные копии', 'Операции'] %}
-        <div>
-          <span>{{ item.label }}</span>
-          <strong class="{{ item.state }}">{{ item.value }}</strong>
-        </div>
-        {% endif %}
-      {% endfor %}
+  <details class="mtv2-support-tools sg-ljd-nested">
+  <summary>
+    <span>
+      <strong>Для поддержки</strong>
+      <small>Технические данные для разбора проблемы</small>
+    </span>
+  </summary>
+  <div class="mtv2-support-tools-body">
+    <div>
+      <strong>Диагностический отчёт</strong>
+      <span>Служебная сводка панели, состояния базы и подключённых компонентов.</span>
     </div>
-  </article>
+    <div class="mtv2-support-tools-actions">
+      <a class="button" href="{{ url_for('download_diagnostics') }}">Скачать диагностический отчёт</a>
+      <a class="button" href="{{ url_for('api_status') }}">Открыть Status API</a>
+    </div>
+  </div>
+</details>
 
-  <article class="mtv2-panel mtv2-operations-panel sg-ljd-card-large">
+<article class="mtv2-panel mtv2-operations-panel sg-ljd-card-large">
     <header class="mtv2-panel-head">
       <div>
         <div class="mtv2-card-kicker">ИСТОРИЯ ОПЕРАЦИЙ</div>

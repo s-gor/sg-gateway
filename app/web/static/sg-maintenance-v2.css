@@ -700,3 +700,114 @@
     grid-column: 1 / -1;
   }
 }
+
+/* SG-Gateway 021 · compact support tools instead of duplicated diagnostics summary */
+.mtv2-support-tools {
+  grid-column: 1 / -1;
+  margin: 0;
+  border: 1px solid var(--line, rgba(75, 97, 87, .34));
+  border-radius: 14px;
+  background: var(--panel-soft, rgba(249, 246, 238, .72));
+  overflow: hidden;
+}
+
+.mtv2-support-tools > summary {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 11px 15px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text);
+}
+
+.mtv2-support-tools > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mtv2-support-tools > summary::after {
+  content: "›";
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 21px;
+  line-height: 1;
+  transform: rotate(90deg);
+  transition: transform .16s ease;
+}
+
+.mtv2-support-tools[open] > summary::after {
+  transform: rotate(-90deg);
+}
+
+.mtv2-support-tools > summary > span {
+  display: grid;
+  gap: 2px;
+}
+
+.mtv2-support-tools > summary strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.mtv2-support-tools > summary small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.mtv2-support-tools-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 13px 15px 15px;
+  border-top: 1px solid var(--line, rgba(75, 97, 87, .24));
+}
+
+.mtv2-support-tools-body > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mtv2-support-tools-body > div:first-child strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.mtv2-support-tools-body > div:first-child span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.mtv2-support-tools-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.mtv2-support-tools-actions .button {
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .mtv2-support-tools-body {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mtv2-support-tools-actions {
+    justify-content: flex-start;
+  }
+}
+
+/* SG-Gateway 021 · health checks always open */
+.mtv2-ok-checks > div {
+  margin-top: 0;
+}

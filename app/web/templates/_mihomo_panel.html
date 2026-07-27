@@ -1,4 +1,7 @@
 <section class="mhv2-panel cnv1-engine-card cnv1-engine-mihomo sg-ljd-card" id="mihomo">
+  {% set mieru_state = mihomo.protocols|selectattr('id', 'equalto', 'mieru')|first %}
+  {% set anytls_state = mihomo.protocols|selectattr('id', 'equalto', 'anytls')|first %}
+  {% set tuic_state = mihomo.protocols|selectattr('id', 'equalto', 'tuic')|first %}
   <header class="mhv2-head">
     <div>
       <div class="mhv2-kicker">MIHOMO MULTI-PROTOCOL</div>
@@ -17,8 +20,15 @@
         <strong>{{ mihomo.settings.host or 'Не определён' }}</strong>
         <small>{{ country_name(mihomo.settings.country_code) }} · {{ mihomo.settings.endpoint_source }}</small>
       </div>
-      <span class="mhv2-listener-count">{{ mihomo.listener_active }} / {{ mihomo.listener_total }} listener</span>
+      <span class="mhv2-listener-count">{{ mihomo.listener_active }} / {{ mihomo.listener_total }} работают</span>
     </section>
+
+    {% if mihomo.has_pending_changes %}
+    <section class="mhv2-pending sg-ljd-warning">
+      <strong>Есть неприменённые изменения</strong>
+      <span>Рабочие listener и клиентские ссылки изменятся только после кнопки «Применить».</span>
+    </section>
+    {% endif %}
 
     {% if not mihomo.settings.tls_ready %}
     <section class="mhv2-tls-warning mhv2-tls-warning-compact sg-ljd-warning">
@@ -42,10 +52,14 @@
               <p>TCP или UDP</p>
             </div>
           </div>
-          <label class="mhv2-switch">
+          <label class="sg-runtime-switch state-{{ mieru_state.state }}" data-runtime-switch>
             <input type="checkbox" name="mieru_enabled"
                    {% if mihomo.settings.mieru_enabled %}checked{% endif %}>
-            <span>Включить</span>
+            <span class="sg-runtime-track" aria-hidden="true"><i></i></span>
+            <span class="sg-runtime-copy">
+              <strong data-runtime-label>{{ mieru_state.state_label }}</strong>
+              <small data-runtime-note>{{ mieru_state.state_note }}</small>
+            </span>
           </label>
         </header>
         <div class="mhv2-basic-fields">
@@ -99,11 +113,15 @@
               <p>TCP · TLS</p>
             </div>
           </div>
-          <label class="mhv2-switch">
+          <label class="sg-runtime-switch state-{{ anytls_state.state }}" data-runtime-switch>
             <input type="checkbox" name="anytls_enabled"
                    {% if mihomo.settings.anytls_enabled %}checked{% endif %}
                    {% if not mihomo.settings.tls_ready %}disabled{% endif %}>
-            <span>Включить</span>
+            <span class="sg-runtime-track" aria-hidden="true"><i></i></span>
+            <span class="sg-runtime-copy">
+              <strong data-runtime-label>{{ anytls_state.state_label }}</strong>
+              <small data-runtime-note>{{ anytls_state.state_note }}</small>
+            </span>
           </label>
         </header>
         <div class="mhv2-basic-fields one">
@@ -135,11 +153,15 @@
               <p>UDP/QUIC · TLS</p>
             </div>
           </div>
-          <label class="mhv2-switch">
+          <label class="sg-runtime-switch state-{{ tuic_state.state }}" data-runtime-switch>
             <input type="checkbox" name="tuic_enabled"
                    {% if mihomo.settings.tuic_enabled %}checked{% endif %}
                    {% if not mihomo.settings.tls_ready %}disabled{% endif %}>
-            <span>Включить</span>
+            <span class="sg-runtime-track" aria-hidden="true"><i></i></span>
+            <span class="sg-runtime-copy">
+              <strong data-runtime-label>{{ tuic_state.state_label }}</strong>
+              <small data-runtime-note>{{ tuic_state.state_note }}</small>
+            </span>
           </label>
         </header>
         <div class="mhv2-basic-fields one">
@@ -197,4 +219,27 @@
       </div>
     </details>
   </form>
+
+  <p class="mhv2-runtime-note">
+    Переключатели управляют реальными listener одного Mihomo Core. Выключенный протокол удаляется из рабочей конфигурации, перестаёт слушать порт и не выдаётся в клиентские ссылки и subscription.
+  </p>
 </section>
+
+<script id="sg-mihomo-runtime-switches-v1">
+(() => {
+  document.querySelectorAll('[data-runtime-switch]').forEach(control => {
+    const input = control.querySelector('input[type="checkbox"]');
+    const label = control.querySelector('[data-runtime-label]');
+    const note = control.querySelector('[data-runtime-note]');
+    if (!input || !label || !note) return;
+    input.addEventListener('change', () => {
+      control.classList.remove('state-active', 'state-off', 'state-error');
+      control.classList.add('state-pending');
+      label.textContent = 'Не применено';
+      note.textContent = input.checked
+        ? 'после применения будет включён'
+        : 'после применения будет выключен';
+    });
+  });
+})();
+</script>

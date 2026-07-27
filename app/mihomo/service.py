@@ -35,9 +35,13 @@ MIHOMO_STATE_DIR = Path("/var/lib/mihomo")
 MIHOMO_CANDIDATE_DIR = Path("/var/lib/sg-gateway/candidates/mihomo")
 MIHOMO_CANDIDATE = MIHOMO_CANDIDATE_DIR / "candidate.yaml"
 MIHOMO_CANDIDATE_META = MIHOMO_CANDIDATE_DIR / "candidate.json"
+MIHOMO_APPLIED_META = MIHOMO_CANDIDATE_DIR / "applied.json"
 MIHOMO_BACKUP_DIR = MIHOMO_STATE_DIR / "backups"
+LEGACY_SINGBOX_CONFIG = Path("/etc/sing-box/config.json")
+LEGACY_SINGBOX_SERVICE = "sg-gateway-singbox.service"
 
 PROTOCOLS = ("mieru", "anytls", "tuic")
+PROTOCOL_ENGINES = {"mieru": "mihomo", "anytls": "anytls", "tuic": "tuic"}
 
 
 @dataclass(frozen=True)
@@ -54,6 +58,14 @@ class MihomoDeployment:
     @property
     def access_name(self) -> str:
         return self.client_name
+
+
+@dataclass(frozen=True)
+class MihomoProtocolDeployment:
+    protocol: str
+    device_id: int
+    access_name: str
+    config: dict[str, Any]
 
 
 def _now() -> str:
@@ -126,22 +138,30 @@ def _tls_ready(domain: str) -> bool:
     )
 
 
-def _deployment_config(device_id: int) -> dict[str, Any] | None:
+def _engine_deployment_config(
+    device_id: int,
+    engine: str,
+) -> dict[str, Any] | None:
     with connect() as connection:
         row = connection.execute(
             """
             SELECT config_json
             FROM device_credentials
-            WHERE device_id = ? AND engine = 'mihomo'
+            WHERE device_id = ? AND engine = ?
             """,
-            (device_id,),
+            (device_id, engine),
         ).fetchone()
     if row is None or not row["config_json"]:
         return None
     try:
-        return json.loads(row["config_json"])
+        payload = json.loads(row["config_json"])
     except (TypeError, ValueError, json.JSONDecodeError):
         return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _deployment_config(device_id: int) -> dict[str, Any] | None:
+    return _engine_deployment_config(device_id, "mihomo")
 
 
 def build_client_credentials(client_id: int, client_name: str) -> tuple[str, str]:
@@ -336,6 +356,110 @@ def list_active_deployments() -> list[MihomoDeployment]:
         )
     return deployments
 
+
+
+
+def list_protocol_deployments() -> dict[str, list[MihomoProtocolDeployment]]:
+    """Return the credentials actually consumed by each Mihomo listener.
+
+    Mieru credentials live in the historical ``mihomo`` deployment.  AnyTLS
+    and TUIC credentials were originally provisioned as separate engines for
+    sing-box.  SG-Gateway 021 now serves all three listeners from one Mihomo
+    Core, so those existing credentials are reused without rotating client
+    links.  A bundled Mihomo credential remains a compatibility fallback.
+    """
+
+    init_db()
+    rows_by_engine: dict[str, list[Any]] = {}
+    with connect() as connection:
+        for engine in {"mihomo", "anytls", "tuic"}:
+            rows_by_engine[engine] = connection.execute(
+                """
+                SELECT d.id AS device_id, d.name AS device_name, d.is_primary,
+                       c.name AS client_name, dc.config_json
+                FROM devices d
+                JOIN clients c ON c.id = d.client_id
+                JOIN device_credentials dc
+                  ON dc.device_id = d.id AND dc.engine = ?
+                WHERE c.enabled = 1 AND d.enabled = 1
+                  AND dc.status != 'disabled'
+                ORDER BY d.id
+                """,
+                (engine,),
+            ).fetchall()
+
+    result: dict[str, list[MihomoProtocolDeployment]] = {
+        protocol: [] for protocol in PROTOCOLS
+    }
+    bundled: dict[int, tuple[str, dict[str, Any]]] = {}
+
+    for row in rows_by_engine["mihomo"]:
+        try:
+            payload = json.loads(row["config_json"] or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        access_name = (
+            str(row["client_name"])
+            if bool(row["is_primary"])
+            else f"{row['client_name']} · {row['device_name']}"
+        )
+        device_id = int(row["device_id"])
+        bundled[device_id] = (access_name, payload)
+        mieru = payload.get("mieru")
+        if isinstance(mieru, dict):
+            result["mieru"].append(
+                MihomoProtocolDeployment(
+                    protocol="mieru",
+                    device_id=device_id,
+                    access_name=access_name,
+                    config=dict(mieru),
+                )
+            )
+
+    for protocol in ("anytls", "tuic"):
+        seen: set[int] = set()
+        engine = PROTOCOL_ENGINES[protocol]
+        for row in rows_by_engine[engine]:
+            try:
+                payload = json.loads(row["config_json"] or "{}")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            access_name = (
+                str(row["client_name"])
+                if bool(row["is_primary"])
+                else f"{row['client_name']} · {row['device_name']}"
+            )
+            device_id = int(row["device_id"])
+            result[protocol].append(
+                MihomoProtocolDeployment(
+                    protocol=protocol,
+                    device_id=device_id,
+                    access_name=access_name,
+                    config=dict(payload),
+                )
+            )
+            seen.add(device_id)
+
+        # Compatibility for devices that only have the bundled Mihomo object.
+        for device_id, (access_name, payload) in bundled.items():
+            if device_id in seen:
+                continue
+            fallback = payload.get(protocol)
+            if isinstance(fallback, dict):
+                result[protocol].append(
+                    MihomoProtocolDeployment(
+                        protocol=protocol,
+                        device_id=device_id,
+                        access_name=access_name,
+                        config=dict(fallback),
+                    )
+                )
+
+    return result
 
 
 _PLACEHOLDER_HOSTS = {
@@ -542,18 +666,30 @@ def _settings_payload() -> dict[str, Any]:
         "tuic_alpn": str(config.get("tuic_alpn", "h3")),
     }
 
-def _validate_settings(settings: dict[str, Any], user_count: int) -> None:
-    ports = []
+def _validate_settings(
+    settings: dict[str, Any],
+    deployments: dict[str, list[MihomoProtocolDeployment]],
+) -> None:
+    ports: list[tuple[str, int]] = []
     if settings["mieru_enabled"]:
         ports.append(("Mieru", settings["mieru_port"]))
     if settings["anytls_enabled"]:
         ports.append(("AnyTLS", settings["anytls_port"]))
     if settings["tuic_enabled"]:
         ports.append(("TUIC", settings["tuic_port"]))
-    if not ports:
-        raise MihomoError("Включите хотя бы один Mihomo listener")
     if len({port for _, port in ports}) != len(ports):
         raise MihomoError("Порты Mieru, AnyTLS и TUIC должны различаться")
+
+    for protocol, label in (
+        ("mieru", "Mieru"),
+        ("anytls", "AnyTLS"),
+        ("tuic", "TUIC v5"),
+    ):
+        if settings[f"{protocol}_enabled"] and not deployments[protocol]:
+            raise MihomoError(
+                f"{label}: нет активных клиентских реквизитов. "
+                "Добавьте протокол хотя бы одному устройству."
+            )
 
     awg = get_connection_settings("amneziawg")
     xray = get_connection_settings("xray")
@@ -580,11 +716,6 @@ def _validate_settings(settings: dict[str, Any], user_count: int) -> None:
             raise MihomoError(
                 f"{label}: порт {port}/{transport} уже используется: {conflict}"
             )
-    if user_count < 1:
-        raise MihomoError(
-            "Нет активных клиентов Mihomo. Сначала включите Mihomo-доступ "
-            "хотя бы для одного клиента."
-        )
     if (settings["anytls_enabled"] or settings["tuic_enabled"]) and not settings[
         "tls_ready"
     ]:
@@ -612,10 +743,9 @@ def _validate_settings(settings: dict[str, Any], user_count: int) -> None:
     if settings["tuic_udp_relay_mode"] not in {"native", "quic"}:
         raise MihomoError("Некорректный UDP relay mode TUIC")
 
-
 def _render_server_yaml(
     settings: dict[str, Any],
-    deployments: list[MihomoDeployment],
+    deployments: dict[str, list[MihomoProtocolDeployment]],
 ) -> str:
     listeners: list[str] = []
 
@@ -628,11 +758,16 @@ def _render_server_yaml(
             f"    transport: {settings['mieru_transport']}",
             "    users:",
         ]
-        for deployment in deployments:
-            item = deployment.config["mieru"]
+        for deployment in deployments["mieru"]:
+            item = deployment.config
+            username = str(item.get("username") or "").strip()
+            password = str(item.get("password") or "").strip()
+            if not username or not password:
+                raise MihomoError(
+                    f"Mieru: повреждены credentials {deployment.access_name}"
+                )
             lines.append(
-                f"      {_yaml_string(item['username'])}: "
-                f"{_yaml_string(item['password'])}"
+                f"      {_yaml_string(username)}: {_yaml_string(password)}"
             )
         lines.append(
             "    user-hint-is-mandatory: "
@@ -648,11 +783,20 @@ def _render_server_yaml(
             "    listen: 0.0.0.0",
             "    users:",
         ]
-        for deployment in deployments:
-            item = deployment.config["anytls"]
+        for deployment in deployments["anytls"]:
+            item = deployment.config
+            label = str(
+                item.get("label")
+                or item.get("client_name")
+                or f"device-{deployment.device_id}"
+            ).strip()
+            password = str(item.get("password") or "").strip()
+            if not password:
+                raise MihomoError(
+                    f"AnyTLS: отсутствует пароль {deployment.access_name}"
+                )
             lines.append(
-                f"      {_yaml_string(item['label'])}: "
-                f"{_yaml_string(item['password'])}"
+                f"      {_yaml_string(label)}: {_yaml_string(password)}"
             )
         lines.extend(
             [
@@ -675,11 +819,16 @@ def _render_server_yaml(
             "    listen: 0.0.0.0",
             "    users:",
         ]
-        for deployment in deployments:
-            item = deployment.config["tuic"]
+        for deployment in deployments["tuic"]:
+            item = deployment.config
+            user_id = str(item.get("uuid") or "").strip()
+            password = str(item.get("password") or "").strip()
+            if not user_id or not password:
+                raise MihomoError(
+                    f"TUIC v5: повреждены credentials {deployment.access_name}"
+                )
             lines.append(
-                f"      {_yaml_string(item['uuid'])}: "
-                f"{_yaml_string(item['password'])}"
+                f"      {_yaml_string(user_id)}: {_yaml_string(password)}"
             )
         lines.extend(
             [
@@ -692,6 +841,7 @@ def _render_server_yaml(
         )
         listeners.append("\n".join(lines))
 
+    listener_block = ["listeners:", *listeners] if listeners else ["listeners: []"]
     return "\n".join(
         [
             "# Managed by SG-Gateway. Do not edit by hand.",
@@ -699,32 +849,40 @@ def _render_server_yaml(
             "log-level: info",
             "ipv6: true",
             "allow-lan: false",
-            "listeners:",
-            *listeners,
+            *listener_block,
             "rules:",
             "  - MATCH,DIRECT",
             "",
         ]
     )
 
-
 def build_candidate() -> dict[str, Any]:
     _ensure_dirs()
     settings = _settings_payload()
-    deployments = list_active_deployments()
-    _validate_settings(settings, len(deployments))
+    deployments = list_protocol_deployments()
+    _validate_settings(settings, deployments)
     body = _render_server_yaml(settings, deployments)
     MIHOMO_CANDIDATE.write_text(body, encoding="utf-8", newline="\n")
     os.chmod(MIHOMO_CANDIDATE, 0o640)
+
+    enabled_protocols = [
+        protocol
+        for protocol in PROTOCOLS
+        if settings[f"{protocol}_enabled"]
+    ]
+    active_devices = {
+        item.device_id
+        for protocol in enabled_protocols
+        for item in deployments[protocol]
+    }
     metadata = {
         "created_at": _now(),
         "settings": settings,
-        "client_count": len(deployments),
-        "protocols": [
-            protocol
-            for protocol in PROTOCOLS
-            if settings[f"{protocol}_enabled"]
-        ],
+        "client_count": len(active_devices),
+        "protocols": enabled_protocols,
+        "protocol_clients": {
+            protocol: len(deployments[protocol]) for protocol in PROTOCOLS
+        },
     }
     MIHOMO_CANDIDATE_META.write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -735,12 +893,11 @@ def build_candidate() -> dict[str, Any]:
         "mihomo.candidate",
         "mihomo:runtime",
         (
-            f"Подготовлен candidate: {len(deployments)} клиентов; "
-            f"{', '.join(metadata['protocols'])}"
+            f"Подготовлен candidate: {len(active_devices)} устройств; "
+            f"{', '.join(enabled_protocols) if enabled_protocols else 'все listener выключены'}"
         ),
     )
     return metadata
-
 
 def _run_helper(action: str) -> dict[str, Any]:
     command = f"mihomo.{action}"
@@ -837,45 +994,356 @@ def _backup_names() -> list[str]:
     except OSError:
         return []
 
+
+def _read_applied_meta() -> dict[str, Any]:
+    try:
+        payload = json.loads(MIHOMO_APPLIED_META.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _unit_active(unit: str) -> bool:
+    return (
+        subprocess.run(
+            ["systemctl", "is-active", "--quiet", unit],
+            capture_output=True,
+            check=False,
+        ).returncode
+        == 0
+    )
+
+
+def _parse_mihomo_live_settings(
+    settings: dict[str, Any],
+) -> tuple[dict[str, Any], set[str]]:
+    live = dict(settings)
+    active: set[str] = set()
+    if not _service_active():
+        return live, active
+
+    try:
+        lines = MIHOMO_CONFIG.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return live, active
+
+    current = ""
+    for raw in lines:
+        line = raw.strip()
+        if line in {"- name: mieru-in", "name: mieru-in"}:
+            current = "mieru"
+            live["mieru_enabled"] = True
+            active.add("mieru")
+            continue
+        if line in {"- name: anytls-in", "name: anytls-in"}:
+            current = "anytls"
+            live["anytls_enabled"] = True
+            active.add("anytls")
+            continue
+        if line in {"- name: tuicv5-in", "name: tuicv5-in"}:
+            current = "tuic"
+            live["tuic_enabled"] = True
+            active.add("tuic")
+            continue
+        if current and line.startswith("port:"):
+            live[f"{current}_port"] = _int(
+                line.partition(":")[2].strip(),
+                live[f"{current}_port"],
+            )
+        if current == "mieru" and line.startswith("transport:"):
+            live["mieru_transport"] = (
+                "UDP"
+                if line.partition(":")[2].strip().upper() == "UDP"
+                else "TCP"
+            )
+    return live, active
+
+
+def _parse_legacy_singbox_live_settings(
+    settings: dict[str, Any],
+) -> tuple[dict[str, Any], set[str]]:
+    """Read the pre-migration AnyTLS/TUIC runtime without changing it."""
+
+    live = dict(settings)
+    active: set[str] = set()
+    if not _unit_active(LEGACY_SINGBOX_SERVICE):
+        return live, active
+
+    try:
+        payload = json.loads(LEGACY_SINGBOX_CONFIG.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return live, active
+
+    inbounds = payload.get("inbounds") if isinstance(payload, dict) else None
+    if not isinstance(inbounds, list):
+        return live, active
+
+    for inbound in inbounds:
+        if not isinstance(inbound, dict):
+            continue
+        kind = str(inbound.get("type") or "").strip().lower()
+        tag = str(inbound.get("tag") or "").strip().lower()
+        if kind == "anytls" or tag == "sg-anytls-in":
+            live["anytls_enabled"] = True
+            live["anytls_port"] = _int(
+                inbound.get("listen_port"),
+                live["anytls_port"],
+            )
+            active.add("anytls")
+        elif kind == "tuic" or tag == "sg-tuic-in":
+            live["tuic_enabled"] = True
+            live["tuic_port"] = _int(
+                inbound.get("listen_port"),
+                live["tuic_port"],
+            )
+            congestion = str(inbound.get("congestion_control") or "").strip()
+            if congestion:
+                live["tuic_congestion_controller"] = congestion
+            tls = inbound.get("tls")
+            if isinstance(tls, dict):
+                alpn = tls.get("alpn")
+                if isinstance(alpn, list) and alpn:
+                    live["tuic_alpn"] = str(alpn[0])
+            active.add("tuic")
+    return live, active
+
+
+def _fallback_live_snapshot() -> tuple[dict[str, Any], set[str], str]:
+    settings = _settings_payload()
+    for protocol in PROTOCOLS:
+        settings[f"{protocol}_enabled"] = False
+
+    settings, mihomo_active = _parse_mihomo_live_settings(settings)
+    settings, legacy_active = _parse_legacy_singbox_live_settings(settings)
+    active = mihomo_active | legacy_active
+    for protocol in active:
+        settings[f"{protocol}_enabled"] = True
+
+    if legacy_active and mihomo_active:
+        source = "mihomo+legacy-singbox"
+    elif legacy_active:
+        source = "legacy-singbox"
+    elif mihomo_active:
+        source = "mihomo"
+    else:
+        source = "none"
+    return settings, active, source
+
+
+def applied_state() -> dict[str, Any]:
+    meta = _read_applied_meta()
+    raw_settings = meta.get("settings") if isinstance(meta, dict) else None
+    if isinstance(raw_settings, dict):
+        settings = dict(raw_settings)
+        active_protocols = (
+            {
+                protocol
+                for protocol in PROTOCOLS
+                if _bool(settings.get(f"{protocol}_enabled"))
+            }
+            if _service_active() and MIHOMO_CONFIG.is_file()
+            else set()
+        )
+        source = "mihomo"
+    else:
+        settings, active_protocols, source = _fallback_live_snapshot()
+
+    protocols = [protocol for protocol in PROTOCOLS if protocol in active_protocols]
+    return {
+        "settings": settings,
+        "protocols": protocols,
+        "active_protocols": protocols,
+        "service_active": _service_active(),
+        "config_exists": MIHOMO_CONFIG.is_file(),
+        "runtime_source": source,
+        "created_at": str(meta.get("created_at") or "") if meta else "",
+    }
+
+
+def adopt_legacy_live_settings() -> dict[str, Any]:
+    """Preserve active legacy AnyTLS/TUIC choices before migration.
+
+    The old SG-Gateway runtime served AnyTLS and TUIC through sing-box. The
+    migration keeps the same ports and credentials, marks those protocols as
+    enabled in the Mihomo form, and leaves traffic untouched until the user
+    presses Apply.
+    """
+
+    if _read_applied_meta():
+        return {"changed": False, "protocols": [], "reason": "already-migrated"}
+
+    live, active, source = _fallback_live_snapshot()
+    legacy = [protocol for protocol in ("anytls", "tuic") if protocol in active]
+    if not legacy:
+        return {"changed": False, "protocols": [], "reason": source}
+
+    current = get_connection_settings("mihomo")
+    config = dict(current.config)
+    for protocol in legacy:
+        config[f"{protocol}_enabled"] = True
+        config[f"{protocol}_port"] = live[f"{protocol}_port"]
+    if "tuic" in legacy:
+        config["tuic_congestion_controller"] = live[
+            "tuic_congestion_controller"
+        ]
+        config["tuic_alpn"] = live["tuic_alpn"]
+
+    changed = update_connection_settings(
+        "mihomo",
+        current.host,
+        _int(config.get("mieru_port"), current.port or 2099),
+        config,
+    )
+    if changed:
+        log_operation(
+            "mihomo.legacy.adopt",
+            "mihomo:runtime",
+            "Сохранены активные AnyTLS/TUIC перед переносом в Mihomo Core",
+        )
+    return {"changed": bool(changed), "protocols": legacy, "reason": source}
+
+def applied_settings() -> dict[str, Any]:
+    state = applied_state()
+    settings = _settings_payload()
+    settings.update(state["settings"])
+    active = set(state["active_protocols"])
+    for protocol in PROTOCOLS:
+        settings[f"{protocol}_enabled"] = protocol in active
+    return settings
+
+
+def protocol_active(protocol: str) -> bool:
+    if protocol not in PROTOCOLS:
+        return False
+    return bool(applied_settings().get(f"{protocol}_enabled"))
+
+
+def _protocol_runtime_view(
+    protocol: str,
+    label: str,
+    transport: str,
+    draft: dict[str, Any],
+    live: dict[str, Any],
+    *,
+    active_protocols: set[str],
+) -> dict[str, Any]:
+    fields = {
+        "mieru": (
+            "mieru_enabled",
+            "mieru_port",
+            "mieru_transport",
+            "mieru_multiplexing",
+            "mieru_handshake",
+            "mieru_user_hint_mandatory",
+        ),
+        "anytls": (
+            "anytls_enabled",
+            "anytls_port",
+            "anytls_padding_scheme",
+        ),
+        "tuic": (
+            "tuic_enabled",
+            "tuic_port",
+            "tuic_congestion_controller",
+            "tuic_udp_relay_mode",
+            "tuic_alpn",
+        ),
+    }[protocol]
+    desired_enabled = _bool(draft.get(f"{protocol}_enabled"))
+    applied_enabled = _bool(live.get(f"{protocol}_enabled"))
+    active = protocol in active_protocols
+    changed = any(draft.get(field) != live.get(field) for field in fields)
+
+    if applied_enabled and not active:
+        state = "error"
+        state_label = "Ошибка"
+        state_note = "listener применён, но порт не слушается"
+    elif changed:
+        state = "pending"
+        state_label = "Не применено"
+        if active and not desired_enabled:
+            state_note = "сейчас работает; после применения будет выключен"
+        elif active:
+            state_note = "сейчас работает со старыми параметрами"
+        elif desired_enabled:
+            state_note = "после применения будет включён"
+        else:
+            state_note = "изменения ожидают применения"
+    elif active:
+        state = "active"
+        state_label = "Работает"
+        state_note = f"{transport} · порт {live.get(f'{protocol}_port', '')}"
+    else:
+        state = "off"
+        state_label = "Выключен"
+        state_note = "порт не слушается"
+
+    return {
+        "id": protocol,
+        "label": label,
+        "transport": transport,
+        "port": draft.get(f"{protocol}_port"),
+        "enabled": desired_enabled,
+        "desired_enabled": desired_enabled,
+        "applied_enabled": applied_enabled,
+        "active": active,
+        "pending": changed,
+        "state": state,
+        "state_label": state_label,
+        "state_note": state_note,
+        "tls": protocol in {"anytls", "tuic"},
+    }
+
+
 def overview() -> dict[str, Any]:
     _ensure_dirs()
     settings = _settings_payload()
-    deployments = list_active_deployments()
+    deployments = list_protocol_deployments()
     candidate = None
     try:
         candidate = json.loads(MIHOMO_CANDIDATE_META.read_text(encoding="utf-8"))
     except (OSError, ValueError, json.JSONDecodeError):
         pass
+
     service_active = _service_active()
     service_enabled = _service_enabled()
+    live_state = applied_state()
+    live_settings = dict(live_state["settings"])
     protocols = [
-        {
-            "id": "mieru",
-            "label": "Mieru",
-            "transport": settings["mieru_transport"],
-            "port": settings["mieru_port"],
-            "enabled": settings["mieru_enabled"],
-            "tls": False,
-        },
-        {
-            "id": "anytls",
-            "label": "AnyTLS",
-            "transport": "TCP",
-            "port": settings["anytls_port"],
-            "enabled": settings["anytls_enabled"],
-            "tls": True,
-        },
-        {
-            "id": "tuic",
-            "label": "TUIC v5",
-            "transport": "UDP / QUIC",
-            "port": settings["tuic_port"],
-            "enabled": settings["tuic_enabled"],
-            "tls": True,
-        },
+        _protocol_runtime_view(
+            "mieru",
+            "Mieru",
+            settings["mieru_transport"],
+            settings,
+            live_settings,
+            active_protocols=set(live_state["active_protocols"]),
+        ),
+        _protocol_runtime_view(
+            "anytls",
+            "AnyTLS",
+            "TCP · TLS",
+            settings,
+            live_settings,
+            active_protocols=set(live_state["active_protocols"]),
+        ),
+        _protocol_runtime_view(
+            "tuic",
+            "TUIC v5",
+            "UDP / QUIC · TLS",
+            settings,
+            live_settings,
+            active_protocols=set(live_state["active_protocols"]),
+        ),
     ]
-    enabled_count = sum(1 for item in protocols if item["enabled"])
-    active_count = enabled_count if service_active and MIHOMO_CONFIG.is_file() else 0
+    enabled_count = sum(1 for item in protocols if item["desired_enabled"])
+    active_count = sum(1 for item in protocols if item["active"])
+    client_count = len(
+        {
+            item.device_id
+            for protocol in PROTOCOLS
+            for item in deployments[protocol]
+        }
+    )
     return {
         "version": _version(),
         "installed": MIHOMO_BINARY.is_file(),
@@ -883,15 +1351,17 @@ def overview() -> dict[str, Any]:
         "service_enabled": service_enabled,
         "config_exists": MIHOMO_CONFIG.is_file(),
         "settings": settings,
-        "client_count": len(deployments),
+        "applied_settings": live_settings,
+        "runtime_source": live_state["runtime_source"],
+        "client_count": client_count,
         "candidate": candidate,
         "listener_total": len(protocols),
         "listener_enabled": enabled_count,
         "listener_active": active_count,
+        "has_pending_changes": any(item["pending"] for item in protocols),
         "backups": _backup_names(),
         "protocols": protocols,
     }
-
 
 def health_status() -> dict[str, str]:
     state = overview()
@@ -924,7 +1394,7 @@ def health_status() -> dict[str, str]:
             "message": "Mihomo включён, но mihomo.service не активен",
         }
     protocols = [
-        item["label"] for item in state["protocols"] if item["enabled"]
+        item["label"] for item in state["protocols"] if item["active"]
     ]
     return {
         "status": "ok",
@@ -936,10 +1406,13 @@ def health_status() -> dict[str, str]:
 
 
 def build_device_yaml(device_id: int, access_name: str) -> str:
-    deployment = _deployment_config(device_id)
-    if deployment is None:
+    bundled = _engine_deployment_config(device_id, "mihomo") or {}
+    anytls_config = _engine_deployment_config(device_id, "anytls")
+    tuic_config = _engine_deployment_config(device_id, "tuic")
+    if not bundled and not anytls_config and not tuic_config:
         raise MihomoError("Для клиента не подготовлен Mihomo-доступ")
-    settings = _settings_payload()
+
+    settings = applied_settings()
     host = settings["domain"] or settings["host"]
     mieru_host = settings.get("server_ip") or settings["host"]
     safe_name = access_name.replace('"', "").strip() or f"Access {device_id}"
@@ -947,66 +1420,73 @@ def build_device_yaml(device_id: int, access_name: str) -> str:
     names: list[str] = []
 
     if settings["mieru_enabled"]:
-        item = deployment["mieru"]
-        name = f"{safe_name} · Mieru"
-        names.append(name)
-        proxies.extend(
-            [
-                f"  - name: {_yaml_string(name)}",
-                "    type: mieru",
-                f"    server: {_yaml_string(mieru_host)}",
-                f"    port: {settings['mieru_port']}",
-                f"    transport: {settings['mieru_transport']}",
-                f"    username: {_yaml_string(item['username'])}",
-                f"    password: {_yaml_string(item['password'])}",
-                f"    multiplexing: {settings['mieru_multiplexing']}",
-                f"    handshake-mode: {settings['mieru_handshake']}",
-            ]
-        )
+        item = bundled.get("mieru") if isinstance(bundled.get("mieru"), dict) else {}
+        if item:
+            name = f"{safe_name} · Mieru"
+            names.append(name)
+            proxies.extend(
+                [
+                    f"  - name: {_yaml_string(name)}",
+                    "    type: mieru",
+                    f"    server: {_yaml_string(mieru_host)}",
+                    f"    port: {settings['mieru_port']}",
+                    f"    transport: {settings['mieru_transport']}",
+                    f"    username: {_yaml_string(item.get('username', ''))}",
+                    f"    password: {_yaml_string(item.get('password', ''))}",
+                    f"    multiplexing: {settings['mieru_multiplexing']}",
+                    f"    handshake-mode: {settings['mieru_handshake']}",
+                ]
+            )
 
     if settings["anytls_enabled"]:
-        item = deployment["anytls"]
-        name = f"{safe_name} · AnyTLS"
-        names.append(name)
-        proxies.extend(
-            [
-                f"  - name: {_yaml_string(name)}",
-                "    type: anytls",
-                f"    server: {_yaml_string(host)}",
-                f"    port: {settings['anytls_port']}",
-                f"    password: {_yaml_string(item['password'])}",
-                "    client-fingerprint: chrome",
-                "    udp: true",
-                f"    sni: {_yaml_string(settings['domain'])}",
-                "    alpn: [h2, http/1.1]",
-                "    skip-cert-verify: false",
-            ]
+        item = anytls_config or (
+            bundled.get("anytls") if isinstance(bundled.get("anytls"), dict) else {}
         )
+        if item:
+            name = f"{safe_name} · AnyTLS"
+            names.append(name)
+            proxies.extend(
+                [
+                    f"  - name: {_yaml_string(name)}",
+                    "    type: anytls",
+                    f"    server: {_yaml_string(host)}",
+                    f"    port: {settings['anytls_port']}",
+                    f"    password: {_yaml_string(item.get('password', ''))}",
+                    "    client-fingerprint: chrome",
+                    "    udp: true",
+                    f"    sni: {_yaml_string(settings['domain'])}",
+                    "    alpn: [h2, http/1.1]",
+                    "    skip-cert-verify: false",
+                ]
+            )
 
     if settings["tuic_enabled"]:
-        item = deployment["tuic"]
-        name = f"{safe_name} · TUIC"
-        names.append(name)
-        proxies.extend(
-            [
-                f"  - name: {_yaml_string(name)}",
-                "    type: tuic",
-                f"    server: {_yaml_string(host)}",
-                f"    port: {settings['tuic_port']}",
-                f"    uuid: {_yaml_string(item['uuid'])}",
-                f"    password: {_yaml_string(item['password'])}",
-                f"    sni: {_yaml_string(settings['domain'])}",
-                f"    alpn: [{_yaml_string(settings['tuic_alpn'])}]",
-                "    skip-cert-verify: false",
-                "    udp-relay-mode: "
-                + _yaml_string(settings["tuic_udp_relay_mode"]),
-                "    congestion-controller: "
-                + _yaml_string(settings["tuic_congestion_controller"]),
-            ]
+        item = tuic_config or (
+            bundled.get("tuic") if isinstance(bundled.get("tuic"), dict) else {}
         )
+        if item:
+            name = f"{safe_name} · TUIC"
+            names.append(name)
+            proxies.extend(
+                [
+                    f"  - name: {_yaml_string(name)}",
+                    "    type: tuic",
+                    f"    server: {_yaml_string(host)}",
+                    f"    port: {settings['tuic_port']}",
+                    f"    uuid: {_yaml_string(item.get('uuid', ''))}",
+                    f"    password: {_yaml_string(item.get('password', ''))}",
+                    f"    sni: {_yaml_string(settings['domain'])}",
+                    f"    alpn: [{_yaml_string(settings['tuic_alpn'])}]",
+                    "    skip-cert-verify: false",
+                    "    udp-relay-mode: "
+                    + _yaml_string(settings["tuic_udp_relay_mode"]),
+                    "    congestion-controller: "
+                    + _yaml_string(settings["tuic_congestion_controller"]),
+                ]
+            )
 
     if not proxies:
-        raise MihomoError("Ни один Mihomo-протокол не включён")
+        raise MihomoError("Для устройства нет активного Mihomo-протокола")
 
     group_names = ", ".join(_yaml_string(name) for name in names)
     return "\n".join(
@@ -1026,7 +1506,6 @@ def build_device_yaml(device_id: int, access_name: str) -> str:
             "",
         ]
     )
-
 
 def build_client_yaml(client_id: int, client_name: str) -> str:
     device = get_primary_device(client_id)

@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title>{% block title %}SG-Gateway{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}?v={{ app_version }}-gateway-jade-1">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}?v={{ app_version }}-gateway-jade-1">
+  <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='favicon-64.png') }}?v={{ app_version }}-gateway-jade-1">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v={{ app_version }}-gateway-jade-1">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}?v={{ app_version }}-gateway-jade-1">
   <script>
     try {
       const savedTheme = localStorage.getItem("sg-gateway-theme");
@@ -33,6 +38,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-clients-clarity-hotfix2.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-readable-typography-v3.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-page-frame-routing-v1.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='sg-controls-final-v1.css') }}">
 </head>
 <body class="sg-body page-{{ active_page|default('system') }}">
   <div class="sg-shell" id="sg-shell">
@@ -179,7 +185,7 @@
             <a href="/security">Security</a>
             {% if is_authenticated %}
             <form method="post" action="/logout">
-              <button type="submit">Выйти</button>
+              <button class="button" type="submit">Выйти</button>
             </form>
             {% endif %}
           </div>

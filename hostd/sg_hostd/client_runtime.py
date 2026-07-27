@@ -1207,60 +1207,109 @@ def _apply_xray(*, force_profiles: bool = False) -> EngineResult:
 
 
 def _apply_mihomo() -> EngineResult:
-    engine = "mihomo"
-    rows = _deployment_rows(engine)
-    ids = [int(row["client_id"]) for row in rows]
-    previous = _status_snapshot(engine)
+    """Apply Mieru, AnyTLS and TUIC from one Mihomo Core.
 
-    if not rows:
+    Older SG-Gateway builds served AnyTLS and TUIC through a second sing-box
+    runtime.  That made the Connections switches decorative: disabling a
+    Mihomo listener did not stop the separate sing-box listener.  The current
+    runtime reuses the existing per-device credentials, moves all three
+    listeners into Mihomo, and retires the duplicate service after a
+    successful transactional apply.
+    """
+
+    settings = get_connection_settings("mihomo")
+    config = dict(settings.config)
+
+    def enabled(name: str, default: bool = False) -> bool:
+        value = config.get(f"{name}_enabled", default)
+        if isinstance(value, bool):
+            return value
+        return str(value or "").strip().lower() in {
+            "1", "true", "yes", "on", "enabled"
+        }
+
+    enabled_by_engine = {
+        "mihomo": enabled("mieru", True),
+        "anytls": enabled("anytls", False),
+        "tuic": enabled("tuic", False),
+    }
+    rows_by_engine = {
+        engine: _deployment_rows(engine)
+        for engine in ("mihomo", "anytls", "tuic")
+    }
+    ids_by_engine = {
+        engine: [int(row["client_id"]) for row in rows]
+        for engine, rows in rows_by_engine.items()
+    }
+    previous = {
+        engine: _status_snapshot(engine)
+        for engine in rows_by_engine
+    }
+    enabled_ids = {
+        engine: ids_by_engine[engine] if enabled_by_engine[engine] else []
+        for engine in rows_by_engine
+    }
+
+    try:
+        for engine, ids in enabled_ids.items():
+            _set_engine_status(engine, ids, "checking")
+
+        from app.mihomo.helper import apply_candidate
+        from app.mihomo.service import build_candidate
+
+        build_candidate()
+        for engine, ids in enabled_ids.items():
+            _set_engine_status(engine, ids, "applying")
+
+        result = apply_candidate()
+        if not result.get("ok"):
+            raise ClientRuntimeError(
+                str(result.get("message") or "Mihomo apply failed")
+            )
+
+        # The old service used the same AnyTLS/TUIC ports.  It must be stopped
+        # only after Mihomo has validated, restarted and verified its listeners.
         subprocess.run(
-            ["systemctl", "stop", "mihomo.service"],
+            ["systemctl", "disable", "--now", SINGBOX_SERVICE],
             capture_output=True,
             text=True,
             timeout=60,
             check=False,
         )
-        inactive = not _command_ok(
-            ["systemctl", "is-active", "--quiet", "mihomo.service"],
-            30,
-        )
-        if not inactive:
-            return EngineResult(
-                engine,
-                False,
-                "Mihomo: runtime остался активен без клиентов",
-                0,
-            )
-        return EngineResult(engine, True, "Нет активных клиентов Mihomo", 0)
 
-    try:
-        _set_engine_status(engine, ids, "checking")
-        from app.mihomo.helper import apply_candidate
-        from app.mihomo.service import build_candidate
+        for engine, ids in enabled_ids.items():
+            _set_engine_status(engine, ids, "applied")
 
-        build_candidate()
-        _set_engine_status(engine, ids, "applying")
-        result = apply_candidate()
-        if not result.get("ok"):
-            raise ClientRuntimeError(str(result.get("message") or "Mihomo apply failed"))
-
-        _set_engine_status(engine, ids, "applied")
+        active_devices = {
+            int(row["client_id"])
+            for engine, rows in rows_by_engine.items()
+            if enabled_by_engine[engine]
+            for row in rows
+        }
         return EngineResult(
-            engine,
+            "mihomo",
             True,
-            str(result.get("message") or f"Mihomo применён; клиентов: {len(rows)}"),
-            len(rows),
+            str(
+                result.get("message")
+                or f"Mihomo multi-protocol применён; устройств: {len(active_devices)}"
+            ),
+            len(active_devices),
         )
     except Exception as exc:
         restored = _mihomo_runtime_valid()
-        _set_failure_status(
-            engine,
-            ids,
-            previous,
-            runtime_restored=restored,
+        for engine, ids in enabled_ids.items():
+            _set_failure_status(
+                engine,
+                ids,
+                previous[engine],
+                runtime_restored=restored,
+            )
+        return EngineResult(
+            "mihomo",
+            False,
+            f"Mihomo Mieru/AnyTLS/TUIC: {exc}",
+            len({item for ids in enabled_ids.values() for item in ids}),
         )
-        return EngineResult(engine, False, f"Mihomo/Mieru: {exc}", len(rows))
-
 
 def _singbox_binary() -> str:
     for candidate in ("/usr/bin/sing-box", "/usr/local/bin/sing-box"):
@@ -1375,98 +1424,36 @@ def _render_singbox_config(anytls_rows, tuic_rows) -> str:
 
 
 def _apply_singbox() -> list[EngineResult]:
-    anytls_rows = _deployment_rows("anytls")
-    tuic_rows = _deployment_rows("tuic")
-    rows_by_engine = {"anytls": anytls_rows, "tuic": tuic_rows}
-    ids_by_engine = {
-        engine: [int(row["client_id"]) for row in rows]
-        for engine, rows in rows_by_engine.items()
-    }
-    previous = {
-        engine: _status_snapshot(engine)
-        for engine in rows_by_engine
-    }
-    total_rows = len(anytls_rows) + len(tuic_rows)
+    """Keep the retired duplicate runtime stopped.
 
-    if total_rows == 0:
-        subprocess.run(
-            ["systemctl", "stop", SINGBOX_SERVICE],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            check=False,
-        )
-        inactive = not _command_ok(
-            ["systemctl", "is-active", "--quiet", SINGBOX_SERVICE], 30
-        )
-        ok = inactive
-        suffix = "не выбраны" if ok else "служба осталась активной"
-        return [
-            EngineResult("anytls", ok, f"AnyTLS: {suffix}", 0),
-            EngineResult("tuic", ok, f"TUIC v5: {suffix}", 0),
-        ]
+    AnyTLS and TUIC credentials remain separate database records and client
+    links remain unchanged, but the actual listeners are now rendered by
+    Mihomo in ``_apply_mihomo``.
+    """
 
-    all_ids = ids_by_engine["anytls"] + ids_by_engine["tuic"]
-    candidate = CANDIDATE_DIR / "sing-box-config.json"
-    backup = SINGBOX_CONFIG.with_suffix(".json.previous")
-    try:
-        for engine, ids in ids_by_engine.items():
-            _set_engine_status(engine, ids, "checking")
-        body = _render_singbox_config(anytls_rows, tuic_rows)
-        _atomic_write(candidate, body, 0o600)
-        binary = _singbox_binary()
-        _run([binary, "check", "-c", str(candidate)], timeout=60)
-        for engine, ids in ids_by_engine.items():
-            _set_engine_status(engine, ids, "applying")
-
-        SINGBOX_CONFIG.parent.mkdir(parents=True, exist_ok=True)
-        if SINGBOX_CONFIG.is_file():
-            shutil.copy2(SINGBOX_CONFIG, backup)
-        _atomic_write(SINGBOX_CONFIG, body, 0o600)
-        _run(["systemctl", "daemon-reload"])
-        _run(["systemctl", "enable", SINGBOX_SERVICE])
-        _run(["systemctl", "restart", SINGBOX_SERVICE], timeout=90)
-        _run(["systemctl", "is-active", "--quiet", SINGBOX_SERVICE])
-        for engine, ids in ids_by_engine.items():
-            _set_engine_status(engine, ids, "applied")
-        return [
-            EngineResult(
-                "anytls", True,
-                f"AnyTLS применён; клиентов: {len(anytls_rows)}",
-                len(anytls_rows),
-            ),
-            EngineResult(
-                "tuic", True,
-                f"TUIC v5 применён; клиентов: {len(tuic_rows)}",
-                len(tuic_rows),
-            ),
-        ]
-    except Exception as exc:
-        if backup.is_file():
-            shutil.copy2(backup, SINGBOX_CONFIG)
-            subprocess.run(
-                ["systemctl", "restart", SINGBOX_SERVICE],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-        restored = _singbox_runtime_valid()
-        for engine, ids in ids_by_engine.items():
-            _set_failure_status(
-                engine,
-                ids,
-                previous[engine],
-                runtime_restored=restored,
-            )
-        return [
-            EngineResult(
-                "anytls", False, f"AnyTLS: {exc}", len(anytls_rows)
-            ),
-            EngineResult(
-                "tuic", False, f"TUIC v5: {exc}", len(tuic_rows)
-            ),
-        ]
-
+    subprocess.run(
+        ["systemctl", "disable", "--now", SINGBOX_SERVICE],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    anytls_count = len(_deployment_rows("anytls"))
+    tuic_count = len(_deployment_rows("tuic"))
+    return [
+        EngineResult(
+            "anytls",
+            True,
+            "AnyTLS обслуживается Mihomo Core",
+            anytls_count,
+        ),
+        EngineResult(
+            "tuic",
+            True,
+            "TUIC v5 обслуживается Mihomo Core",
+            tuic_count,
+        ),
+    ]
 
 def _apply_sgclient() -> EngineResult:
     engine = "sgclient"

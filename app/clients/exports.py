@@ -13,7 +13,11 @@ from app.clients.repository import (
     list_device_credentials,
 )
 from app.connections.settings import get_connection_settings
-from app.mihomo.service import build_device_yaml
+from app.mihomo.service import (
+    applied_settings as mihomo_applied_settings,
+    build_device_yaml,
+    protocol_active as mihomo_protocol_active,
+)
 from app.security.tls import overview as tls_overview
 from app.xray.profiles import REALITY_TCP_FLOW, overview as xray_profiles_overview
 from app.xray.sg_panel_vless import reality_tcp_link, xhttp_reality_link
@@ -322,15 +326,17 @@ def build_xray_link(client: Client, device: Device | None = None) -> ClientExpor
 
 def build_mieru_link(client: Client, device: Device | None = None) -> ClientExport:
     config = _deployment_config(client, "mihomo", device)
-    settings = get_connection_settings("mihomo")
+    settings = mihomo_applied_settings()
     mieru = config.get("mieru") if isinstance(config.get("mieru"), dict) else {}
     username = quote(str(mieru.get("username") or ""), safe="")
     password = quote(str(mieru.get("password") or ""), safe="")
-    host = str(settings.host or "")
-    port = int(settings.config.get("mieru_port", settings.port or 2099))
-    transport = str(settings.config.get("mieru_transport", "TCP")).upper()
-    multiplexing = str(settings.config.get("mieru_multiplexing", "MULTIPLEXING_LOW"))
-    handshake = str(settings.config.get("mieru_handshake", "HANDSHAKE_STANDARD"))
+    host = str(settings.get("server_ip") or settings.get("host") or "")
+    port = int(settings.get("mieru_port") or 2099)
+    transport = str(settings.get("mieru_transport") or "TCP").upper()
+    multiplexing = str(
+        settings.get("mieru_multiplexing") or "MULTIPLEXING_LOW"
+    )
+    handshake = str(settings.get("mieru_handshake") or "HANDSHAKE_STANDARD")
     query = urlencode(
         {
             "profile": "default",
@@ -340,13 +346,17 @@ def build_mieru_link(client: Client, device: Device | None = None) -> ClientExpo
             "handshake-mode": handshake,
         }
     )
-    body = f"mierus://{username}:{password}@{host}?{query}#{quote(_label(client, device), safe='')}"
+    body = ""
+    if mihomo_protocol_active("mieru") and username and password and host:
+        body = (
+            f"mierus://{username}:{password}@{host}?{query}"
+            f"#{quote(_label(client, device), safe='')}"
+        )
     return ClientExport(
         filename=f"sg-gateway-{_slug(client, device)}-mieru.txt",
         media_type="text/plain; charset=utf-8",
         body=body,
     )
-
 
 def build_mihomo_yaml(client: Client, device: Device | None = None) -> ClientExport:
     resolved = _resolve_device(client, device)
@@ -361,48 +371,58 @@ def build_mihomo_yaml(client: Client, device: Device | None = None) -> ClientExp
 
 def build_anytls_link(client: Client, device: Device | None = None) -> ClientExport:
     config = _deployment_config(client, "anytls", device)
+    settings = mihomo_applied_settings()
     safe_name = quote(f"{_label(client, device)} · AnyTLS", safe="")
+    host = str(settings.get("domain") or settings.get("host") or "")
+    port = int(settings.get("anytls_port") or 9443)
     query = urlencode(
         {
             "security": "tls",
-            "sni": config.get("server_name", ""),
+            "sni": str(settings.get("domain") or config.get("server_name") or ""),
             "fp": config.get("fingerprint", "firefox"),
             "type": "tcp",
         }
     )
-    body = (
-        f"anytls://{quote(str(config.get('password') or ''), safe='')}"
-        f"@{config.get('host', '')}:{config.get('port', 9443)}?{query}#{safe_name}"
-    )
+    password = quote(str(config.get("password") or ""), safe="")
+    body = ""
+    if mihomo_protocol_active("anytls") and password and host:
+        body = f"anytls://{password}@{host}:{port}?{query}#{safe_name}"
     return ClientExport(
         filename=f"sg-gateway-{_slug(client, device)}-anytls.txt",
         media_type="text/plain; charset=utf-8",
         body=body,
     )
 
-
 def build_tuic_link(client: Client, device: Device | None = None) -> ClientExport:
     config = _deployment_config(client, "tuic", device)
+    settings = mihomo_applied_settings()
     safe_name = quote(f"{_label(client, device)} · TUIC v5", safe="")
+    host = str(settings.get("domain") or settings.get("host") or "")
+    port = int(settings.get("tuic_port") or 10443)
     query = urlencode(
         {
-            "congestion_control": config.get("congestion_control", "bbr"),
-            "udp_relay_mode": config.get("udp_relay_mode", "native"),
-            "alpn": config.get("alpn", "h3"),
-            "sni": config.get("server_name", ""),
+            "congestion_control": settings.get(
+                "tuic_congestion_controller",
+                config.get("congestion_control", "bbr"),
+            ),
+            "udp_relay_mode": settings.get(
+                "tuic_udp_relay_mode",
+                config.get("udp_relay_mode", "native"),
+            ),
+            "alpn": settings.get("tuic_alpn", config.get("alpn", "h3")),
+            "sni": str(settings.get("domain") or config.get("server_name") or ""),
         }
     )
-    body = (
-        f"tuic://{config.get('uuid', '')}:"
-        f"{quote(str(config.get('password') or ''), safe='')}"
-        f"@{config.get('host', '')}:{config.get('port', 10443)}?{query}#{safe_name}"
-    )
+    user_id = str(config.get("uuid") or "")
+    password = quote(str(config.get("password") or ""), safe="")
+    body = ""
+    if mihomo_protocol_active("tuic") and user_id and password and host:
+        body = f"tuic://{user_id}:{password}@{host}:{port}?{query}#{safe_name}"
     return ClientExport(
         filename=f"sg-gateway-{_slug(client, device)}-tuic-v5.txt",
         media_type="text/plain; charset=utf-8",
         body=body,
     )
-
 
 def protocol_engine(kind: str) -> str:
     return {
@@ -463,10 +483,24 @@ def protocol_ready(
             return False
         _, profile = _xray_profile(profile_id)
         return bool(profile and profile.enabled and profile.ready)
-    if kind in {"anytls", "tuic"}:
-        return bool(tls_overview().get("https_ready"))
+    if kind == "mieru":
+        return mihomo_protocol_active("mieru")
+    if kind == "anytls":
+        return bool(
+            tls_overview().get("https_ready")
+            and mihomo_protocol_active("anytls")
+        )
+    if kind == "tuic":
+        return bool(
+            tls_overview().get("https_ready")
+            and mihomo_protocol_active("tuic")
+        )
+    if kind == "mihomo":
+        return any(
+            mihomo_protocol_active(protocol)
+            for protocol in ("mieru", "anytls", "tuic")
+        )
     return True
-
 
 def build_subscription(client: Client, device: Device | None = None) -> ClientExport:
     links: list[str] = []
@@ -482,14 +516,18 @@ def build_subscription(client: Client, device: Device | None = None) -> ClientEx
                 link = build_protocol_export(client, kind, device).body
                 if link:
                     links.append(link)
-    if is_export_ready(client, "mihomo", device):
+    if protocol_ready(client, "mieru", device):
         link = build_mieru_link(client, device).body
         if link:
             links.append(link)
-    if is_export_ready(client, "anytls", device):
-        links.append(build_anytls_link(client, device).body)
-    if is_export_ready(client, "tuic", device):
-        links.append(build_tuic_link(client, device).body)
+    if protocol_ready(client, "anytls", device):
+        link = build_anytls_link(client, device).body
+        if link:
+            links.append(link)
+    if protocol_ready(client, "tuic", device):
+        link = build_tuic_link(client, device).body
+        if link:
+            links.append(link)
 
     decoded = "\n".join(item for item in links if item)
     if decoded:

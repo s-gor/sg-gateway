@@ -13,7 +13,7 @@
         <strong>{{ label }}</strong>
         <span>{{ file.size_text }} · {{ file.categories | length }} категорий</span>
         <code>{{ file.sha256 }}</code>
-        <button type="button" data-copy="{{ file.sha256 }}">Копировать SHA-256</button>
+        <button class="button small" type="button" data-copy="{{ file.sha256 }}">Копировать SHA-256</button>
       </section>
       {% endfor %}
     </div>
@@ -81,7 +81,7 @@
         <strong>{{ label }}</strong>
         <span>{{ file.size_text }} · {{ file.categories | length }} категорий</span>
         <code>{{ file.sha256 }}</code>
-        <button type="button" data-copy="{{ file.sha256 }}">Копировать SHA-256</button>
+        <button class="button small" type="button" data-copy="{{ file.sha256 }}">Копировать SHA-256</button>
       </section>
       {% endfor %}
     </div>

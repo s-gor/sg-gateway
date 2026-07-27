@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -9,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from app.mihomo.service import (
+    MIHOMO_APPLIED_META,
     MIHOMO_BACKUP_DIR,
     MIHOMO_BINARY,
     MIHOMO_CANDIDATE,
@@ -19,6 +21,9 @@ from app.mihomo.service import (
     MIHOMO_TLS_DIR,
     MihomoError,
 )
+
+LEGACY_SINGBOX_SERVICE = "sg-gateway-singbox.service"
+LEGACY_SINGBOX_MARKER = "legacy-singbox-active"
 
 
 def _result(ok: bool, message: str, **extra) -> dict:
@@ -97,13 +102,83 @@ def _backup_current() -> Path:
 
     if MIHOMO_CONFIG.is_file():
         _copy_atomic(MIHOMO_CONFIG, backup / "config.yaml", 0o600)
+    if MIHOMO_APPLIED_META.is_file():
+        _copy_atomic(MIHOMO_APPLIED_META, backup / "applied.json", 0o644)
 
     for name, mode in (("fullchain.pem", 0o644), ("privkey.pem", 0o600)):
         source = MIHOMO_TLS_DIR / name
         if source.is_file():
             _copy_atomic(source, backup / name, mode)
 
+    if (
+        subprocess.run(
+            ["systemctl", "is-active", "--quiet", LEGACY_SINGBOX_SERVICE],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).returncode
+        == 0
+    ):
+        marker = backup / LEGACY_SINGBOX_MARKER
+        marker.write_text("active\n", encoding="ascii", newline="\n")
+        os.chown(marker, 0, 0)
+        os.chmod(marker, 0o600)
+
     return backup
+
+
+
+def _write_applied_meta(meta: dict) -> None:
+    MIHOMO_APPLIED_META.parent.mkdir(parents=True, exist_ok=True)
+    temporary = MIHOMO_APPLIED_META.with_name(MIHOMO_APPLIED_META.name + ".new")
+    temporary.write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    os.chown(temporary, 0, 0)
+    os.chmod(temporary, 0o644)
+    os.replace(temporary, MIHOMO_APPLIED_META)
+
+
+def _port_is_listening(port: int, transport: str) -> bool:
+    command = ["ss", "-H", "-lnu" if transport.lower() == "udp" else "-lnt"]
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise MihomoError((result.stderr or result.stdout).strip() or "ss failed")
+    pattern = re.compile(rf"(?:\]:|:){int(port)}(?:\s|$)")
+    return any(pattern.search(line) for line in result.stdout.splitlines())
+
+
+def _verify_listeners(meta: dict) -> None:
+    settings = meta.get("settings") or {}
+    expected: list[tuple[str, int, str]] = []
+    if settings.get("mieru_enabled"):
+        expected.append(
+            (
+                "Mieru",
+                int(settings.get("mieru_port", 2099)),
+                str(settings.get("mieru_transport", "TCP")),
+            )
+        )
+    if settings.get("anytls_enabled"):
+        expected.append(("AnyTLS", int(settings.get("anytls_port", 9443)), "TCP"))
+    if settings.get("tuic_enabled"):
+        expected.append(("TUIC v5", int(settings.get("tuic_port", 10443)), "UDP"))
+
+    missing = [
+        f"{label} {port}/{transport}"
+        for label, port, transport in expected
+        if not _port_is_listening(port, transport)
+    ]
+    if missing:
+        raise MihomoError("После запуска не слушаются: " + ", ".join(missing))
 
 
 def _sync_tls(meta: dict) -> None:
@@ -191,7 +266,7 @@ def _configure_local_firewall(meta: dict) -> None:
         _run(["ufw", "allow", f"{port}/{transport}"], timeout=30)
 
 
-def _restore(backup: Path) -> bool:
+def _restore(backup: Path) -> tuple[bool, bool]:
     _prepare_runtime_dirs()
 
     previous = backup / "config.yaml"
@@ -202,6 +277,12 @@ def _restore(backup: Path) -> bool:
         MIHOMO_CONFIG.unlink(missing_ok=True)
         has_config = False
 
+    previous_meta = backup / "applied.json"
+    if previous_meta.is_file():
+        _copy_atomic(previous_meta, MIHOMO_APPLIED_META, 0o644)
+    else:
+        MIHOMO_APPLIED_META.unlink(missing_ok=True)
+
     for name, mode in (("fullchain.pem", 0o644), ("privkey.pem", 0o600)):
         source = backup / name
         target = MIHOMO_TLS_DIR / name
@@ -210,7 +291,8 @@ def _restore(backup: Path) -> bool:
         else:
             target.unlink(missing_ok=True)
 
-    return has_config
+    legacy_active = (backup / LEGACY_SINGBOX_MARKER).is_file()
+    return has_config, legacy_active
 
 
 def _recover_service(has_config: bool) -> None:
@@ -235,40 +317,110 @@ def apply_candidate() -> dict:
         raise MihomoError("Mihomo candidate не найден")
 
     meta = _meta()
+    protocols = [str(item) for item in (meta.get("protocols") or [])]
     backup = _backup_current()
+    singbox_service = LEGACY_SINGBOX_SERVICE
+    singbox_was_active = (
+        subprocess.run(
+            ["systemctl", "is-active", "--quiet", singbox_service],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).returncode
+        == 0
+    )
 
     try:
+        if not protocols:
+            subprocess.run(
+                ["systemctl", "stop", "mihomo.service"],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+            subprocess.run(
+                ["systemctl", "disable", "mihomo.service"],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+            subprocess.run(
+                ["systemctl", "disable", "--now", singbox_service],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+            MIHOMO_CONFIG.unlink(missing_ok=True)
+            _write_applied_meta(meta)
+            return _result(
+                True,
+                "Все Mihomo listener выключены; служба остановлена",
+                backup=backup.name,
+                protocols=[],
+            )
+
         _sync_tls(meta)
         _test(MIHOMO_CANDIDATE)
+
+        # SG-Gateway 020 used a second sing-box listener for AnyTLS/TUIC.
+        # Stop it after the Mihomo candidate has passed validation regardless
+        # of the selected protocols. Otherwise a protocol switched off in the
+        # panel would keep listening through the retired duplicate runtime.
+        if singbox_was_active:
+            _run(["systemctl", "stop", singbox_service])
+
         _copy_atomic(MIHOMO_CANDIDATE, MIHOMO_CONFIG, 0o600)
 
         _run(["systemctl", "daemon-reload"])
         _run(["systemctl", "enable", "mihomo.service"])
         _run(["systemctl", "restart", "mihomo.service"])
         _run(["systemctl", "is-active", "--quiet", "mihomo.service"])
-
+        _verify_listeners(meta)
         _configure_local_firewall(meta)
+        _write_applied_meta(meta)
+        subprocess.run(
+            ["systemctl", "disable", singbox_service],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
 
         return _result(
             True,
             (
                 "Mihomo configuration применена; "
-                f"клиентов: {meta.get('client_count', 0)}; "
-                f"протоколы: {', '.join(meta.get('protocols', []))}"
+                f"устройств: {meta.get('client_count', 0)}; "
+                f"протоколы: {', '.join(protocols)}"
             ),
             backup=backup.name,
+            protocols=protocols,
         )
     except Exception:
-        restored = _restore(backup)
+        restored, legacy_active = _restore(backup)
         _recover_service(restored)
+        if singbox_was_active or legacy_active:
+            subprocess.run(
+                ["systemctl", "restart", singbox_service],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
         raise
-
 
 def test_candidate() -> dict:
     if not MIHOMO_CANDIDATE.is_file():
         raise MihomoError("Mihomo candidate не найден")
 
     meta = _meta()
+    protocols = [str(item) for item in (meta.get("protocols") or [])]
+    if not protocols:
+        return _result(True, "Все Mihomo listener будут выключены")
+
     backup = _backup_current()
     try:
         _sync_tls(meta)
@@ -277,7 +429,6 @@ def test_candidate() -> dict:
     finally:
         _restore(backup)
 
-
 def restart_service() -> dict:
     if not MIHOMO_CONFIG.is_file():
         raise MihomoError("Рабочая конфигурация Mihomo ещё не применена")
@@ -285,8 +436,14 @@ def restart_service() -> dict:
     _test(MIHOMO_CONFIG)
     _run(["systemctl", "restart", "mihomo.service"])
     _run(["systemctl", "is-active", "--quiet", "mihomo.service"])
-    return _result(True, "mihomo.service перезапущен и активен")
-
+    meta = {}
+    try:
+        meta = json.loads(MIHOMO_APPLIED_META.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        pass
+    if meta:
+        _verify_listeners(meta)
+    return _result(True, "mihomo.service перезапущен и listener проверены")
 
 def rollback_latest() -> dict:
     _prepare_runtime_dirs()
@@ -302,13 +459,25 @@ def rollback_latest() -> dict:
     insurance = _backup_current()
 
     try:
-        restored = _restore(selected)
+        restored, legacy_active = _restore(selected)
         if restored:
             _test(MIHOMO_CONFIG)
             _run(["systemctl", "restart", "mihomo.service"])
             _run(["systemctl", "is-active", "--quiet", "mihomo.service"])
         else:
             _run(["systemctl", "stop", "mihomo.service"])
+
+        if legacy_active:
+            _run(["systemctl", "enable", LEGACY_SINGBOX_SERVICE])
+            _run(["systemctl", "restart", LEGACY_SINGBOX_SERVICE])
+        else:
+            subprocess.run(
+                ["systemctl", "disable", "--now", LEGACY_SINGBOX_SERVICE],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
 
         return _result(
             True,
@@ -318,8 +487,16 @@ def rollback_latest() -> dict:
             ),
         )
     except Exception:
-        restored = _restore(insurance)
+        restored, legacy_active = _restore(insurance)
         _recover_service(restored)
+        if legacy_active:
+            subprocess.run(
+                ["systemctl", "restart", LEGACY_SINGBOX_SERVICE],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
         raise
 
 

@@ -160,7 +160,8 @@ def build_access_cards(
 
     mihomo = deployments.get("mihomo")
     if mihomo is not None:
-        status = _status(client, device, mihomo)
+        ready = protocol_ready(client, "mieru", device)
+        status = _status(client, device, mihomo, ready=ready)
         export_url, qr_url = _urls(client, device, "mieru")
         yaml_url, _ = _urls(client, device, "mihomo")
         cards.append(
@@ -173,7 +174,7 @@ def build_access_cards(
                 export_url=export_url,
                 qr_url=qr_url,
                 payload=build_mieru_link(client, device).body if status == "applied" else "",
-                secondary_url=yaml_url,
+                secondary_url=yaml_url if protocol_ready(client, "mihomo", device) else "",
                 secondary_label="Mihomo YAML",
             )
         )

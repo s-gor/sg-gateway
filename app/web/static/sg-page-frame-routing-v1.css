@@ -299,3 +299,67 @@ html[data-theme="light"]
     margin: 10px !important;
   }
 }
+
+/* SG-Gateway 021 · page frame spacing fix
+   Keep the accepted Routing-style outer frame without pushing every direct
+   grid item outside its own track. */
+
+:is(.sv1-page, .cv2-page, .cnv1-page, .ob49-page, .mtv2-page, .secv2-page, .hlpv1-page) {
+  box-sizing: border-box !important;
+  gap: 14px !important;
+  padding: 0 18px 18px !important;
+}
+
+:is(.sv1-heading, .cv2-heading.cv15-heading, .cnv1-heading, .ob49-heading, .mtv2-heading, .ts2-page-heading, .hlpv1-heading) {
+  grid-column: 1 / -1 !important;
+  width: auto !important;
+  margin: 0 -18px !important;
+}
+
+:is(.sv1-page, .cv2-page, .cnv1-page, .ob49-page, .mtv2-page, .secv2-page, .hlpv1-page)
+> :not(.sv1-heading, .cv2-heading, .cnv1-heading, .ob49-heading, .mtv2-heading, .ts2-page-heading, .hlpv1-heading) {
+  min-width: 0 !important;
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+}
+
+:is(.sv1-page, .cv2-page, .cnv1-page, .ob49-page, .mtv2-page, .secv2-page, .hlpv1-page) > :nth-child(2) {
+  margin-top: 0 !important;
+}
+
+:is(.sv1-page, .cv2-page, .cnv1-page, .ob49-page, .mtv2-page, .secv2-page, .hlpv1-page) > :last-child {
+  margin-bottom: 0 !important;
+}
+
+/* The client-detail page uses the same safe frame geometry. */
+.dv16-page {
+  box-sizing: border-box !important;
+  gap: 14px !important;
+  padding: 0 18px 18px !important;
+}
+
+.dv16-heading {
+  grid-column: 1 / -1 !important;
+  width: auto !important;
+  margin: 0 -18px !important;
+}
+
+.dv16-client-state,
+.dv16-devices {
+  min-width: 0 !important;
+  margin: 0 !important;
+}
+
+@media (max-width: 760px) {
+  :is(.sv1-page, .cv2-page, .cnv1-page, .ob49-page, .mtv2-page, .secv2-page, .hlpv1-page),
+  .dv16-page {
+    gap: 10px !important;
+    padding: 0 10px 10px !important;
+  }
+
+  :is(.sv1-heading, .cv2-heading.cv15-heading, .cnv1-heading, .ob49-heading, .mtv2-heading, .ts2-page-heading, .hlpv1-heading),
+  .dv16-heading {
+    margin-right: -10px !important;
+    margin-left: -10px !important;
+  }
+}
