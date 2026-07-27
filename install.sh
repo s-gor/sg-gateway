@@ -1697,14 +1697,31 @@ assert smoke_client_id, 'Preview 48 smoke client was not created'
 with connect() as connection:
     connection.execute("UPDATE device_credentials SET status = 'applied'")
 smoke_device = list_devices(smoke_client_id)[0]
+detail_path = f'/clients/{smoke_client_id}'
+detail = client.get(detail_path)
+assert detail.status_code == 200, (
+    detail_path,
+    detail.status_code,
+    detail.get_data(as_text=True)[:500],
+)
+
+# A fresh offline smoke database has no live Xray/Mihomo listener state.
+# Therefore a personal subscription route may correctly answer 409: the
+# route exists and access is applied, but there is nothing active to export.
+# Treat only missing/broken routes (404/5xx) as an installer failure.
 for path in (
-    f'/clients/{smoke_client_id}',
     f'/clients/{smoke_client_id}/devices/{smoke_device.id}/protocols/subscription',
     f'/clients/{smoke_client_id}/devices/{smoke_device.id}/protocols/subscription/qr',
 ):
     response = client.get(path)
-    assert response.status_code == 200, (path, response.status_code, response.get_data(as_text=True)[:500])
-print('Application pages and Preview 48 device access: OK')
+    assert response.status_code in (200, 409), (
+        path,
+        response.status_code,
+        response.get_data(as_text=True)[:500],
+    )
+    if response.status_code == 200:
+        assert response.get_data(), (path, 'empty HTTP 200 response')
+print('Application pages and device access routes: OK')
 PY
   rm -rf "$test_root"
 }
