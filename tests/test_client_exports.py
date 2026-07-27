@@ -1,5 +1,6 @@
 import base64
 
+import app.clients.exports as client_exports
 from app.clients.exports import build_mieru_link, build_subscription
 from app.clients.repository import create_client, get_client, list_devices
 from app.connections.settings import get_connection_settings, update_connection_settings
@@ -16,6 +17,11 @@ def test_client_exports_include_generated_device_values(tmp_path, monkeypatch):
     settings = get_connection_settings("mihomo")
     assert update_connection_settings(
         "mihomo", "203.0.113.10", settings.port, dict(settings.config)
+    )
+    monkeypatch.setattr(
+        client_exports,
+        "mihomo_protocol_active",
+        lambda protocol: protocol == "mieru",
     )
 
     mieru = build_mieru_link(client, device)
