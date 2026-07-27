@@ -4,34 +4,29 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_mihomo_listener_readiness_waits_before_failure():
-    helper = (
-        ROOT / "app" / "mihomo" / "helper.py"
-    ).read_text(encoding="utf-8")
-
-    assert "import time" in helper
-    assert "def _verify_listeners(meta: dict, timeout: float = 30.0)" in helper
-    assert "deadline = time.monotonic()" in helper
-    assert "time.sleep(0.5)" in helper
-    assert '"is-active",' in helper
-    assert "После 30 секунд не слушаются" in helper
+def _helper_text() -> str:
+    return (ROOT / "app" / "mihomo" / "helper.py").read_text(
+        encoding="utf-8"
+    )
 
 
-def test_mihomo_apply_verifies_listener_after_service_start():
-    helper = (
-        ROOT / "app" / "mihomo" / "helper.py"
-    ).read_text(encoding="utf-8")
+def _apply_body(helper: str) -> str:
+    start = helper.index("def apply_candidate(")
+    end = helper.index("\ndef ", start + 1)
+    return helper[start:end]
 
-    apply_start = helper.index("def apply_candidate(")
-    apply_end = helper.index("\ndef ", apply_start + 1)
-    apply_body = helper[apply_start:apply_end]
 
+def test_mihomo_listener_readiness_is_not_a_transaction_gate():
+    helper = _helper_text()
+    assert "def _verify_listeners" not in helper
+    assert "_verify_listeners(meta)" not in helper
+
+
+def test_mihomo_apply_checks_service_without_listener_transaction():
+    apply_body = _apply_body(_helper_text())
     active = (
         '_run(["systemctl", "is-active", "--quiet", '
         '"mihomo.service"])'
     )
     assert active in apply_body
-    assert "_verify_listeners(meta)" in apply_body
-    assert apply_body.index(active) < apply_body.index(
-        "_verify_listeners(meta)"
-    )
+    assert "_verify_listeners" not in apply_body

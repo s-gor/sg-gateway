@@ -38,4 +38,6 @@ def test_client_exports_include_generated_device_values(
     assert mieru.body.startswith("mierus://")
     assert "profile=default" in mieru.body
     assert "Irina%20iPhone" in mieru.body
-    assert mieru.body in decoded
+    # Mieru is an independent optional deployment. A direct link can be
+    # rendered, but it must not enter the subscription before deployment.
+    assert decoded == ""

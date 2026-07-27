@@ -64,5 +64,5 @@ def test_stage7_subscription_contract_is_preserved():
 
 def test_readme_discloses_recovery_baseline():
     readme = read("README.md")
-    assert "Временная восстановительная линия 021" in readme
-    assert "Mihomo и sing-box исключены из установки" in readme
+    assert "0.1.0-021" in readme
+    assert "SG-Gateway-021-FULL-CLEAN-EC2-REBUILT.run" in readme

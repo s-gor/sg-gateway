@@ -11,7 +11,7 @@ def test_build_access_cards_for_recommended_client(tmp_path, monkeypatch):
     titles = [card.title for card in cards]
 
     assert "VLESS XHTTP Reality" in titles
-    assert "Mieru" in titles
+    assert "Mieru" not in titles
     assert "Доступ SG Client" in titles
     assert "AmneziaWG" not in titles
     assert all(
