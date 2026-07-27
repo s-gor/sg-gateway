@@ -216,7 +216,7 @@ def seed_or_migrate() -> None:
         and count_clients() == 0
     ):
         admin_client_id = create_client(
-            "sg-admin", "xray_xhttp_reality,mihomo,sgclient"
+            "sg-admin", "xray_xhttp_reality,sgclient"
         )
         if not admin_client_id:
             raise RuntimeError("Не удалось создать первого клиента sg-admin")

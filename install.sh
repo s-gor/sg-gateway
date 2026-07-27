@@ -82,11 +82,8 @@ MANAGED_PATHS=(
   etc/systemd/system/mihomo.service
   etc/nginx/sites-available/sg-gateway
   etc/nginx/sites-enabled/sg-gateway
-  etc/nginx/sites-available/sg-gateway-acme
-  etc/nginx/sites-enabled/sg-gateway-acme
   etc/nginx/sites-enabled/default
   etc/letsencrypt/renewal-hooks/deploy/sg-gateway-nginx
-  etc/letsencrypt/renewal-hooks/deploy/reload-sg-gateway-nginx.sh
   etc/mihomo
   var/lib/mihomo
   etc/sing-box
@@ -994,7 +991,6 @@ stage_backup_and_prepare() {
   chmod -R a+rX "$PREFIX"
   chmod -R go-w "$PREFIX"
   chmod 0755 "$PREFIX"
-  chmod 0755 "$PREFIX/deploy/configure-panel-access.sh"
 }
 
 stage_system_packages() {
@@ -1077,7 +1073,7 @@ verify_xray_version() {
 }
 
 stage_engine_runtimes() {
-  echo "[Engine 1/5] AmneziaWG"
+  echo "[Engine 1/3] AmneziaWG"
   if ! dpkg-query -W -f='${Status}' amneziawg 2>/dev/null | grep -q 'install ok installed'; then
     add-apt-repository -y ppa:amnezia/ppa
     apt_get update
@@ -1086,7 +1082,7 @@ stage_engine_runtimes() {
     echo "AmneziaWG уже установлен"
   fi
 
-  echo "[Engine 2/5] Xray ${XRAY_REQUIRED_VERSION}"
+  echo "[Engine 2/3] Xray ${XRAY_REQUIRED_VERSION}"
   local installed_xray=""
   if [[ -x /usr/local/bin/xray ]]; then
     installed_xray="$(xray_installed_version)"
@@ -1102,14 +1098,14 @@ stage_engine_runtimes() {
   verify_xray_version
   systemctl disable --now xray.service >/dev/null 2>&1 || true
 
-  echo "[Engine 3/5] Mihomo ${MIHOMO_VERSION}"
-  install_mihomo
-
-  echo "[Engine 4/5] sing-box ${SING_BOX_VERSION}"
-  install_sing_box
-
-  echo "[Engine 5/5] WARP wgcf-cli v0.3.6"
+  echo "[Engine 3/3] WARP wgcf-cli v0.3.6"
   bash "$SOURCE_DIR/deploy/install-wgcf-cli.sh"
+
+  # Recovery baseline: optional cores are intentionally not installed.
+  systemctl disable --now mihomo.service sg-gateway-singbox.service sing-box.service >/dev/null 2>&1 || true
+  rm -f /etc/systemd/system/mihomo.service /etc/systemd/system/sg-gateway-singbox.service
+  systemctl daemon-reload
+  echo "[SG-Gateway] Recovery baseline: Mihomo, Mieru, AnyTLS and TUIC are temporarily disabled."
 }
 
 stage_python_and_source_check() {
@@ -1393,13 +1389,27 @@ stage_configuration_and_database() {
   # under /var/lib/sg-gateway; sg-hostd applies them as root.
   install -d -m 0755 -o root -g root /etc/mihomo /etc/sing-box /usr/local/etc/xray /etc/amnezia/amneziawg
   install -d -m 0750 -o root -g root /var/lib/mihomo /var/lib/sing-box /var/log/sing-box
+  install -d -m 0700 -o root -g root /var/lib/mihomo/tls
   install -d -m 0755 /var/www/sg-gateway-acme
   rm -f /etc/mihomo/config.yaml.new
   if (( UPDATE_MODE == 0 )); then
     rm -f /etc/mihomo/config.yaml
-    rm -rf /etc/mihomo/tls
+    rm -rf /etc/mihomo/tls /var/lib/mihomo/tls
+    install -d -m 0700 -o root -g root /var/lib/mihomo/tls
+  else
+    if [[ -f /etc/mihomo/tls/fullchain.pem && ! -f /var/lib/mihomo/tls/fullchain.pem ]]; then
+      install -m 0644 -o root -g root /etc/mihomo/tls/fullchain.pem /var/lib/mihomo/tls/fullchain.pem
+    fi
+    if [[ -f /etc/mihomo/tls/privkey.pem && ! -f /var/lib/mihomo/tls/privkey.pem ]]; then
+      install -m 0600 -o root -g root /etc/mihomo/tls/privkey.pem /var/lib/mihomo/tls/privkey.pem
+    fi
+    if [[ -f /etc/mihomo/config.yaml ]]; then
+      sed -i \
+        -e 's#/etc/mihomo/tls/fullchain.pem#./tls/fullchain.pem#g' \
+        -e 's#/etc/mihomo/tls/privkey.pem#./tls/privkey.pem#g' \
+        /etc/mihomo/config.yaml
+    fi
   fi
-  install -d -m 0700 -o root -g root /etc/mihomo/tls
 
   local escaped_password
   escaped_password="$(escape_env "$ADMIN_PASSWORD")"
@@ -1692,7 +1702,7 @@ for path in ('/', '/system', '/clients', '/connections', '/routing', '/maintenan
 # its personal subscription/export routes, not only the empty Clients page.
 from app.clients.repository import create_client, list_devices
 from app.db import connect
-smoke_client_id = create_client('Smoke client', 'mihomo,sgclient')
+smoke_client_id = create_client('Smoke client', 'xray_xhttp_reality,sgclient')
 assert smoke_client_id, 'Preview 48 smoke client was not created'
 with connect() as connection:
     connection.execute("UPDATE device_credentials SET status = 'applied'")
@@ -1789,8 +1799,6 @@ WantedBy=multi-user.target
 EOF
 
   install -m 0644 "$PREFIX/deploy/sg-gateway-awg.service" /etc/systemd/system/sg-gateway-awg.service
-  install -m 0644 "$PREFIX/deploy/sg-gateway-singbox.service" /etc/systemd/system/sg-gateway-singbox.service
-  install -m 0644 "$PREFIX/deploy/mihomo.service" /etc/systemd/system/mihomo.service
 
   cat > /etc/nginx/sites-available/sg-gateway <<EOF
 server {
@@ -1834,7 +1842,7 @@ EOF
   [[ "$(systemctl show -p User --value sg-hostd.service)" == "root" ]]
   [[ -z "$(systemctl show -p DropInPaths --value sg-hostd.service)" ]]
   if (( UPDATE_MODE == 0 )); then
-    systemctl disable sg-gateway-awg.service sg-gateway-singbox.service mihomo.service >/dev/null 2>&1 || true
+    systemctl disable sg-gateway-awg.service >/dev/null 2>&1 || true
   fi
 }
 
@@ -1844,8 +1852,7 @@ stage_firewall_and_network() {
     for rule in \
       "${PANEL_PORT}/tcp" "80/tcp" "${XRAY_PORT}/tcp" \
       "${XHTTP_REALITY_PORT}/tcp" "${XHTTP_TLS_PORT}/tcp" \
-      "${AWG_PORT}/udp" "${HYSTERIA2_PORT}/udp" \
-      "${MIHOMO_PORT}/tcp" "${ANYTLS_PORT}/tcp" "${TUIC_PORT}/udp"; do
+      "${AWG_PORT}/udp" "${HYSTERIA2_PORT}/udp"; do
       ufw allow "$rule"
     done
   fi
@@ -2035,7 +2042,7 @@ service_was_enabled_before_update() {
 restore_update_runtime_services() {
   (( UPDATE_MODE == 1 )) || return 0
   local service
-  for service in mihomo.service sg-gateway-awg.service sg-gateway-singbox.service; do
+  for service in sg-gateway-awg.service; do
     if service_was_enabled_before_update "$service"; then
       systemctl enable "$service"
     fi
@@ -2150,7 +2157,7 @@ main() {
   MUTATION_STARTED=1
   run_stage 2 "Резервная копия и подготовка исходника" stage_backup_and_prepare
   run_stage 3 "Системные пакеты, Nginx и Certbot" stage_system_packages
-  run_stage 4 "Xray, AmneziaWG, Mihomo, sing-box и WARP helper" stage_engine_runtimes
+  run_stage 4 "Xray, AmneziaWG и WARP helper" stage_engine_runtimes
   run_stage 5 "Python-окружение и проверка исходника" stage_python_and_source_check
   run_stage 6 "Полный UI, база и сохранение Xray 013" stage_configuration_and_database
   run_stage 7 "Локальная проверка страниц" stage_local_application_smoke_test
