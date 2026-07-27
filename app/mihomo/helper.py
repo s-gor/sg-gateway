@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -142,7 +143,11 @@ def _write_applied_meta(meta: dict) -> None:
 
 
 def _port_is_listening(port: int, transport: str) -> bool:
-    command = ["ss", "-H", "-lnu" if transport.lower() == "udp" else "-lnt"]
+    command = [
+        "ss",
+        "-H",
+        "-lnu" if transport.lower() == "udp" else "-lnt",
+    ]
     result = subprocess.run(
         command,
         capture_output=True,
@@ -151,14 +156,20 @@ def _port_is_listening(port: int, transport: str) -> bool:
         check=False,
     )
     if result.returncode != 0:
-        raise MihomoError((result.stderr or result.stdout).strip() or "ss failed")
+        raise MihomoError(
+            (result.stderr or result.stdout).strip() or "ss failed"
+        )
     pattern = re.compile(rf"(?:\]:|:){int(port)}(?:\s|$)")
-    return any(pattern.search(line) for line in result.stdout.splitlines())
+    return any(
+        pattern.search(line)
+        for line in result.stdout.splitlines()
+    )
 
 
-def _verify_listeners(meta: dict) -> None:
+def _expected_listeners(meta: dict) -> list[tuple[str, int, str]]:
     settings = meta.get("settings") or {}
     expected: list[tuple[str, int, str]] = []
+
     if settings.get("mieru_enabled"):
         expected.append(
             (
@@ -168,17 +179,124 @@ def _verify_listeners(meta: dict) -> None:
             )
         )
     if settings.get("anytls_enabled"):
-        expected.append(("AnyTLS", int(settings.get("anytls_port", 9443)), "TCP"))
+        expected.append(
+            (
+                "AnyTLS",
+                int(settings.get("anytls_port", 9443)),
+                "TCP",
+            )
+        )
     if settings.get("tuic_enabled"):
-        expected.append(("TUIC v5", int(settings.get("tuic_port", 10443)), "UDP"))
+        expected.append(
+            (
+                "TUIC v5",
+                int(settings.get("tuic_port", 10443)),
+                "UDP",
+            )
+        )
 
-    missing = [
+    return expected
+
+
+def _missing_listeners(
+    expected: list[tuple[str, int, str]],
+) -> list[str]:
+    return [
         f"{label} {port}/{transport}"
         for label, port, transport in expected
         if not _port_is_listening(port, transport)
     ]
-    if missing:
-        raise MihomoError("После запуска не слушаются: " + ", ".join(missing))
+
+
+def _mihomo_failure_details() -> str:
+    status = subprocess.run(
+        [
+            "systemctl",
+            "show",
+            "mihomo.service",
+            "--property=ActiveState,SubState,Result,ExecMainStatus,MainPID",
+            "--no-pager",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    journal = subprocess.run(
+        [
+            "journalctl",
+            "-u",
+            "mihomo.service",
+            "-n",
+            "20",
+            "--no-pager",
+            "-o",
+            "cat",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+
+    parts: list[str] = []
+    status_text = " ".join(
+        (status.stdout or status.stderr).split()
+    )
+    if status_text:
+        parts.append(status_text)
+
+    journal_lines = [
+        line.strip()
+        for line in (journal.stdout or journal.stderr).splitlines()
+        if line.strip()
+    ]
+    if journal_lines:
+        parts.append(
+            "journal: " + " | ".join(journal_lines[-6:])
+        )
+
+    return "; ".join(parts)
+
+
+def _verify_listeners(meta: dict, timeout: float = 30.0) -> None:
+    expected = _expected_listeners(meta)
+    if not expected:
+        return
+
+    deadline = time.monotonic() + max(float(timeout), 1.0)
+    missing = _missing_listeners(expected)
+
+    while missing and time.monotonic() < deadline:
+        active = subprocess.run(
+            [
+                "systemctl",
+                "is-active",
+                "--quiet",
+                "mihomo.service",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=20,
+            check=False,
+        )
+        if active.returncode != 0:
+            break
+
+        time.sleep(0.5)
+        missing = _missing_listeners(expected)
+
+    if not missing:
+        return
+
+    details = _mihomo_failure_details()
+    message = (
+        "После 30 секунд не слушаются: "
+        + ", ".join(missing)
+    )
+    if details:
+        message += ". " + details
+    raise MihomoError(message)
 
 
 def _sync_tls(meta: dict) -> None:
