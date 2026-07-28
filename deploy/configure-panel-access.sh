@@ -329,7 +329,7 @@ configure_https(){
   HOST="${HOST,,}"
   [[ "$HOST" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]] || fail "некорректное доменное имя"
 
-  local public_ip resolved cert_dir cert_file key_file backup_dir https_authority
+  local public_ip resolved cert_dir cert_file key_file https_authority
   SG_HTTPS_BACKUP_DIR=""
   SG_HTTPS_COMMITTED=0
   public_ip="$(detect_public_ipv4)"
@@ -340,9 +340,7 @@ configure_https(){
     fail "A-запись домена ещё не указывает на этот сервер"
   fi
 
-  backup_dir="$(create_backup)"
-  SG_HTTPS_BACKUP_DIR="$backup_dir"
-  SG_HTTPS_COMMITTED=0
+  SG_HTTPS_BACKUP_DIR="$(create_backup)"
   rollback(){
     local rc=$?
     trap - EXIT ERR INT TERM
@@ -478,13 +476,13 @@ exec /bin/bash /opt/sg-gateway/deploy/configure-panel-access.sh --mode refresh
 EOF_HOOK
   chmod 0755 "$RENEW_HOOK"
 
-  write_state "$HOST" issue "HTTPS включён и проверен" "$(basename "$backup_dir")"
+  write_state "$HOST" issue "HTTPS включён и проверен" "$(basename "$SG_HTTPS_BACKUP_DIR")"
   apply_client_runtime
   SG_HTTPS_COMMITTED=1
   trap - EXIT ERR INT TERM
   log "HTTPS настроен: https://$HOST:$PUBLIC_PORT"
   log "Backend: 127.0.0.1:$BACKEND_PORT"
-  log "Резервная конфигурация: $(basename "$backup_dir")"
+  log "Резервная конфигурация: $(basename "$SG_HTTPS_BACKUP_DIR")"
 }
 
 renew_https(){
