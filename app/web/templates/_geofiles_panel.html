@@ -29,7 +29,8 @@
 
   <article class="r096-geo-card">
     <h2>Источник GeoFiles</h2>
-    <p>Выберите связанную пару. Проверка не меняет активные файлы.</p>
+    <p><strong>Обычное обновление — это два действия:</strong> выберите источник, нажмите «Проверить источник», затем «Обновить GeoFiles».</p>
+    <p class="r096-geo-note">Ничего вручную заменять не нужно. Проверка не меняет активные файлы, а после успешной проверки SG-Gateway применит именно проверенную пару.</p>
     <p class="r096-geo-note">Наличие category-ads-all не обязательно: совместимость определяется по реальным категориям.</p>
     <form id="r096-geofiles-form" method="post" action="{{ url_for('geofiles_check') }}" enctype="multipart/form-data">
       <div class="r096-source-grid">

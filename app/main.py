@@ -494,20 +494,29 @@ def create_app() -> Flask:
                     if geosite_file and geosite_file.filename
                     else None
                 ),
+                geoip_upload_name=geoip_file.filename if geoip_file and geoip_file.filename else "",
+                geosite_upload_name=geosite_file.filename if geosite_file and geosite_file.filename else "",
                 local_geoip=request.form.get("local_geoip", ""),
                 local_geosite=request.form.get("local_geosite", ""),
                 block_ads=bool(request.form.get("roscom_block_ads")),
                 block_windows_telemetry=bool(request.form.get("roscom_block_windows")),
                 block_torrent=bool(request.form.get("roscom_block_torrent")),
             )
-            flash(
-                (
-                    "GeoFiles проверены: "
-                    f"GeoIP {len(report.geoip.categories)} категорий, "
-                    f"GeoSite {len(report.geosite.categories)} категорий."
-                ),
-                "success",
-            )
+            if report.ready:
+                flash(
+                    (
+                        "GeoFiles проверены и готовы к применению: "
+                        f"GeoIP {len(report.geoip.categories)} категорий, "
+                        f"GeoSite {len(report.geosite.categories)} категорий."
+                    ),
+                    "success",
+                )
+            else:
+                flash(
+                    "GeoFiles проверены, но применять их нельзя: "
+                    + (report.xray_message or report.message),
+                    "error",
+                )
         except GeoFilesError as exc:
             flash(f"GeoFiles не прошли проверку: {exc}", "error")
         return redirect(url_for("routing") + "#geofiles")

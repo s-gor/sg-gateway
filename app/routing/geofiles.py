@@ -40,6 +40,7 @@ MIN_GEOSITE_SIZE = 1024
 MAX_DOWNLOAD_SIZE = 160 * 1024 * 1024
 GEOFILES_DISK_RESERVE = 64 * 1024 * 1024
 CATEGORY_RE = re.compile(r"^[a-z0-9][a-z0-9_!@.+-]{0,95}$")
+GEOFILES_LOCK_PATH = Path("/run/sg-gateway/geofiles.lock")
 
 SOURCE_PRESETS = (
     {
@@ -138,7 +139,13 @@ class GeoPairReport:
     geosite: GeoFileReport
     family: str = "custom"
     missing_active_categories: tuple[str, ...] = ()
+    routing_blockers: tuple[str, ...] = ()
     compatibility_mode: str = "preserve-active-routing"
+    managed_by: str = "sg-gateway"
+    preset: str = ""
+    policy_source: str = ""
+    routing_user_rule_count: int = 0
+    routing_system_rule_count: int = 0
     ready: bool = False
     xray_validation: str = "not-run"
     xray_message: str = "Проверка Xray ещё не выполнялась"
@@ -179,6 +186,14 @@ def _candidate_manifest_path() -> Path:
 
 def _candidate_routing_path() -> Path:
     return _candidate_dir() / "routing.json"
+
+
+def _candidate_request_path() -> Path:
+    return _candidate_dir() / "request.json"
+
+
+def _form_state_path() -> Path:
+    return _state_root() / "form-state.json"
 
 
 def _ensure_state_dirs() -> None:
@@ -438,7 +453,342 @@ def _write_json(path: Path, payload: dict) -> None:
         stream.write("\n")
         stream.flush()
         os.fsync(stream.fileno())
+    # These files contain only GeoFiles metadata/state, never WARP or TLS
+    # secrets.  Make the mode explicit because sg-hostd writes the validated
+    # candidate as root while the panel must be able to read it after the
+    # POST/redirect cycle.
+    os.chmod(temporary, 0o644)
     os.replace(temporary, path)
+
+
+def _load_json_dict(path: Path) -> dict:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError, TypeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+SMART_PRIVATE_IPS = (
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+    "127.0.0.0/8",
+    "169.254.0.0/16",
+    "::1/128",
+    "fc00::/7",
+    "fe80::/10",
+)
+SMART_BLOCKED_CATEGORIES = (
+    "russia-blocked",
+    "ru-blocked",
+    "category-ru-blocked",
+    "antifilter",
+    "refilter",
+    "blocked",
+)
+SMART_ADS_CATEGORIES = ("category-ads-all", "category-ads", "ads", "adguard")
+
+
+def _routing_active_state_path() -> Path:
+    return load_config().data_dir / "routing" / "active-managed.json"
+
+
+def _active_family() -> str:
+    report = _load_report(_active_manifest_path())
+    return report.family if report else ""
+
+
+def _routing_state() -> dict:
+    return _load_json_dict(_routing_active_state_path())
+
+
+def _category_blockers(
+    title: str,
+    domains: Iterable[str],
+    ips: Iterable[str],
+    *,
+    geoip_categories: set[str],
+    geosite_categories: set[str],
+) -> list[str]:
+    blockers: list[str] = []
+    for value in domains:
+        item = str(value).strip()
+        lowered = item.lower()
+        if lowered.startswith("geosite:"):
+            category = lowered[8:]
+            if category and category not in geosite_categories:
+                blockers.append(f"{title} → geosite:{category}")
+    for value in ips:
+        item = str(value).strip()
+        lowered = item.lower()
+        if lowered.startswith("geoip:"):
+            category = lowered[6:]
+            if category and category not in geoip_categories:
+                blockers.append(f"{title} → geoip:{category}")
+    return blockers
+
+
+def _rule(action: str, *, domains: Iterable[str] = (), ips: Iterable[str] = (), network: str = "") -> dict | None:
+    domain_values = [str(item) for item in domains if str(item).strip()]
+    ip_values = [str(item) for item in ips if str(item).strip()]
+    item: dict = {"type": "field", "outboundTag": action}
+    if domain_values:
+        item["domain"] = domain_values
+    if ip_values:
+        item["ip"] = ip_values
+    if network:
+        item["network"] = network
+    return item if domain_values or ip_values or network else None
+
+
+def _user_rules_from_routing_state(
+    state: dict,
+    *,
+    geoip_categories: set[str],
+    geosite_categories: set[str],
+) -> tuple[list[dict], list[str]]:
+    """Return only user-owned Smart Routing rules, unchanged.
+
+    The current SG-Gateway UI stores custom user rules explicitly in the Smart
+    Routing state.  System-managed family rules must never be inferred from the
+    old live fragment when that explicit policy exists.
+    """
+    smart = state.get("smart") if isinstance(state, dict) else None
+    if not isinstance(smart, dict):
+        return [], []
+    groups = (
+        ("Пользовательские правила Block", "block", "custom_block_domains", "custom_block_ips"),
+        ("Пользовательские правила Direct", "direct", "custom_direct_domains", "custom_direct_ips"),
+        ("Пользовательские правила WARP", "warp", "custom_warp_domains", "custom_warp_ips"),
+    )
+    rules: list[dict] = []
+    blockers: list[str] = []
+    for title, action, domain_key, ip_key in groups:
+        domains = list(smart.get(domain_key) or [])
+        ips = list(smart.get(ip_key) or [])
+        if not domains and not ips:
+            continue
+        blockers.extend(
+            _category_blockers(
+                title,
+                domains,
+                ips,
+                geoip_categories=geoip_categories,
+                geosite_categories=geosite_categories,
+            )
+        )
+        built = _rule(action, domains=domains, ips=ips)
+        if built:
+            rules.append(built)
+    return rules, blockers
+
+
+def _choose_category(options: Iterable[str], available: set[str]) -> str | None:
+    return next((item for item in options if item in available), None)
+
+
+def _smart_system_rules(
+    smart: dict,
+    *,
+    geoip_categories: set[str],
+    geosite_categories: set[str],
+) -> tuple[list[dict], list[str], str]:
+    rules: list[dict] = []
+    blockers: list[str] = []
+    preset = str(smart.get("preset") or "custom").strip().lower() or "custom"
+
+    local_domains = ["geosite:private"] if "private" in geosite_categories else []
+    local_ips = ["geoip:private"] if "private" in geoip_categories else list(SMART_PRIVATE_IPS)
+    local = _rule("direct", domains=local_domains, ips=local_ips)
+    if local:
+        rules.append(local)
+
+    scope = str(smart.get("russia_scope") or "none").strip().lower()
+    russia_action = str(smart.get("russia_action") or "direct").strip().lower()
+    if russia_action not in {"direct", "warp", "block"}:
+        russia_action = "direct"
+    if scope == "tld":
+        if "tld-ru" in geosite_categories:
+            rules.append(_rule(russia_action, domains=["geosite:tld-ru"]))
+        else:
+            blockers.append("Российская маршрутизация → geosite:tld-ru")
+    elif scope == "sites_ip":
+        missing: list[str] = []
+        domains: list[str] = []
+        ips: list[str] = []
+        if "category-ru" in geosite_categories:
+            domains.append("geosite:category-ru")
+        else:
+            missing.append("geosite:category-ru")
+        if "ru" in geoip_categories:
+            ips.append("geoip:ru")
+        else:
+            missing.append("geoip:ru")
+        if missing:
+            blockers.extend(f"Российская маршрутизация → {item}" for item in missing)
+        else:
+            rules.append(_rule(russia_action, domains=domains, ips=ips))
+
+    blocked_action = str(smart.get("blocked_action") or "direct").strip().lower()
+    if blocked_action in {"warp", "block"}:
+        category = _choose_category(SMART_BLOCKED_CATEGORIES, geosite_categories)
+        if category:
+            rules.append(_rule(blocked_action, domains=[f"geosite:{category}"]))
+        else:
+            blockers.append("Заблокированные ресурсы → geosite:ru-blocked")
+
+    ads_action = str(smart.get("ads_action") or "direct").strip().lower()
+    if ads_action in {"warp", "block"}:
+        category = _choose_category(SMART_ADS_CATEGORIES, geosite_categories)
+        if category:
+            rules.append(_rule(ads_action, domains=[f"geosite:{category}"]))
+        else:
+            blockers.append("Реклама и трекеры → geosite:category-ads")
+
+    default_action = str(smart.get("default_action") or "direct").strip().lower()
+    if default_action == "warp":
+        rules.append(_rule("warp", network="tcp,udp"))
+    return [item for item in rules if item], blockers, preset
+
+
+def _template_system_rules(
+    template_id: str,
+    *,
+    geoip_categories: set[str],
+    geosite_categories: set[str],
+) -> tuple[list[dict], list[str]]:
+    rules: list[dict] = []
+    blockers: list[str] = []
+    if template_id == "private-direct":
+        domains = ["geosite:private"] if "private" in geosite_categories else []
+        ips = ["geoip:private"] if "private" in geoip_categories else list(SMART_PRIVATE_IPS)
+        built = _rule("direct", domains=domains, ips=ips)
+        if built:
+            rules.append(built)
+    elif template_id == "ru-tld-direct":
+        if "tld-ru" in geosite_categories:
+            rules.append(_rule("direct", domains=["geosite:tld-ru"]))
+        else:
+            blockers.append("Российские доменные зоны → geosite:tld-ru")
+    elif template_id == "ru-sites-ip-direct":
+        missing = []
+        if "category-ru" not in geosite_categories:
+            missing.append("geosite:category-ru")
+        if "ru" not in geoip_categories:
+            missing.append("geoip:ru")
+        if missing:
+            blockers.extend(f"Российские сайты и IP → {item}" for item in missing)
+        else:
+            rules.append(_rule("direct", domains=["geosite:category-ru"], ips=["geoip:ru"]))
+    elif template_id == "ads-block":
+        category = _choose_category(SMART_ADS_CATEGORIES, geosite_categories)
+        if category:
+            rules.append(_rule("block", domains=[f"geosite:{category}"]))
+        else:
+            blockers.append("Реклама и трекеры → geosite:category-ads")
+    return [item for item in rules if item], blockers
+
+
+def _plan_routing_for_candidate(
+    report: GeoPairReport,
+    *,
+    block_ads: bool,
+    block_windows_telemetry: bool,
+    block_torrent: bool,
+) -> tuple[dict, dict]:
+    """Build future managed Routing from policy + the candidate family.
+
+    User-owned Smart Routing entries are copied byte-for-byte at the value
+    level.  System-managed rules are rebuilt for the candidate family instead
+    of reusing a fragment created for another GeoFiles family.
+    """
+    geoip = {str(item).lower() for item in report.geoip.categories}
+    geosite = {str(item).lower() for item in report.geosite.categories}
+    state = _routing_state()
+    previous_family = _active_family()
+    user_rules, user_blockers = _user_rules_from_routing_state(
+        state,
+        geoip_categories=geoip,
+        geosite_categories=geosite,
+    )
+    system_rules: list[dict] = []
+    system_blockers: list[str] = []
+    preset = ""
+    policy_source = "family-default"
+
+    if report.family == "roscomvpn":
+        fragment = build_roscom_direct_block_fragment(
+            geosite_categories=report.geosite.categories,
+            geoip_categories=report.geoip.categories,
+            block_ads=block_ads,
+            block_windows_telemetry=block_windows_telemetry,
+            block_torrent=block_torrent,
+        )
+        system_rules = list(fragment.get("routing", {}).get("rules", []))
+        preset = "roscomvpn-direct-block"
+        policy_source = "roscomvpn-family"
+    else:
+        smart = state.get("smart") if isinstance(state, dict) else None
+        template_id = str(state.get("template_id") or "") if isinstance(state, dict) else ""
+        if isinstance(smart, dict):
+            system_rules, system_blockers, preset = _smart_system_rules(
+                smart,
+                geoip_categories=geoip,
+                geosite_categories=geosite,
+            )
+            policy_source = "routing-smart"
+        elif template_id in {"private-direct", "ru-tld-direct", "ru-sites-ip-direct", "ads-block"}:
+            system_rules, system_blockers = _template_system_rules(
+                template_id,
+                geoip_categories=geoip,
+                geosite_categories=geosite,
+            )
+            preset = template_id
+            policy_source = "routing-template"
+        elif previous_family and previous_family != report.family:
+            # Legacy state has no owner/provenance.  On a family transition the
+            # safe system default is an empty managed fragment (implicit Direct),
+            # never the old family's generated geo rules.
+            system_rules = []
+            preset = "family-default-direct"
+            policy_source = "legacy-family-transition"
+        else:
+            # Same-family/unknown legacy state: preserve it, but still validate
+            # every geo reference before Apply.  This is backward compatible
+            # without allowing a known family transition to leak stale rules.
+            legacy = load_managed_fragment()
+            legacy_missing = list(report.missing_active_categories)
+            system_rules = list(legacy.get("routing", {}).get("rules", []))
+            system_blockers.extend(f"Legacy managed Routing → {item}" for item in legacy_missing)
+            preset = "legacy-preserve"
+            policy_source = "legacy-same-family"
+
+    blockers = user_blockers + system_blockers
+    combined = {
+        "routing": {
+            "domainStrategy": "IPIfNonMatch" if (user_rules or system_rules) else "AsIs",
+            # User-owned rules must stay first so a family baseline cannot
+            # shadow a more specific user decision.
+            "rules": user_rules + system_rules,
+        }
+    }
+    try:
+        from app.routing.runtime import sanitize_managed_fragment
+        combined = sanitize_managed_fragment(combined)
+    except RoutingRuntimeError as exc:
+        raise GeoFilesError(str(exc)) from exc
+    plan = {
+        "managed_by": "sg-gateway",
+        "family": report.family,
+        "preset": preset,
+        "policy_source": policy_source,
+        "previous_family": previous_family,
+        "user_rule_count": len(user_rules),
+        "system_rule_count": len(system_rules),
+        "blockers": blockers,
+    }
+    return combined, plan
 
 
 def _report_payload(report: GeoPairReport) -> dict:
@@ -446,6 +796,7 @@ def _report_payload(report: GeoPairReport) -> dict:
     payload["geoip"]["categories"] = list(report.geoip.categories)
     payload["geosite"]["categories"] = list(report.geosite.categories)
     payload["missing_active_categories"] = list(report.missing_active_categories)
+    payload["routing_blockers"] = list(report.routing_blockers)
     return payload
 
 
@@ -476,7 +827,13 @@ def _pair_from_payload(payload: dict) -> GeoPairReport:
         ),
         family=str(payload.get("family", "custom")),
         missing_active_categories=tuple(payload.get("missing_active_categories", [])),
+        routing_blockers=tuple(payload.get("routing_blockers", [])),
         compatibility_mode=str(payload.get("compatibility_mode", "preserve-active-routing")),
+        managed_by=str(payload.get("managed_by", "sg-gateway")),
+        preset=str(payload.get("preset", "")),
+        policy_source=str(payload.get("policy_source", "")),
+        routing_user_rule_count=int(payload.get("routing_user_rule_count", 0)),
+        routing_system_rule_count=int(payload.get("routing_system_rule_count", 0)),
         ready=bool(payload.get("ready", payload.get("valid", False))),
         xray_validation=str(payload.get("xray_validation", "not-run")),
         xray_message=str(payload.get("xray_message", "")),
@@ -513,6 +870,8 @@ def stage_pair(
     geosite_url: str = "",
     geoip_upload: BinaryIO | None = None,
     geosite_upload: BinaryIO | None = None,
+    geoip_upload_name: str = "",
+    geosite_upload_name: str = "",
     local_geoip: str = "",
     local_geosite: str = "",
     block_ads: bool = False,
@@ -521,6 +880,32 @@ def stage_pair(
 ) -> GeoPairReport:
     _ensure_state_dirs()
     source = _source(source_id)
+    request_state = {
+        "source_id": source_id,
+        "source_label": source["label"],
+        "submitted_at": _utc_now(),
+        "geoip_url": (geoip_url or "").strip() if source_id == "custom_url" else "",
+        "geosite_url": (geosite_url or "").strip() if source_id == "custom_url" else "",
+        "local_geoip": (local_geoip or "").strip() if source_id == "local" else "",
+        "local_geosite": (local_geosite or "").strip() if source_id == "local" else "",
+        "geoip_upload_name": (geoip_upload_name or "").strip() if source_id == "upload" else "",
+        "geosite_upload_name": (geosite_upload_name or "").strip() if source_id == "upload" else "",
+        "roscom_block_ads": bool(block_ads) if source_id == "roscomvpn" else False,
+        "roscom_block_windows": bool(block_windows_telemetry) if source_id == "roscomvpn" else False,
+        "roscom_block_torrent": bool(block_torrent) if source_id == "roscomvpn" else False,
+    }
+    # Preserve the submitted form across POST/redirect, even when validation
+    # fails, so the operator can correct it instead of re-entering everything.
+    _write_json(_form_state_path(), request_state)
+
+    # A new check invalidates the previous frozen candidate immediately.
+    # This prevents a failed check of source B from leaving source A enabled
+    # for Apply by accident.
+    candidate = _candidate_dir()
+    if candidate.exists():
+        shutil.rmtree(candidate)
+    candidate.mkdir(parents=True, exist_ok=True)
+
     incoming = _state_root() / f"incoming-{uuid.uuid4().hex}"
     incoming.mkdir(parents=True, exist_ok=False)
     geoip = incoming / "geoip.dat"
@@ -555,55 +940,67 @@ def stage_pair(
         if not report.valid:
             raise GeoFilesError(report.message)
 
-        if report.family == "roscomvpn":
-            try:
-                routing_fragment = build_roscom_direct_block_fragment(
-                    geosite_categories=report.geosite.categories,
-                    geoip_categories=report.geoip.categories,
-                    block_ads=block_ads,
-                    block_windows_telemetry=block_windows_telemetry,
-                    block_torrent=block_torrent,
-                )
-            except RoutingRuntimeError as exc:
-                raise GeoFilesError(str(exc)) from exc
-            compatibility_mode = "roscomvpn-direct-block"
-            ready = True
+        try:
+            routing_fragment, routing_plan = _plan_routing_for_candidate(
+                report,
+                block_ads=block_ads,
+                block_windows_telemetry=block_windows_telemetry,
+                block_torrent=block_torrent,
+            )
+        except RoutingRuntimeError as exc:
+            raise GeoFilesError(str(exc)) from exc
+        blockers = tuple(str(item) for item in routing_plan.get("blockers", []))
+        compatibility_mode = (
+            "roscomvpn-direct-block"
+            if report.family == "roscomvpn"
+            else "family-aware-managed-routing"
+        )
+        ready = not blockers
+        if ready:
             message = (
-                "RoscomVPN распознан. Будет применена отдельная совместимая "
-                "маршрутизация Direct/Block; старые несовместимые категории "
-                "не попадут в рабочий config.json."
+                f"Candidate Routing перестроен для family={report.family}; "
+                "пользовательские правила сохранены."
             )
         else:
-            routing_fragment = load_managed_fragment()
-            compatibility_mode = "preserve-active-routing"
-            ready = not report.missing_active_categories
-            message = (
-                "Связанная пара совместима со всеми активными правилами"
-                if ready
-                else "В candidate отсутствуют категории активной маршрутизации: "
-                + ", ".join(report.missing_active_categories)
-            )
+            message = "Применение заблокировано правилами: " + "; ".join(blockers)
 
-        full_candidate = build_full_config(routing_fragment)
-        xray_status, xray_message = xray_test_config(
-            full_candidate,
-            asset_dir=incoming,
-        )
-        if xray_status == "error":
-            ready = False
-            message = xray_message
-
+        # Structural/category preparation is intentionally done by the panel,
+        # but the full Xray candidate MUST be validated by sg-hostd as root.
+        # An enabled WARP outbound contains root-only WireGuard credentials in
+        # /var/lib/sg-gateway/warp/wgcf.xray.json; the unprivileged web process
+        # must never read that file just to check GeoFiles.
         report = replace(
             report,
             ready=ready,
             message=message,
+            routing_blockers=blockers,
             compatibility_mode=compatibility_mode,
-            xray_validation=xray_status,
-            xray_message=xray_message,
+            managed_by=str(routing_plan.get("managed_by", "sg-gateway")),
+            preset=str(routing_plan.get("preset", "")),
+            policy_source=str(routing_plan.get("policy_source", "")),
+            routing_user_rule_count=int(routing_plan.get("user_rule_count", 0)),
+            routing_system_rule_count=int(routing_plan.get("system_rule_count", 0)),
+            xray_validation="pending",
+            xray_message="Полная проверка Xray выполняется через sg-hostd",
         )
+        request_state["checked_at"] = report.checked_at
+        request_state["geoip_sha256"] = report.geoip.sha256
+        request_state["geosite_sha256"] = report.geosite.sha256
         atomic_write_json(incoming / "routing.json", routing_fragment, 0o600)
         _write_json(incoming / "manifest.json", _report_payload(report))
+        _write_json(incoming / "request.json", request_state)
         _atomic_candidate(incoming, report)
+
+        if _find_xray() is None:
+            report = replace(
+                report,
+                xray_validation="warning",
+                xray_message="Xray не установлен: выполнена только структурная проверка",
+            )
+            _write_json(_candidate_manifest_path(), _report_payload(report))
+        else:
+            _run_helper("check")
+            report = _load_report(_candidate_manifest_path()) or report
         log_operation(
             "geofiles.check",
             f"geofiles:{source_id}",
@@ -754,7 +1151,13 @@ def _active_report() -> GeoPairReport | None:
             geosite=checked.geosite,
             family=stored.family,
             missing_active_categories=stored.missing_active_categories,
+            routing_blockers=stored.routing_blockers,
             compatibility_mode=stored.compatibility_mode,
+            managed_by=stored.managed_by,
+            preset=stored.preset,
+            policy_source=stored.policy_source,
+            routing_user_rule_count=stored.routing_user_rule_count,
+            routing_system_rule_count=stored.routing_system_rule_count,
             ready=stored.ready,
             xray_validation=stored.xray_validation,
             xray_message=stored.xray_message,
@@ -796,6 +1199,8 @@ def overview() -> dict:
         "sources": sources,
         "active": _report_view(_active_report()),
         "candidate": _report_view(_load_report(_candidate_manifest_path())),
+        "candidate_request": _load_json_dict(_candidate_request_path()),
+        "form_state": _load_json_dict(_form_state_path()),
         "backups": _backup_views(),
     }
 
@@ -1097,9 +1502,101 @@ def _sync_compatibility_asset_path(asset: Path) -> None:
             _atomic_copy(source, compatibility / name)
 
 
+def root_validate_candidate() -> dict:
+    """Validate the staged pair against the exact privileged Xray runtime.
+
+    This runs only through sg-hostd.  In particular, WARP credentials remain
+    root-only while the candidate still gets tested with the real WARP
+    outbound and the real live Xray configuration.
+    """
+    _ensure_state_dirs()
+    lock_stream = _lock(GEOFILES_LOCK_PATH)
+    try:
+        candidate = _candidate_dir()
+        report = _load_report(_candidate_manifest_path())
+        if report is None:
+            raise GeoFilesError("Candidate GeoFiles не содержит manifest.json")
+
+        structural = validate_pair(
+            candidate / "geoip.dat",
+            candidate / "geosite.dat",
+            report.source_id,
+            report.source_label,
+        )
+        if not structural.valid:
+            report = replace(
+                report,
+                ready=False,
+                message=structural.message,
+                xray_validation="error",
+                xray_message=structural.message,
+            )
+            _write_json(_candidate_manifest_path(), _report_payload(report))
+            return {
+                "ok": True,
+                "message": structural.message,
+                "ready": False,
+                "xray_validation": "error",
+            }
+
+        try:
+            routing_fragment = json.loads(
+                _candidate_routing_path().read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            raise GeoFilesError(f"Не найден Routing candidate GeoFiles: {exc}") from exc
+
+        if report.routing_blockers:
+            blocker_message = "Применение заблокировано правилами: " + "; ".join(report.routing_blockers)
+            report = replace(
+                report,
+                ready=False,
+                message=blocker_message,
+                xray_validation="blocked",
+                xray_message=blocker_message,
+            )
+            _write_json(_candidate_manifest_path(), _report_payload(report))
+            return {
+                "ok": True,
+                "message": blocker_message,
+                "ready": False,
+                "xray_validation": "blocked",
+                "xray_message": blocker_message,
+            }
+
+        try:
+            full_candidate = build_full_config(routing_fragment)
+            xray_status, xray_message = xray_test_config(
+                full_candidate,
+                asset_dir=candidate,
+            )
+        except Exception as exc:
+            xray_status, xray_message = "error", str(exc)
+
+        ready = bool(report.ready) and xray_status != "error"
+        message = report.message if xray_status != "error" else xray_message
+        report = replace(
+            report,
+            ready=ready,
+            message=message,
+            xray_validation=xray_status,
+            xray_message=xray_message,
+        )
+        _write_json(_candidate_manifest_path(), _report_payload(report))
+        return {
+            "ok": True,
+            "message": message,
+            "ready": ready,
+            "xray_validation": xray_status,
+            "xray_message": xray_message,
+        }
+    finally:
+        lock_stream.close()
+
+
 def root_apply_candidate() -> dict:
     _ensure_state_dirs()
-    lock_stream = _lock(Path("/run/lock/sg-gateway-geofiles.lock"))
+    lock_stream = _lock(GEOFILES_LOCK_PATH)
     try:
         candidate = _candidate_dir()
         manifest = _load_report(_candidate_manifest_path())
@@ -1160,7 +1657,13 @@ def root_apply_candidate() -> dict:
                 geosite=_validate_file(asset / "geosite.dat", "geosite"),
                 family=manifest.family,
                 missing_active_categories=(),
+                routing_blockers=(),
                 compatibility_mode=manifest.compatibility_mode,
+                managed_by=manifest.managed_by,
+                preset=manifest.preset,
+                policy_source=manifest.policy_source,
+                routing_user_rule_count=manifest.routing_user_rule_count,
+                routing_system_rule_count=manifest.routing_system_rule_count,
                 ready=True,
                 xray_validation=xray_status,
                 xray_message=f"{xray_message}; {restart_message}",
@@ -1197,7 +1700,7 @@ def root_apply_candidate() -> dict:
 
 def root_rollback_latest() -> dict:
     _ensure_state_dirs()
-    lock_stream = _lock(Path("/run/lock/sg-gateway-geofiles.lock"))
+    lock_stream = _lock(GEOFILES_LOCK_PATH)
     try:
         backups = [
             item for item in sorted(_backups_dir().glob("*"), reverse=True)

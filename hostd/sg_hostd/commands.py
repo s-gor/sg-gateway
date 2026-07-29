@@ -88,6 +88,10 @@ def _sg_gateway_privileged_result(command: str) -> HostCommandResult:
     )
 
 
+def _geofiles_check() -> HostCommandResult:
+    return _sg_gateway_privileged_result("geofiles.check")
+
+
 def _geofiles_apply() -> HostCommandResult:
     return _sg_gateway_privileged_result("geofiles.apply")
 
@@ -451,6 +455,7 @@ _COMMANDS: dict[str, Callable[[], HostCommandResult]] = {
     "xray.test": _xray_runtime_test,
     "xray.rollback": _xray_runtime_rollback,
     "clients.apply": _clients_apply,
+    "geofiles.check": _geofiles_check,
     "geofiles.apply": _geofiles_apply,
     "geofiles.rollback": _geofiles_rollback,
     "routing.apply": _routing_apply,

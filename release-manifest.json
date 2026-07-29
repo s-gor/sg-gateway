@@ -254,6 +254,18 @@
       "standard",
       "roscomvpn",
       "custom"
+    ],
+    "paired_only": true,
+    "check_freezes_candidate": true,
+    "family_aware_managed_routing": true,
+    "user_rules_preserved": true,
+    "incompatible_user_category_blocks_apply": true,
+    "full_future_xray_test": true,
+    "automatic_rollback": true,
+    "hostd_asset_write_scope": "/usr/local/share/xray",
+    "easy_update": [
+      "check",
+      "apply"
     ]
   },
   "ui_safety": {

@@ -1958,7 +1958,7 @@ ProtectHome=true
 ProtectSystem=strict
 RuntimeDirectory=sg-gateway
 RuntimeDirectoryMode=0755
-ReadWritePaths=-/run/sg-gateway -${DATA_DIR} -${LOG_DIR} -${CONFIG_DIR} -/etc/mihomo -/var/lib/mihomo -/etc/sing-box -/var/lib/sing-box -/var/log/sing-box -/usr/local/etc/xray -/etc/amnezia -/etc/sysctl.d -/etc/nginx -/etc/letsencrypt -/var/www/sg-gateway-acme -/etc/systemd/system/sg-gateway.service.d
+ReadWritePaths=-/run/sg-gateway -${DATA_DIR} -${LOG_DIR} -${CONFIG_DIR} -/etc/mihomo -/var/lib/mihomo -/etc/sing-box -/var/lib/sing-box -/var/log/sing-box -/usr/local/etc/xray -/usr/local/share/xray -/etc/amnezia -/etc/sysctl.d -/etc/nginx -/etc/letsencrypt -/var/www/sg-gateway-acme -/etc/systemd/system/sg-gateway.service.d
 
 [Install]
 WantedBy=multi-user.target

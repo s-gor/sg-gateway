@@ -15,6 +15,7 @@ class PrivilegedResult:
 
 
 _ACTIONS: dict[str, tuple[str, str, int]] = {
+    "geofiles.check": ("app.routing.geofiles_helper", "check", 240),
     "geofiles.apply": ("app.routing.geofiles_helper", "apply", 240),
     "geofiles.rollback": ("app.routing.geofiles_helper", "rollback", 240),
     "routing.apply": ("app.routing.templates_helper", "apply", 180),
