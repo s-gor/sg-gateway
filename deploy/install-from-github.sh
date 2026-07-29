@@ -30,7 +30,7 @@ SOURCE_DIR="$TEMP_DIR/source"
 mkdir -p "$SOURCE_DIR"
 
 printf '[SG-Gateway] Downloading GitHub branch %s...\n' "$BRANCH"
-curl -fL --retry 6 --retry-all-errors --retry-delay 3 --connect-timeout 20 \
+curl -fsSL --retry 6 --retry-all-errors --retry-delay 3 --connect-timeout 20 \
   "$ARCHIVE_URL" -o "$ARCHIVE"
 
 gzip -t "$ARCHIVE"
