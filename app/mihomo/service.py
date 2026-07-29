@@ -73,7 +73,14 @@ def _now() -> str:
 
 
 def _ensure_dirs() -> None:
-    MIHOMO_CANDIDATE_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        MIHOMO_CANDIDATE_DIR.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise MihomoError(f"Не удалось подготовить каталог Mihomo candidate: {exc}") from exc
+    if not os.access(MIHOMO_CANDIDATE_DIR, os.W_OK | os.X_OK):
+        raise MihomoError(
+            f"Каталог Mihomo candidate недоступен для записи: {MIHOMO_CANDIDATE_DIR}"
+        )
 
 
 def _safe_name(value: str, fallback: str) -> str:
@@ -865,8 +872,11 @@ def build_candidate() -> dict[str, Any]:
     deployments = list_protocol_deployments()
     _validate_settings(settings, deployments)
     body = _render_server_yaml(settings, deployments)
-    MIHOMO_CANDIDATE.write_text(body, encoding="utf-8", newline="\n")
-    os.chmod(MIHOMO_CANDIDATE, 0o640)
+    try:
+        MIHOMO_CANDIDATE.write_text(body, encoding="utf-8", newline="\n")
+        os.chmod(MIHOMO_CANDIDATE, 0o640)
+    except OSError as exc:
+        raise MihomoError(f"Не удалось записать Mihomo candidate: {exc}") from exc
 
     enabled_protocols = [
         protocol
@@ -887,11 +897,14 @@ def build_candidate() -> dict[str, Any]:
             protocol: len(deployments[protocol]) for protocol in PROTOCOLS
         },
     }
-    MIHOMO_CANDIDATE_META.write_text(
-        json.dumps(metadata, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    os.chmod(MIHOMO_CANDIDATE_META, 0o640)
+    try:
+        MIHOMO_CANDIDATE_META.write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.chmod(MIHOMO_CANDIDATE_META, 0o640)
+    except OSError as exc:
+        raise MihomoError(f"Не удалось записать метаданные Mihomo candidate: {exc}") from exc
     log_operation(
         "mihomo.candidate",
         "mihomo:runtime",
@@ -1383,8 +1396,8 @@ def health_status() -> dict[str, str]:
                 ),
             }
         return {
-            "status": "idle",
-            "message": "Не используется: служба Mihomo выключена",
+            "status": "error",
+            "message": "Mihomo установлен, но runtime не запущен",
         }
     if not state["config_exists"]:
         return {
@@ -1399,6 +1412,11 @@ def health_status() -> dict[str, str]:
     protocols = [
         item["label"] for item in state["protocols"] if item["active"]
     ]
+    if not state["client_count"]:
+        return {
+            "status": "ok",
+            "message": f"{state['version']}; runtime готов; активных клиентов нет",
+        }
     return {
         "status": "ok",
         "message": (

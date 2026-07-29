@@ -1579,7 +1579,8 @@ stage_configuration_and_database() {
   install -d -m 0750 -o root -g "$PANEL_GROUP" "$CONFIG_DIR"
   install -d -m 0750 -o "$PANEL_USER" -g "$PANEL_GROUP" "$DATA_DIR" "$LOG_DIR"
   install -d -m 0750 -o "$PANEL_USER" -g "$PANEL_GROUP" \
-    "$DATA_DIR/security" "$DATA_DIR/security/backups" "$DATA_DIR/security/jobs"
+    "$DATA_DIR/security" "$DATA_DIR/security/backups" "$DATA_DIR/security/jobs" \
+    "$DATA_DIR/candidates" "$DATA_DIR/candidates/mihomo"
   chown -R "$PANEL_USER":"$PANEL_GROUP" "$DATA_DIR" "$LOG_DIR"
   secure_warp_secrets
   # Runtime files under /etc are root-owned. The panel writes only candidates
@@ -1589,8 +1590,17 @@ stage_configuration_and_database() {
   install -d -m 0755 /var/www/sg-gateway-acme
   rm -f /etc/mihomo/config.yaml.new
   if (( UPDATE_MODE == 0 )); then
-    rm -f /etc/mihomo/config.yaml
     rm -rf /etc/mihomo/tls
+    cat > /etc/mihomo/config.yaml <<'MIOIDLE'
+mode: rule
+log-level: warning
+listeners: []
+proxies: []
+proxy-groups: []
+rules: []
+MIOIDLE
+    chown root:root /etc/mihomo/config.yaml
+    chmod 0600 /etc/mihomo/config.yaml
   fi
   install -d -m 0700 -o root -g root /etc/mihomo/tls
 
@@ -1832,8 +1842,10 @@ PYAWG585
   # already applied root-owned runtime configuration must be preserved.
   [[ ! -e /etc/mihomo/config.yaml.new ]]
   if (( UPDATE_MODE == 0 )); then
-    [[ ! -e /etc/mihomo/config.yaml ]]
-    echo "Mihomo runtime: clean install, configuration not applied yet"
+    [[ -f /etc/mihomo/config.yaml && ! -L /etc/mihomo/config.yaml ]]
+    [[ "$(stat -c '%U:%G %a' /etc/mihomo/config.yaml)" == "root:root 600" ]]
+    /usr/local/bin/mihomo -t -f /etc/mihomo/config.yaml >/dev/null
+    echo "Mihomo runtime: clean install idle configuration ready"
   elif [[ -e /etc/mihomo/config.yaml ]]; then
     [[ -f /etc/mihomo/config.yaml && ! -L /etc/mihomo/config.yaml ]] || {
       echo "Mihomo runtime configuration is not a regular file" >&2
@@ -2025,7 +2037,9 @@ EOF
   [[ "$(systemctl show -p User --value sg-hostd.service)" == "root" ]]
   [[ -z "$(systemctl show -p DropInPaths --value sg-hostd.service)" ]]
   if (( UPDATE_MODE == 0 )); then
-    systemctl disable sg-gateway-awg.service sg-gateway-singbox.service mihomo.service >/dev/null 2>&1 || true
+    systemctl disable sg-gateway-awg.service sg-gateway-singbox.service >/dev/null 2>&1 || true
+    systemctl enable --now mihomo.service
+    systemctl is-active --quiet mihomo.service
   fi
 }
 
@@ -2259,6 +2273,10 @@ stage9_verify_nginx() {
   if [[ -s /usr/local/etc/xray/config.json ]]; then
     set_xray_config_permissions
     systemctl is-active --quiet xray.service
+  fi
+  if [[ -f /etc/mihomo/config.yaml ]]; then
+    /usr/local/bin/mihomo -t -f /etc/mihomo/config.yaml >/dev/null
+    systemctl is-active --quiet mihomo.service
   fi
   if [[ -f /etc/amnezia/amneziawg/awg0.conf ]]; then
     grep -Eq '^ListenPort[[:space:]]*=[[:space:]]*585[[:space:]]*$' /etc/amnezia/amneziawg/awg0.conf || {

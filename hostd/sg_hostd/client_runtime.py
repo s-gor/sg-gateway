@@ -1255,32 +1255,49 @@ def _apply_mihomo() -> EngineResult:
     previous = _status_snapshot(engine)
 
     if not rows:
-        subprocess.run(
-            ["systemctl", "stop", "mihomo.service"],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            check=False,
+        # Mihomo is a permanent SG-Gateway runtime.  With no Mieru clients it
+        # stays active on a valid listener-free configuration instead of being
+        # stopped.  The first client replaces this idle config transactionally.
+        idle_config = Path("/etc/mihomo/config.yaml")
+        idle_body = (
+            "mode: rule\n"
+            "log-level: warning\n"
+            "listeners: []\n"
+            "proxies: []\n"
+            "proxy-groups: []\n"
+            "rules: []\n"
         )
-        inactive = not _command_ok(
-            ["systemctl", "is-active", "--quiet", "mihomo.service"],
-            30,
-        )
-        if not inactive:
-            return EngineResult(
-                engine,
-                False,
-                "Mihomo: runtime остался активен без клиентов",
-                0,
-            )
-        return EngineResult(engine, True, "Нет активных клиентов Mihomo", 0)
+        try:
+            idle_config.parent.mkdir(parents=True, exist_ok=True)
+            _atomic_write(idle_config, idle_body, 0o600)
+            _run(["/usr/local/bin/mihomo", "-t", "-f", str(idle_config)], timeout=60)
+            _run(["systemctl", "enable", "mihomo.service"])
+            _run(["systemctl", "restart", "mihomo.service"], timeout=90)
+            _run(["systemctl", "is-active", "--quiet", "mihomo.service"], timeout=30)
+        except Exception as exc:
+            return EngineResult(engine, False, f"Mihomo idle runtime: {exc}", 0)
+        return EngineResult(engine, True, "Mihomo runtime готов; активных клиентов нет", 0)
 
     try:
         _set_engine_status(engine, ids, "checking")
         from app.mihomo.helper import apply_candidate
-        from app.mihomo.service import build_candidate
 
-        build_candidate()
+        # Candidate files belong to the unprivileged panel side.  Never build
+        # them as root: otherwise the next web request cannot replace them.
+        _run(
+            [
+                "runuser",
+                "-u",
+                "sg-gateway",
+                "--",
+                "env",
+                f"PYTHONPATH={PREFIX}",
+                str(PREFIX / ".venv/bin/python"),
+                "-c",
+                "from app.mihomo.service import build_candidate; build_candidate()",
+            ],
+            timeout=60,
+        )
         _set_engine_status(engine, ids, "applying")
         result = apply_candidate()
         if not result.get("ok"):

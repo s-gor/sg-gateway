@@ -46,3 +46,6 @@ Thumbs.db
 !vendor/cores/SHA256SUMS
 !vendor/cores/VERSIONS.env
 !vendor/cores/THIRD-PARTY-NOTICES.md
+
+# Local Git history backups
+*.bundle
