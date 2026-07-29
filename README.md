@@ -7,8 +7,12 @@
 ![Версия](https://img.shields.io/badge/version-0.1.0--021-3b82f6)
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-native-E95420?logo=ubuntu&logoColor=white)
 ![Xray](https://img.shields.io/badge/Xray-supported-2563EB)
+![AmneziaWG](https://img.shields.io/badge/AmneziaWG-supported-6D5BD0)
+![Mihomo](https://img.shields.io/badge/Mihomo-supported-8B5CF6)
+![sing-box](https://img.shields.io/badge/sing--box-supported-0EA5E9)
+![WARP](https://img.shields.io/badge/WARP-supported-F38020?logo=cloudflare&logoColor=white)
 ![systemd](https://img.shields.io/badge/deploy-systemd-16A085)
-![Docker](https://img.shields.io/badge/Docker-not_required-64748B)
+![HTTPS](https://img.shields.io/badge/HTTPS-Let%27s_Encrypt-003A70?logo=letsencrypt&logoColor=white)
 
 SG-Gateway устанавливается на **один самостоятельный Ubuntu-сервер** и превращает его в готовый VPN-шлюз с удобным веб-интерфейсом.
 
