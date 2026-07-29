@@ -31,7 +31,14 @@ def build_qr_svg(payload: str) -> str:
     qr.add_data(value, optimize=0)
     try:
         qr.make(fit=True)
-    except DataOverflowError as exc:
+    except (DataOverflowError, ValueError) as exc:
+        # qrcode 7.x can report an overflow either as DataOverflowError or as
+        # ValueError("Invalid version (was 41, expected 1 to 40)").  Only
+        # normalize that known capacity error; unrelated ValueError instances
+        # must still surface as programming/configuration errors.
+        if isinstance(exc, ValueError) and not isinstance(exc, DataOverflowError):
+            if "Invalid version" not in str(exc):
+                raise
         raise ClientQrError(
             "Ссылка слишком велика для одного QR-кода; используйте скачивание ссылки"
         ) from exc

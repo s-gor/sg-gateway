@@ -76,7 +76,8 @@ def test_installer_bootstraps_26627_but_preserves_supported_newer():
     installer = (ROOT / "install.sh").read_text(encoding="utf-8")
     assert 'XRAY_REQUIRED_VERSION="v26.6.27"' in installer
     assert 'XRAY_MINIMUM_VERSION="v26.6.27"' in installer
-    assert 'install --version "$XRAY_REQUIRED_VERSION" -u root' in installer
+    assert "install_xray_from_vendor" in installer
+    assert 'XRAY_VENDOR_FILE="Xray-linux-64.zip"' in installer
     assert 'dpkg --compare-versions "${installed_xray#v}" ge "${XRAY_MINIMUM_VERSION#v}"' in installer
     assert "Сохраняю установленный Xray" in installer
 

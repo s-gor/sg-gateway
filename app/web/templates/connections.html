@@ -66,6 +66,10 @@
         <form id="xps2-form" method="post" action="{{ url_for('update_xray_profiles') }}">
           <input type="hidden" name="host" value="{{ xray_profiles.host }}">
 
+          <div class="xps2-top-actions">
+            <button class="button primary sg-ljd-key-action" type="button" data-xps2-top-apply>Проверить и запустить</button>
+          </div>
+
           <section class="xps2-selection sg-ljd-nested">
             <header class="xps2-section-head">
               <div>
@@ -385,6 +389,7 @@
   const selectors = [...form.querySelectorAll('.xps2-selector')];
   const empty = form.querySelector('[data-xps2-empty]');
   const applyButton = document.getElementById('xps2-apply-button');
+  const topApplyButton = form.querySelector('[data-xps2-top-apply]');
   const salamander = form.querySelector('[data-salamander-panel]');
   const passwordInput = document.getElementById('hysteria2-obfs-password');
   const rotateInput = form.querySelector('[data-salamander-rotate]');
@@ -489,6 +494,10 @@
     syncConfirmation();
   });
   modes.forEach(item => item.addEventListener('change', syncSalamander));
+  topApplyButton?.addEventListener('click', () => {
+    syncConfirmation();
+    applyButton?.click();
+  });
 
   const sync = () => {
     let selected = 0;

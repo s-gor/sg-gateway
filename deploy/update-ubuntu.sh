@@ -1,75 +1,29 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-PREFIX="/opt/sg-gateway"
-CONFIG_DIR="/etc/sg-gateway"
-DATA_DIR="/var/lib/sg-gateway"
-LOG_FILE="/var/log/sg-gateway-update.log"
-BRANCH="${SG_GATEWAY_BRANCH:-main}"
-
-GREEN=$'\033[1;32m'
-RED=$'\033[1;31m'
-RESET=$'\033[0m'
-
-cd /
+PREFIX="${SG_GATEWAY_APP_ROOT:-/opt/sg-gateway}"
+PYTHON="$PREFIX/.venv/bin/python"
 
 if [[ "$(id -u)" -ne 0 ]]; then
     echo "Run through sudo."
     exit 1
 fi
 
-if [[ ! -d "$PREFIX/.git" ]] || [[ ! -f "$CONFIG_DIR/sg-gateway.env" ]]; then
-    echo "Native SG-Gateway installation was not found."
+if [[ ! -x "$PYTHON" ]] || [[ ! -f "$PREFIX/hostd/sg_hostd/panel_update_runtime.py" ]]; then
+    echo "SG-Gateway safe updater is not installed."
+    echo "Use the current full SG-Gateway installer first."
     exit 1
 fi
 
-: > "$LOG_FILE"
-chmod 600 "$LOG_FILE"
+export PYTHONPATH="$PREFIX:$PREFIX/hostd"
+export SG_GATEWAY_ENV=production
+export SG_GATEWAY_DATA_DIR=/var/lib/sg-gateway
+export SG_GATEWAY_LOG_DIR=/var/log/sg-gateway
 
-run_step() {
-    local label="$1"
-    shift
+cd "$PREFIX"
+exec "$PYTHON" - <<'PY'
+import json
+from sg_hostd.panel_update_runtime import update_panel
 
-    printf "%s... " "$label"
-    if "$@" >> "$LOG_FILE" 2>&1; then
-        printf "%sOK%s\n" "$GREEN" "$RESET"
-    else
-        printf "%sERROR%s\n" "$RED" "$RESET"
-        tail -n 50 "$LOG_FILE" || true
-        exit 1
-    fi
-}
-
-backup_database() {
-    install -d -m 0750 /var/backups/sg-gateway
-    if [[ -f "$DATA_DIR/sg-gateway.sqlite" ]]; then
-        cp -a \
-            "$DATA_DIR/sg-gateway.sqlite" \
-            "/var/backups/sg-gateway/sg-gateway-$(date +%Y%m%d-%H%M%S).sqlite"
-    fi
-}
-
-update_code() {
-    git -C "$PREFIX" fetch origin "$BRANCH"
-    git -C "$PREFIX" checkout "$BRANCH"
-    git -C "$PREFIX" reset --hard "origin/$BRANCH"
-}
-
-update_dependencies() {
-    "$PREFIX/.venv/bin/python" -m pip install -r "$PREFIX/requirements.txt"
-    "$PREFIX/.venv/bin/python" -m pip install -r "$PREFIX/hostd/requirements.txt"
-}
-
-restart_services() {
-    systemctl restart sg-hostd.service
-    systemctl restart sg-gateway.service
-    systemctl is-active --quiet sg-hostd.service
-    systemctl is-active --quiet sg-gateway.service
-}
-
-run_step "Резервная копия базы" backup_database
-run_step "Обновление кода" update_code
-run_step "Обновление Python-зависимостей" update_dependencies
-run_step "Перезапуск systemd-служб" restart_services
-
-echo "SG-Gateway updated successfully."
+print(json.dumps(update_panel(), ensure_ascii=False, indent=2))
+PY

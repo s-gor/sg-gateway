@@ -239,6 +239,29 @@ def start_xray_apply_job() -> dict[str, Any]:
     )
 
 
+
+
+def start_panel_update_job() -> dict[str, Any]:
+    return _start(
+        "panel_update_main",
+        "Безопасное обновление SG-Gateway из GitHub main",
+        "/maintenance?tab=updates&refresh=1",
+        "/maintenance?tab=updates",
+    )
+
+
+def start_core_update_job(engine: str) -> dict[str, Any]:
+    if engine not in {"mihomo", "sing-box", "wgcf"}:
+        raise RuntimeError(f"Неподдерживаемое ядро: {engine}")
+    labels = {"mihomo": "Mihomo", "sing-box": "sing-box", "wgcf": "WARP / wgcf-cli"}
+    return _start(
+        f"core_update_{engine.replace('-', '_')}",
+        f"Безопасное обновление {labels[engine]}",
+        "/maintenance?tab=updates&refresh=1",
+        "/maintenance?tab=updates",
+        {"engine": engine},
+    )
+
 def start_xray_update_job(channel: str) -> dict[str, Any]:
     if channel not in {"stable", "prerelease"}:
         raise RuntimeError(f"Неизвестный канал Xray: {channel}")

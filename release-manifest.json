@@ -392,5 +392,47 @@
   "build": "full-clean-ec2-retest-v020",
   "health_ui": {
     "unused_optional_mihomo": "idle-not-error"
+  },
+  "maintenance_updates": {
+    "panel": {
+      "source": "github-main-exact-commit",
+      "staging": true,
+      "requirements_change_blocks_panel_only_update": true,
+      "full_code_backup": true,
+      "automatic_rollback": true,
+      "health_checks": [
+        "sg-hostd",
+        "sg-gateway"
+      ],
+      "preserves": [
+        "database",
+        "certificates",
+        "geofiles",
+        "venv",
+        "cores"
+      ]
+    },
+    "cores": {
+      "independent_updates": true,
+      "update_all": false,
+      "github_official_sha256_required": true,
+      "candidate_binary_test": true,
+      "automatic_rollback": true,
+      "supported": [
+        "xray",
+        "mihomo",
+        "sing-box",
+        "wgcf"
+      ],
+      "amneziawg": "paired-tools-kmod-only-no-auto-latest"
+    },
+    "geofiles": {
+      "paired_only": true,
+      "full_future_xray_test": true,
+      "free_space_preflight": true,
+      "verified_backup": true,
+      "xray_stopped_during_pair_switch": true,
+      "automatic_rollback": true
+    }
   }
 }

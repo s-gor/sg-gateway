@@ -35,7 +35,9 @@ def test_security_ui_uses_public_and_backend_ports() -> None:
     helper = read("app/security/tls_helper.py")
     assert "TCP {{ tls.public_port }}" in security
     assert "127.0.0.1:{{ tls.backend_port }}" in security
-    assert "Nginx переключил панель на HTTPS" in operation
+    assert "Продолжаю этот же терминал по защищённому адресу" in operation
+    assert "результат откроется только по кнопке" in operation
+    assert "window.location.replace(targetUrl)" not in operation
     assert "public_port" in tls
     assert "backend_port" in tls
     assert 'return _state_dir() / "tls-state.json"' in tls

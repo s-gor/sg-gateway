@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import shutil
+import subprocess
 from typing import Callable
 
 from sg_hostd.operation_jobs import (
@@ -9,6 +12,8 @@ from sg_hostd.operation_jobs import (
     start_tls_issue_job,
     start_xray_apply_job,
     start_xray_update_job,
+    start_panel_update_job,
+    start_core_update_job,
 )
 
 from sg_hostd.client_runtime import apply_all_clients, apply_xray_runtime, test_xray_candidate
@@ -282,6 +287,36 @@ def _xray_update_prerelease_start() -> HostCommandResult:
     return _xray_update_start("prerelease")
 
 
+
+
+def _panel_update_start() -> HostCommandResult:
+    try:
+        payload = start_panel_update_job()
+        return HostCommandResult(command="panel.update.start", status="ok", message=str(payload.get("message") or "Panel update job started"), payload=payload)
+    except Exception as exc:
+        return HostCommandResult(command="panel.update.start", status="error", message=str(exc), payload={})
+
+
+def _core_update_start(engine: str) -> HostCommandResult:
+    command = f"core.update.{engine}.start"
+    try:
+        payload = start_core_update_job(engine)
+        return HostCommandResult(command=command, status="ok", message=str(payload.get("message") or "Core update job started"), payload=payload)
+    except Exception as exc:
+        return HostCommandResult(command=command, status="error", message=str(exc), payload={})
+
+
+def _core_update_mihomo_start() -> HostCommandResult:
+    return _core_update_start("mihomo")
+
+
+def _core_update_sing_box_start() -> HostCommandResult:
+    return _core_update_start("sing-box")
+
+
+def _core_update_wgcf_start() -> HostCommandResult:
+    return _core_update_start("wgcf")
+
 def _xray_runtime_test() -> HostCommandResult:
     payload = test_xray_candidate()
     return HostCommandResult(command="xray.test", status="ok" if payload.get("ok") else "error", message=str(payload.get("message") or "Xray test"), payload=payload)
@@ -294,21 +329,89 @@ def _xray_runtime_rollback() -> HostCommandResult:
     except Exception as exc:
         return HostCommandResult(command="xray.rollback", status="error", message=str(exc), payload={})
 
+def _probe(command: list[str], timeout: int = 10) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+
+
 def _awg_status() -> HostCommandResult:
+    awg = shutil.which("awg")
+    if not awg:
+        return HostCommandResult(
+            command="awg.status",
+            status="error",
+            message="AmneziaWG runtime не установлен: команда awg не найдена",
+            payload={"interface": "awg0", "ready": False, "connected": False},
+        )
+
+    module_ready = _probe(["modinfo", "amneziawg"]).returncode == 0
+    if not module_ready:
+        return HostCommandResult(
+            command="awg.status",
+            status="error",
+            message="AmneziaWG runtime не готов: kernel module amneziawg не найден",
+            payload={"interface": "awg0", "ready": False, "connected": False},
+        )
+
+    service_active = _probe(["systemctl", "is-active", "--quiet", "sg-gateway-awg.service"]).returncode == 0
+    interface_active = _probe(["ip", "link", "show", "awg0"]).returncode == 0
+    if service_active != interface_active:
+        return HostCommandResult(
+            command="awg.status",
+            status="warning",
+            message="AmneziaWG runtime установлен, но состояние sg-gateway-awg.service и awg0 не совпадает",
+            payload={"interface": "awg0", "ready": True, "connected": interface_active},
+        )
+
+    message = (
+        "AmneziaWG runtime готов; интерфейс awg0 активен"
+        if interface_active
+        else "AmneziaWG runtime готов; активных AmneziaWG-клиентов сейчас нет"
+    )
     return HostCommandResult(
         command="awg.status",
-        status="warning",
-        message="AmneziaWG host integration is not connected yet",
-        payload={"interface": "awg0", "connected": False},
+        status="ok",
+        message=message,
+        payload={"interface": "awg0", "ready": True, "connected": interface_active},
     )
 
 
 def _xray_status() -> HostCommandResult:
+    xray = shutil.which("xray") or ("/usr/local/bin/xray" if Path("/usr/local/bin/xray").is_file() else "")
+    if not xray:
+        return HostCommandResult(
+            command="xray.status",
+            status="error",
+            message="Xray runtime не установлен",
+            payload={"ready": False, "connected": False},
+        )
+
+    version = _probe([xray, "version"])
+    if version.returncode != 0:
+        return HostCommandResult(
+            command="xray.status",
+            status="error",
+            message="Xray binary найден, но не проходит проверку version",
+            payload={"ready": False, "connected": False},
+        )
+
+    service_active = _probe(["systemctl", "is-active", "--quiet", "xray.service"]).returncode == 0
+    first_line = (version.stdout or version.stderr or "Xray").splitlines()[0].strip()
+    message = (
+        f"{first_line}; xray.service активен"
+        if service_active
+        else f"{first_line}; runtime готов, служба сейчас не используется"
+    )
     return HostCommandResult(
         command="xray.status",
-        status="warning",
-        message="Xray runtime status is currently reported by Docker/Compose later",
-        payload={"connected": False},
+        status="ok",
+        message=message,
+        payload={"ready": True, "connected": service_active},
     )
 
 
@@ -341,6 +444,10 @@ _COMMANDS: dict[str, Callable[[], HostCommandResult]] = {
     "xray.apply.start": _xray_apply_start,
     "xray.update.stable.start": _xray_update_stable_start,
     "xray.update.prerelease.start": _xray_update_prerelease_start,
+    "panel.update.start": _panel_update_start,
+    "core.update.mihomo.start": _core_update_mihomo_start,
+    "core.update.sing-box.start": _core_update_sing_box_start,
+    "core.update.wgcf.start": _core_update_wgcf_start,
     "xray.test": _xray_runtime_test,
     "xray.rollback": _xray_runtime_rollback,
     "clients.apply": _clients_apply,

@@ -179,6 +179,14 @@ def test_runtime_candidate_merges_salamander_and_quic_params(monkeypatch):
             "tls_domain": "vpn.example.com",
         },
     )
+    monkeypatch.setattr(
+        client_runtime,
+        "_sync_xray_tls_material",
+        lambda domain: (
+            "/usr/local/etc/xray/tls/fullchain.pem",
+            "/usr/local/etc/xray/tls/privkey.pem",
+        ),
+    )
     payload = json.loads(client_runtime._render_xray_config([]))
     inbound = payload["inbounds"][0]
     assert inbound["tag"] == "sg-hysteria2"

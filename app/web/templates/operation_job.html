@@ -41,16 +41,26 @@
   let redirectScheduled = false;
   let consecutiveFailures = 0;
 
-  function scheduleRedirect(text, delay = 1600) {
-    if (redirectScheduled || !targetUrl) return;
-    redirectScheduled = true;
+  function markSuccess(text) {
+    if (finished) return;
     finished = true;
     badge.textContent = 'success';
     badge.className = 'opjob-status is-success';
     target.classList.remove('is-hidden');
     target.href = targetUrl;
     message.textContent = text;
-    window.setTimeout(() => window.location.replace(targetUrl), delay);
+  }
+
+  function continueTerminalOverHttps() {
+    if (redirectScheduled || !targetUrl) return;
+    redirectScheduled = true;
+    const resultUrl = new URL(targetUrl, window.location.href);
+    const secureJobUrl = new URL(window.location.href);
+    secureJobUrl.protocol = 'https:';
+    secureJobUrl.hostname = resultUrl.hostname;
+    secureJobUrl.port = resultUrl.port;
+    message.textContent = 'Nginx включил HTTPS. Продолжаю этот же терминал по защищённому адресу…';
+    window.setTimeout(() => window.location.replace(secureJobUrl.toString()), 900);
   }
 
   async function update() {
@@ -67,7 +77,7 @@
       badge.className = 'opjob-status is-' + data.status;
       if (data.status === 'success') {
         if (data.target_url) target.href = data.target_url;
-        scheduleRedirect('Готово. Переходим к результату…', 1800);
+        markSuccess('Готово. Терминал завершён; результат откроется только по кнопке.');
         return;
       }
       if (data.status === 'failed') {
@@ -79,7 +89,7 @@
     } catch (error) {
       consecutiveFailures += 1;
       if (isTlsSwitch && (hadSuccessfulPoll || consecutiveFailures >= 3)) {
-        scheduleRedirect('Nginx переключил панель на HTTPS. Переходим на новый адрес…', 1100);
+        continueTerminalOverHttps();
         return;
       }
       message.textContent = 'Связь с задачей временно потеряна; повторяю…';

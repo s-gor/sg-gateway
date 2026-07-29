@@ -35,3 +35,14 @@ backups/
 Thumbs.db
 .idea/
 .vscode/
+
+# Pinned third-party runtime media intentionally committed for reproducible SG-Gateway installs.
+!vendor/
+!vendor/cores/
+!vendor/cores/*.zip
+!vendor/cores/*.gz
+!vendor/cores/*.tar.gz
+!vendor/cores/*.zstd
+!vendor/cores/SHA256SUMS
+!vendor/cores/VERSIONS.env
+!vendor/cores/THIRD-PARTY-NOTICES.md

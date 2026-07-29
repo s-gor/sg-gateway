@@ -8,6 +8,19 @@
   gap: 14px;
 }
 
+.xps2-top-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: -2px;
+}
+
+.xps2-top-actions .button {
+  min-height: 43px;
+  min-width: 190px;
+  justify-content: center;
+}
+
 .xps2-selection,
 .xps2-parameters {
   padding: 18px;

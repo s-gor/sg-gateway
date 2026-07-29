@@ -47,9 +47,9 @@
 .dv16-qr{position:relative}
 .dv16-qr>summary{list-style:none}
 .dv16-qr>summary::-webkit-details-marker{display:none}
-.dv16-qr-popover{position:absolute;right:0;top:calc(100% + 9px);z-index:70;width:260px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:0 20px 55px rgba(0,0,0,.35)}
-.dv16-qr-popover>button{position:absolute;right:7px;top:7px;width:28px;height:28px;border:1px solid var(--line);border-radius:8px;background:var(--panel-soft);color:var(--text);cursor:pointer}
-.dv16-qr-popover img{display:block;width:100%;height:auto;border-radius:8px;background:#fff;padding:8px}
+.dv16-qr-popover{position:absolute;right:0;top:calc(100% + 9px);z-index:70;width:260px;padding:54px 14px 14px;border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:0 20px 55px rgba(0,0,0,.35)}
+.dv16-qr-popover>button{position:absolute;right:10px;top:10px;width:28px;height:28px;border:1px solid var(--line);border-radius:8px;background:var(--panel-soft);color:var(--text);cursor:pointer}
+.dv16-qr-popover img{display:block;width:100%;height:auto;border-radius:8px;background:#fff;padding:10px}
 
 .dv16-dialog{width:min(720px,calc(100vw - 28px));max-height:84vh;margin:auto;padding:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--text);box-shadow:0 26px 90px rgba(0,0,0,.5)}
 .dv16-dialog::backdrop{background:rgba(3,8,14,.74);backdrop-filter:blur(5px)}

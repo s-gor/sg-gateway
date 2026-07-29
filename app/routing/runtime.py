@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import pwd
 import shutil
 import subprocess
 import tempfile
@@ -39,6 +40,39 @@ def _read_json(path: Path) -> dict | None:
     return value if isinstance(value, dict) else None
 
 
+def _xray_service_user() -> str:
+    try:
+        result = subprocess.run(
+            ["systemctl", "show", "-p", "User", "--value", "xray.service"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "root"
+    return result.stdout.strip() or "root"
+
+
+def set_xray_config_permissions(path: Path | None = None) -> None:
+    target = path or xray_config_path()
+    if not target.exists():
+        return
+    service_user = _xray_service_user()
+    if service_user == "root":
+        os.chown(target, 0, 0)
+        os.chmod(target, 0o600)
+        return
+    try:
+        service_gid = pwd.getpwnam(service_user).pw_gid
+    except KeyError as exc:
+        raise RoutingRuntimeError(
+            f"Не найден пользователь xray.service: {service_user}"
+        ) from exc
+    os.chown(target, 0, service_gid)
+    os.chmod(target, 0o640)
+
+
 def atomic_write_json(path: Path, payload: dict, mode: int = 0o600) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + f".tmp-{uuid.uuid4().hex}")
@@ -47,7 +81,10 @@ def atomic_write_json(path: Path, payload: dict, mode: int = 0o600) -> None:
         stream.write("\n")
         stream.flush()
         os.fsync(stream.fileno())
-    os.chmod(temporary, mode)
+    if path == xray_config_path():
+        set_xray_config_permissions(temporary)
+    else:
+        os.chmod(temporary, mode)
     os.replace(temporary, path)
 
 

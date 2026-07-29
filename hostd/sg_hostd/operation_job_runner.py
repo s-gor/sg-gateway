@@ -68,6 +68,23 @@ def run_xray_update(channel: str) -> int:
     return 0
 
 
+
+
+def run_panel_update() -> int:
+    from sg_hostd.panel_update_runtime import update_panel
+
+    print("[SG-Gateway Update] Подготавливаю транзакционное обновление панели", flush=True)
+    _dump(update_panel())
+    return 0
+
+
+def run_core_update(engine: str) -> int:
+    from sg_hostd.core_update_runtime import update_core
+
+    print(f"[Core Update] Подготавливаю безопасное обновление {engine}", flush=True)
+    _dump(update_core(engine))
+    return 0
+
 def main() -> int:
     if len(sys.argv) != 3:
         return 2
@@ -78,6 +95,14 @@ def main() -> int:
             return run_xray_update("stable")
         if sys.argv[1] == "xray_update_prerelease":
             return run_xray_update("prerelease")
+        if sys.argv[1] == "panel_update_main":
+            return run_panel_update()
+        if sys.argv[1] == "core_update_mihomo":
+            return run_core_update("mihomo")
+        if sys.argv[1] == "core_update_sing_box":
+            return run_core_update("sing-box")
+        if sys.argv[1] == "core_update_wgcf":
+            return run_core_update("wgcf")
         raise RuntimeError(f"Неизвестный тип задачи: {sys.argv[1]}")
     except Exception as exc:
         print(f"[SG-Gateway] ОШИБКА: {exc}", file=sys.stderr, flush=True)

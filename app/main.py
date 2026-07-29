@@ -52,6 +52,8 @@ from app.maintenance.health import collect_health_checks, health_summary
 from app.maintenance.operations import list_operations
 from app.maintenance.service import collect_diagnostics
 from app.maintenance.xray_updates import overview as xray_update_overview
+from app.maintenance.panel_updates import overview as panel_update_overview
+from app.maintenance.core_updates import overview as core_update_overview
 from app.routing.geofiles import (
     GeoFilesError,
     apply_candidate,
@@ -1204,19 +1206,47 @@ def create_app() -> Flask:
         if tab not in {"backups", "updates"}:
             tab = "backups"
         updates = None
+        panel_updates = None
+        core_updates = None
+        geofiles_updates = None
         if tab == "updates":
-            updates = xray_update_overview(refresh=request.args.get("refresh") == "1")
+            refresh_updates = request.args.get("refresh") == "1"
+            updates = xray_update_overview(refresh=refresh_updates)
+            panel_updates = panel_update_overview(refresh=refresh_updates)
+            core_updates = core_update_overview(refresh=refresh_updates)
+            geofiles_updates = geofiles_overview()
         return render_template(
             "maintenance.html",
             active_page="maintenance",
             active_tab=tab,
             xray_updates=updates,
+            panel_updates=panel_updates,
+            core_updates=core_updates,
+            geofiles_updates=geofiles_updates,
             diagnostics=collect_diagnostics(),
             health_checks=collect_health_checks(),
             backups=list_backups(),
             operations=list_operations(),
             release=get_release_manifest(),
         )
+
+    @app.post("/maintenance/panel/update")
+    def panel_update_start():
+        result = run_hostd_command("panel.update.start", timeout=20)
+        if result.status != "ok":
+            flash(f"Обновление SG-Gateway не запущено: {result.message}", "error")
+            return redirect(url_for("maintenance", tab="updates"))
+        return redirect(url_for("operation_job", job_id=str(result.payload.get("job_id") or "")))
+
+    @app.post("/maintenance/core/update/<engine>")
+    def core_update_start(engine: str):
+        if engine not in {"mihomo", "sing-box", "wgcf"}:
+            abort(404)
+        result = run_hostd_command(f"core.update.{engine}.start", timeout=20)
+        if result.status != "ok":
+            flash(f"Core Update не запущен: {result.message}", "error")
+            return redirect(url_for("maintenance", tab="updates"))
+        return redirect(url_for("operation_job", job_id=str(result.payload.get("job_id") or "")))
 
     @app.post("/maintenance/xray/update/<channel>")
     def xray_update_start(channel: str):

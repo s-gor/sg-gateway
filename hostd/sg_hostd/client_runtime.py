@@ -9,6 +9,7 @@ import pwd
 import re
 import shutil
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,10 @@ DATA_DIR = Path("/var/lib/sg-gateway")
 CANDIDATE_DIR = DATA_DIR / "runtime-candidates"
 
 XRAY_CONFIG = Path("/usr/local/etc/xray/config.json")
+XRAY_TLS_DIR = Path("/usr/local/etc/xray/tls")
+XRAY_TLS_CERT = XRAY_TLS_DIR / "fullchain.pem"
+XRAY_TLS_KEY = XRAY_TLS_DIR / "privkey.pem"
+LETSENCRYPT_LIVE_ROOT = Path("/etc/letsencrypt/live")
 AWG_CONFIG = Path("/etc/amnezia/amneziawg/awg0.conf")
 AWG_SERVICE = "sg-gateway-awg.service"
 
@@ -174,12 +179,35 @@ def _require_xray_version() -> str:
     return installed
 
 
+def _xray_service_group_gid() -> int:
+    result = subprocess.run(
+        ["systemctl", "show", "-p", "User", "--value", "xray.service"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    service_user = result.stdout.strip() or "root"
+    if service_user == "root":
+        return 0
+    try:
+        return pwd.getpwnam(service_user).pw_gid
+    except KeyError as exc:
+        raise ClientRuntimeError(
+            f"Не найден пользователь xray.service: {service_user}"
+        ) from exc
+
+
 def _atomic_write(path: Path, body: str, mode: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".new")
     temporary.write_text(body, encoding="utf-8", newline="\n")
-    os.chown(temporary, 0, 0)
-    os.chmod(temporary, mode)
+    # SG_GATEWAY_XRAY_CONFIG_PERMISSION_FIX
+    if path == XRAY_CONFIG:
+        os.chown(temporary, 0, _xray_service_group_gid())
+        os.chmod(temporary, 0o640)
+    else:
+        os.chown(temporary, 0, 0)
+        os.chmod(temporary, mode)
     os.replace(temporary, path)
 
 
@@ -726,27 +754,39 @@ def _apply_awg() -> EngineResult:
 
 
 def _set_xray_config_permissions() -> None:
-    result = subprocess.run(
-        ["systemctl", "show", "-p", "User", "--value", "xray.service"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    service_user = result.stdout.strip() or "root"
-    if service_user == "root":
-        os.chown(XRAY_CONFIG, 0, 0)
-        os.chmod(XRAY_CONFIG, 0o600)
-        return
-
-    try:
-        gid = pwd.getpwnam(service_user).pw_gid
-    except KeyError as exc:
-        raise ClientRuntimeError(
-            f"Не найден пользователь xray.service: {service_user}"
-        ) from exc
-
+    gid = _xray_service_group_gid()
     os.chown(XRAY_CONFIG, 0, gid)
-    os.chmod(XRAY_CONFIG, 0o640)
+    os.chmod(XRAY_CONFIG, 0o600 if gid == 0 else 0o640)
+
+
+def _sync_xray_tls_material(domain: str) -> tuple[str, str]:
+    source_dir = LETSENCRYPT_LIVE_ROOT / domain
+    source_cert = source_dir / "fullchain.pem"
+    source_key = source_dir / "privkey.pem"
+    if not source_cert.is_file() or not source_key.is_file():
+        raise ClientRuntimeError(
+            f"Не найдены файлы TLS-сертификата для {domain}"
+        )
+
+    gid = _xray_service_group_gid()
+    XRAY_TLS_DIR.mkdir(parents=True, exist_ok=True)
+    os.chown(XRAY_TLS_DIR, 0, gid)
+    os.chmod(XRAY_TLS_DIR, 0o700 if gid == 0 else 0o750)
+
+    for source, target in (
+        (source_cert, XRAY_TLS_CERT),
+        (source_key, XRAY_TLS_KEY),
+    ):
+        temporary = target.with_name(target.name + ".new")
+        with source.open("rb") as source_handle, temporary.open("wb") as target_handle:
+            shutil.copyfileobj(source_handle, target_handle)
+            target_handle.flush()
+            os.fsync(target_handle.fileno())
+        os.chown(temporary, 0, gid)
+        os.chmod(temporary, 0o600 if gid == 0 else 0o640)
+        os.replace(temporary, target)
+
+    return str(XRAY_TLS_CERT), str(XRAY_TLS_KEY)
 
 
 def _live_hysteria_finalmask_base(previous_config: dict[str, Any]) -> dict[str, Any]:
@@ -936,8 +976,7 @@ def _render_xray_config(rows) -> str:
                 "Xray TLS-профили выбраны, но HTTPS в Security не готов"
             )
         domain = str(profiles["tls_domain"])
-        cert = f"/etc/letsencrypt/live/{domain}/fullchain.pem"
-        key = f"/etc/letsencrypt/live/{domain}/privkey.pem"
+        cert, key = _sync_xray_tls_material(domain)
         tls_settings = {
             "serverName": domain,
             "minVersion": "1.2",
@@ -1154,10 +1193,13 @@ def _apply_xray(*, force_profiles: bool = False) -> EngineResult:
             None,
         )
         if hysteria_profile is not None and hysteria_profile.enabled:
-            if not _udp_port_listening(hysteria_profile.port):
-                raise ClientRuntimeError(
-                    f"Hysteria2 UDP-порт {hysteria_profile.port} не слушается после запуска Xray"
-                )
+            deadline = time.monotonic() + 10.0
+            while not _udp_port_listening(hysteria_profile.port):
+                if time.monotonic() >= deadline:
+                    raise ClientRuntimeError(
+                        f"Hysteria2 UDP-порт {hysteria_profile.port} не слушается через 10 секунд после запуска Xray"
+                    )
+                time.sleep(0.25)
 
         if settings_transaction is not None:
             change_message = _salamander_change_message(settings_transaction)

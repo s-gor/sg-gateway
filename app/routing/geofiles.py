@@ -38,6 +38,7 @@ from app.routing.runtime import (
 MIN_GEOIP_SIZE = 1024
 MIN_GEOSITE_SIZE = 1024
 MAX_DOWNLOAD_SIZE = 160 * 1024 * 1024
+GEOFILES_DISK_RESERVE = 64 * 1024 * 1024
 CATEGORY_RE = re.compile(r"^[a-z0-9][a-z0-9_!@.+-]{0,95}$")
 
 SOURCE_PRESETS = (
@@ -922,6 +923,96 @@ def _restart_xray_if_present() -> tuple[str, str]:
     return "ok", "xray.service перезапущен и активен"
 
 
+def _path_size(path: Path) -> int:
+    if not path.is_file():
+        return 0
+    try:
+        return int(path.stat().st_size)
+    except OSError:
+        return 0
+
+
+def _ensure_apply_free_space(candidate: Path, asset: Path) -> None:
+    candidate_bytes = _path_size(candidate / "geoip.dat") + _path_size(candidate / "geosite.dat")
+    active_bytes = _path_size(asset / "geoip.dat") + _path_size(asset / "geosite.dat")
+    metadata_bytes = _path_size(managed_routing_path()) + _path_size(xray_config_path()) + _path_size(_active_manifest_path())
+    backup_required = active_bytes + metadata_bytes + GEOFILES_DISK_RESERVE
+    asset_required = candidate_bytes + GEOFILES_DISK_RESERVE
+
+    state_parent = _state_root()
+    state_parent.mkdir(parents=True, exist_ok=True)
+    asset.mkdir(parents=True, exist_ok=True)
+    state_free = shutil.disk_usage(state_parent).free
+    asset_free = shutil.disk_usage(asset).free
+    if state_free < backup_required:
+        raise GeoFilesError(
+            f"Недостаточно места для полного GeoFiles backup: требуется около {backup_required // (1024 * 1024)} MiB, "
+            f"доступно {state_free // (1024 * 1024)} MiB"
+        )
+    if asset_free < asset_required:
+        raise GeoFilesError(
+            f"Недостаточно места для атомарного переключения GeoFiles: требуется около {asset_required // (1024 * 1024)} MiB, "
+            f"доступно {asset_free // (1024 * 1024)} MiB"
+        )
+
+
+def _verify_backup(backup: Path, asset_dir: Path) -> None:
+    try:
+        state = json.loads((backup / "state.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise GeoFilesError(f"Backup GeoFiles не содержит корректный state.json: {exc}") from exc
+    checks = (
+        ("geoip.dat", "geoip_present", asset_dir / "geoip.dat"),
+        ("geosite.dat", "geosite_present", asset_dir / "geosite.dat"),
+        ("routing.json", "routing_present", managed_routing_path()),
+        ("config.json", "config_present", xray_config_path()),
+    )
+    for name, flag, source in checks:
+        if not state.get(flag):
+            continue
+        target = backup / name
+        if not source.is_file() or not target.is_file():
+            raise GeoFilesError(f"Backup GeoFiles неполон: {name}")
+        if _sha256(source) != _sha256(target):
+            raise GeoFilesError(f"Backup GeoFiles не прошёл SHA-256: {name}")
+    if state.get("manifest_present") and not (backup / "manifest.json").is_file():
+        raise GeoFilesError("Backup GeoFiles неполон: manifest.json")
+
+
+def _stop_xray_for_switch() -> None:
+    result = subprocess.run(
+        ["systemctl", "stop", "xray.service"],
+        capture_output=True,
+        text=True,
+        timeout=45,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise GeoFilesError((result.stderr or result.stdout).strip() or "Не удалось остановить xray.service перед переключением GeoFiles")
+
+
+def _start_xray_after_switch() -> tuple[str, str]:
+    result = subprocess.run(
+        ["systemctl", "start", "xray.service"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    if result.returncode != 0:
+        return "error", (result.stderr or result.stdout).strip() or "xray.service не запустился"
+    verify = subprocess.run(
+        ["systemctl", "is-active", "--quiet", "xray.service"],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    if verify.returncode != 0:
+        return "error", "xray.service не активен после переключения GeoFiles"
+    return "ok", "xray.service запущен с новым GeoFiles-набором"
+
+
 def _backup_active(asset_dir: Path) -> Path:
     backup = _backups_dir() / _timestamp()
     backup.mkdir(parents=True, exist_ok=False)
@@ -951,6 +1042,7 @@ def _backup_active(asset_dir: Path) -> Path:
     if xray_config_path().is_file():
         shutil.copy2(xray_config_path(), backup / "config.json")
     _write_json(backup / "state.json", state)
+    _verify_backup(backup, asset_dir)
     return backup
 
 
@@ -1036,10 +1128,15 @@ def root_apply_candidate() -> dict:
 
         asset = _asset_dir()
         asset.mkdir(parents=True, exist_ok=True)
+        _ensure_apply_free_space(candidate, asset)
         backup = _backup_active(asset)
         was_active = service_is_active()
         had_config = xray_config_path().is_file()
+        stopped_for_switch = False
         try:
+            if was_active:
+                _stop_xray_for_switch()
+                stopped_for_switch = True
             _atomic_copy(candidate / "geoip.dat", asset / "geoip.dat")
             _atomic_copy(candidate / "geosite.dat", asset / "geosite.dat")
             atomic_write_json(managed_routing_path(), routing_fragment, 0o640)
@@ -1048,7 +1145,8 @@ def root_apply_candidate() -> dict:
             _sync_compatibility_asset_path(asset)
             restart_message = "xray.service не был активен; файлы и Routing подготовлены"
             if was_active:
-                restart_status, restart_message = restart_xray(required=True)
+                restart_status, restart_message = _start_xray_after_switch()
+                stopped_for_switch = False
                 if restart_status == "error":
                     raise GeoFilesError(restart_message)
 
@@ -1071,7 +1169,7 @@ def root_apply_candidate() -> dict:
             return {
                 "ok": True,
                 "message": (
-                    f"GeoFiles и Routing применены атомарно. Backup: {backup.name}. "
+                    f"GeoFiles и Routing применены транзакционно. Backup: {backup.name}. "
                     f"{active_report.xray_message}"
                 ),
                 "backup": backup.name,
@@ -1082,7 +1180,11 @@ def root_apply_candidate() -> dict:
             _restore_backup(backup, asset)
             _sync_compatibility_asset_path(asset)
             if was_active and xray_config_path().is_file():
-                restore_status, restore_message = restart_xray(required=False)
+                restore_status, restore_message = (
+                    _start_xray_after_switch()
+                    if stopped_for_switch or not service_is_active()
+                    else restart_xray(required=False)
+                )
                 if restore_status == "error":
                     raise GeoFilesError(
                         f"{exc}; откат файлов выполнен, но старый Xray не запустился: "
@@ -1125,14 +1227,20 @@ def root_rollback_latest() -> dict:
             raise GeoFilesError(message)
 
         asset = _asset_dir()
+        _ensure_apply_free_space(backup, asset)
         current_backup = _backup_active(asset)
         was_active = service_is_active()
+        stopped_for_switch = False
         try:
+            if was_active:
+                _stop_xray_for_switch()
+                stopped_for_switch = True
             _restore_backup(backup, asset)
             _sync_compatibility_asset_path(asset)
             restart_message = "xray.service не был активен"
             if was_active and xray_config_path().is_file():
-                restart_status, restart_message = restart_xray(required=True)
+                restart_status, restart_message = _start_xray_after_switch()
+                stopped_for_switch = False
                 if restart_status == "error":
                     raise GeoFilesError(restart_message)
             return {
@@ -1146,7 +1254,10 @@ def root_rollback_latest() -> dict:
             _restore_backup(current_backup, asset)
             _sync_compatibility_asset_path(asset)
             if was_active and xray_config_path().is_file():
-                restart_xray(required=False)
+                if stopped_for_switch or not service_is_active():
+                    _start_xray_after_switch()
+                else:
+                    restart_xray(required=False)
             raise GeoFilesError(str(exc)) from exc
     finally:
         lock_stream.close()

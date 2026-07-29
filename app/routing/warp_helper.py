@@ -20,6 +20,7 @@ from app.routing.runtime import (
     load_managed_fragment,
     restart_xray,
     service_is_active,
+    set_xray_config_permissions,
     xray_config_path,
     xray_test_config,
 )
@@ -182,7 +183,10 @@ def _restore_file(path: Path, content: bytes | None, mode: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".warp-restore")
     temporary.write_bytes(content)
-    os.chmod(temporary, mode)
+    if path == xray_config_path():
+        set_xray_config_permissions(temporary)
+    else:
+        os.chmod(temporary, mode)
     os.replace(temporary, path)
 
 

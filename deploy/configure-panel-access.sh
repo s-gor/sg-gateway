@@ -495,7 +495,8 @@ renew_https(){
   systemctl reload nginx.service
   wait_for_https "$domain"
   write_state "$domain" renew "Сертификат проверен/обновлён" "$(read_state_value backup)"
-  log "Сертификат $domain проверен и Nginx перезагружен"
+  apply_client_runtime
+  log "Сертификат $domain проверен; Nginx и клиентские runtime обновлены"
 }
 
 refresh_https(){
@@ -506,7 +507,8 @@ refresh_https(){
   systemctl reload nginx.service
   wait_for_https "$domain"
   write_state "$domain" refresh "Сертификат и Nginx проверены" "$(read_state_value backup)"
-  log "Состояние сертификата обновлено"
+  apply_client_runtime
+  log "Состояние сертификата и клиентских runtime обновлено"
 }
 
 rollback_https(){
