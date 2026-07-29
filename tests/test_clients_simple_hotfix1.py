@@ -30,7 +30,7 @@ def test_modal_uses_compact_native_checkboxes() -> None:
     assert "sg-clients-simple-hotfix1.css" in base
 
 
-def test_disabled_unused_mihomo_is_neutral(monkeypatch) -> None:
+def test_installed_but_stopped_mihomo_runtime_is_error(monkeypatch) -> None:
     monkeypatch.setattr(
         mihomo_service,
         "overview",
@@ -45,8 +45,8 @@ def test_disabled_unused_mihomo_is_neutral(monkeypatch) -> None:
         },
     )
     assert mihomo_service.health_status() == {
-        "status": "idle",
-        "message": "Не используется: служба Mihomo выключена",
+        "status": "error",
+        "message": "Mihomo установлен, но runtime не запущен",
     }
 
 

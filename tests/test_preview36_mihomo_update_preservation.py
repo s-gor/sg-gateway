@@ -10,7 +10,9 @@ def test_update_preserves_applied_mihomo_runtime_configuration():
     assert "Mihomo runtime: existing configuration preserved" in installer
     assert "chown root:root /etc/mihomo/config.yaml" in installer
     assert "chmod 0600 /etc/mihomo/config.yaml" in installer
-    assert "[[ ! -e /etc/mihomo/config.yaml ]]" in installer
+    assert "Mihomo runtime: clean install idle configuration ready" in installer
+    assert "cat > /etc/mihomo/config.yaml <<'MIOIDLE'" in installer
+    assert 'listeners: []' in installer
 
     preserved = installer.index("Mihomo runtime: existing configuration preserved")
     update_branch = installer.rfind("elif [[ -e /etc/mihomo/config.yaml ]]", 0, preserved)
@@ -21,4 +23,6 @@ def test_stale_atomic_mihomo_file_is_removed_but_working_file_is_not_removed_on_
     installer = (ROOT / "install.sh").read_text(encoding="utf-8")
 
     assert "rm -f /etc/mihomo/config.yaml.new" in installer
-    assert "if (( UPDATE_MODE == 0 )); then\n    rm -f /etc/mihomo/config.yaml" in installer
+    assert "if (( UPDATE_MODE == 0 )); then\n    rm -rf /etc/mihomo/tls" in installer
+    assert "cat > /etc/mihomo/config.yaml <<'MIOIDLE'" in installer
+    assert "if (( UPDATE_MODE == 0 )); then\n    rm -f /etc/mihomo/config.yaml" not in installer
