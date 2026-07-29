@@ -146,6 +146,10 @@ def test_geofiles_apply_and_rollback_restore_pair_routing_and_config(tmp_path, m
     monkeypatch.setenv("SG_GATEWAY_XRAY_ASSET_DIR", str(asset))
     monkeypatch.setenv("SG_GATEWAY_XRAY_CONFIG", str(config))
     monkeypatch.setenv("SG_GATEWAY_ROUTING_MANAGED_PATH", str(managed))
+    # Production uses /run/sg-gateway/geofiles.lock, which is writable by the
+    # privileged service on EC2.  GitHub Actions runs this unit test unprivileged,
+    # so isolate only the lock file inside pytest's temporary directory.
+    monkeypatch.setattr(geofiles, "GEOFILES_LOCK_PATH", tmp_path / "geofiles.lock")
     monkeypatch.setattr(geofiles, "xray_test_config", lambda *a, **k: ("ok", "accepted"))
     monkeypatch.setattr(geofiles, "service_is_active", lambda: False)
     monkeypatch.setattr(geofiles, "_sync_compatibility_asset_path", lambda *a, **k: None)
