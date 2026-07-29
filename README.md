@@ -18,6 +18,10 @@ SG-Gateway устанавливается на **один самостоятел
 
 Установили панель, создали клиентов и устройства, получили ссылки, QR-коды и подписки — пользуетесь.
 
+### System — состояние сервера
+
+![System — ресурсы и состояние](docs/screenshots/system.png)
+
 ## Две дороги
 
 ### Хочу установить и пользоваться
@@ -27,28 +31,6 @@ SG-Gateway устанавливается на **один самостоятел
 ### Хочу понимать, что происходит внутри
 
 Откройте [техническое устройство SG-Gateway](docs/TECHNICAL.md): архитектура, XTLS Vision, VLESS Encryption, XMUX, службы, порты, HTTPS, Routing, GeoFiles и сохранность данных.
-
-## Интерфейс
-
-Ниже — реальные экраны SG-Gateway 021. Интерфейс одинаково работает в тёмной и светлой теме.
-
-| System | Clients |
-| --- | --- |
-| ![System](docs/screenshots/01.png) | ![Clients](docs/screenshots/02.png) |
-| **Карточка клиента** | **Добавление устройства** |
-| ![Карточка клиента](docs/screenshots/03.png) | ![Добавление устройства](docs/screenshots/04.png) |
-| **Выбор подключений устройства** | **Connections** |
-| ![Выбор подключений устройства](docs/screenshots/05.png) | ![Connections](docs/screenshots/06.png) |
-| **Настройки Xray** | **AmneziaWG** |
-| ![Настройки Xray](docs/screenshots/07.png) | ![AmneziaWG](docs/screenshots/08.png) |
-| **Дополнительные подключения** | **WARP Outbound** |
-| ![Mieru AnyTLS TUIC](docs/screenshots/09.png) | ![WARP Outbound](docs/screenshots/10.png) |
-| **Routing** | **Security / HTTPS** |
-| ![Routing](docs/screenshots/11.png) | ![Security HTTPS](docs/screenshots/12.png) |
-| **Состояние безопасности** | **Help** |
-| ![Состояние безопасности](docs/screenshots/13.png) | ![Help](docs/screenshots/14.png) |
-| **Maintenance** | **Обновление компонентов** |
-| ![Maintenance](docs/screenshots/15.png) | ![Обновление компонентов](docs/screenshots/16.png) |
 
 ## Для кого создан SG-Gateway
 
@@ -70,6 +52,10 @@ SG-Gateway подходит, когда нужен:
 
 ## Что поддерживается
 
+### Connections — общий экран
+
+![Connections — доступные подключения](docs/screenshots/connections.png)
+
 ### Xray
 
 SG-Gateway поддерживает современные профили Xray:
@@ -81,6 +67,8 @@ SG-Gateway поддерживает современные профили Xray:
 
 Панель сама создаёт серверные конфигурации, проверяет их перед применением и формирует клиентские ссылки. Ручное редактирование полного JSON не требуется.
 
+![Настройки профилей Xray](docs/screenshots/xray-settings.png)
+
 ### AmneziaWG
 
 Поддерживаются:
@@ -91,6 +79,8 @@ SG-Gateway поддерживает современные профили Xray:
 - клиентские конфигурации;
 - управление службой из панели;
 - совместимость с клиентами AmneziaVPN и AmneziaWG.
+
+![Настройки AmneziaWG](docs/screenshots/amneziawg.png)
 
 ### Mihomo и sing-box
 
@@ -104,11 +94,15 @@ SG-Gateway поддерживает современные профили Xray:
 диагностике, но больше не отменяет создание или удаление клиента, применение
 Xray и AmneziaWG либо установку всей панели.
 
+![Mieru, AnyTLS и TUIC v5](docs/screenshots/extra-protocols.png)
+
 ### Cloudflare WARP
 
 WARP используется как отдельный outbound. Routing решает, какой трафик отправить через `Direct`, `WARP` или `Block`.
 
 WARP находится среди выходов, где ему и положено быть, а не изображает из себя отдельную философскую школу маршрутизации.
+
+![WARP Outbound](docs/screenshots/warp-outbound.png)
 
 ## Клиенты и устройства
 
@@ -133,6 +127,18 @@ WARP находится среди выходов, где ему и положе
 
 Клиента или отдельное устройство можно временно отключить без удаления.
 
+### Clients — список и карточка клиента
+
+| Список клиентов | Карточка клиента |
+| --- | --- |
+| ![Список клиентов](docs/screenshots/clients.png) | ![Карточка клиента](docs/screenshots/client-card.png) |
+
+### Добавление устройства
+
+| Основные параметры | Выбор подключений |
+| --- | --- |
+| ![Добавление устройства](docs/screenshots/add-device.png) | ![Выбор подключений устройства](docs/screenshots/device-connections.png) |
+
 ## Routing и GeoFiles
 
 Панель управляет направлениями:
@@ -146,6 +152,8 @@ WARP находится среди выходов, где ему и положе
 GeoFiles работают парой `geoip.dat` + `geosite.dat`. Доступны встроенные и внешние источники, пользовательские HTTPS-адреса, загрузка файлов и локальные пути сервера.
 
 Перед применением SG-Gateway строит будущую конфигурацию и проверяет её через Xray. Несовместимая Geo-категория блокирует применение, но пользовательские правила не удаляются автоматически.
+
+![Routing и GeoFiles](docs/screenshots/routing.png)
 
 ## HTTPS и безопасность
 
@@ -163,6 +171,10 @@ HTTPS включается из раздела **Security** после напр�
 
 Веб-процесс работает без root-прав. Привилегированные операции выполняет отдельная служба HostD.
 
+| Security | Сертификат и режим доступа |
+| --- | --- |
+| ![Security](docs/screenshots/security.png) | ![Состояние сертификата](docs/screenshots/certificate-status.png) |
+
 ## Обслуживание
 
 В панели доступны:
@@ -177,6 +189,10 @@ HTTPS включается из раздела **Security** после напр�
 - полное удаление SG-Gateway.
 
 Панель старается объяснить проблему человеческим языком, а не просто показать красную строку из systemd и пожелать удачи.
+
+| Maintenance | Обновление компонентов |
+| --- | --- |
+| ![Maintenance](docs/screenshots/maintenance.png) | ![Обновление компонентов](docs/screenshots/updates.png) |
 
 ## А где подсчёт трафика?
 
@@ -251,6 +267,10 @@ DELETE SG-GATEWAY
 Удаляются приложение, данные и управляемые SG-Gateway службы и конфигурации. Общие пакеты Ubuntu намеренно сохраняются.
 
 ## Документация
+
+Встроенный раздел **Help** повторяет тот же рабочий порядок: System → Clients → Connections → Routing → Maintenance → Security.
+
+![Help — встроенная справка SG-Gateway](docs/screenshots/help.png)
 
 ### Для пользователя
 
