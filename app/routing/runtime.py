@@ -60,7 +60,13 @@ def set_xray_config_permissions(path: Path | None = None) -> None:
         return
     service_user = _xray_service_user()
     if service_user == "root":
-        os.chown(target, 0, 0)
+        # In production the privileged host helper runs as root and keeps the
+        # live Xray config root-owned.  Unit tests and other offline validation
+        # may run unprivileged; root-owned files are not required there because
+        # a root Xray service can read the resulting 0600 file regardless of
+        # its owner.
+        if os.geteuid() == 0:
+            os.chown(target, 0, 0)
         os.chmod(target, 0o600)
         return
     try:
