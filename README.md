@@ -28,6 +28,28 @@ SG-Gateway устанавливается на **один самостоятел
 
 Откройте [техническое устройство SG-Gateway](docs/TECHNICAL.md): архитектура, XTLS Vision, VLESS Encryption, XMUX, службы, порты, HTTPS, Routing, GeoFiles и сохранность данных.
 
+## Интерфейс
+
+Ниже — реальные экраны SG-Gateway 021. Интерфейс одинаково работает в тёмной и светлой теме.
+
+| System | Clients |
+| --- | --- |
+| ![System](docs/screenshots/01.png) | ![Clients](docs/screenshots/02.png) |
+| **Карточка клиента** | **Добавление устройства** |
+| ![Карточка клиента](docs/screenshots/03.png) | ![Добавление устройства](docs/screenshots/04.png) |
+| **Выбор подключений устройства** | **Connections** |
+| ![Выбор подключений устройства](docs/screenshots/05.png) | ![Connections](docs/screenshots/06.png) |
+| **Настройки Xray** | **AmneziaWG** |
+| ![Настройки Xray](docs/screenshots/07.png) | ![AmneziaWG](docs/screenshots/08.png) |
+| **Дополнительные подключения** | **WARP Outbound** |
+| ![Mieru AnyTLS TUIC](docs/screenshots/09.png) | ![WARP Outbound](docs/screenshots/10.png) |
+| **Routing** | **Security / HTTPS** |
+| ![Routing](docs/screenshots/11.png) | ![Security HTTPS](docs/screenshots/12.png) |
+| **Состояние безопасности** | **Help** |
+| ![Состояние безопасности](docs/screenshots/13.png) | ![Help](docs/screenshots/14.png) |
+| **Maintenance** | **Обновление компонентов** |
+| ![Maintenance](docs/screenshots/15.png) | ![Обновление компонентов](docs/screenshots/16.png) |
+
 ## Для кого создан SG-Gateway
 
 SG-Gateway подходит, когда нужен:
@@ -146,11 +168,11 @@ HTTPS включается из раздела **Security** после напр�
 В панели доступны:
 
 - состояние ресурсов и служб;
-- журналы и диагностика;
-- резервные копии и восстановление;
-- отдельное безопасное обновление SG-Gateway;
-- отдельные обновления Xray, Mihomo, sing-box и WARP / wgcf-cli;
-- транзакционное обновление GeoFiles с проверкой будущего Xray-конфига и rollback;
+- журналы;
+- диагностика;
+- резервные копии;
+- восстановление;
+- обновление компонентов;
 - проверка Xray;
 - полное удаление SG-Gateway.
 
@@ -252,7 +274,6 @@ DELETE SG-GATEWAY
 - версия приложения: `0.1.0-021`;
 - ветка: `main`;
 - установка: нативная Ubuntu + systemd;
-- установка из GitHub: `deploy/install-from-github.sh`;
-- автономный полный `.run` используется для чистой/офлайн установки и контрольных сборок.
+- автономный установщик: `SG-Gateway-021-FULL-CLEAN-EC2-REBUILT.run`.
 
 **Один сервер. Одна панель. Нормальный выход в интернет.**
