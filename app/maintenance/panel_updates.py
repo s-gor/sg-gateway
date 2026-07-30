@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import subprocess
 import time
 import urllib.error
 import urllib.request
@@ -63,13 +65,89 @@ def _headers() -> dict[str, str]:
     }
 
 
+def _curl_text(url: str, timeout: float) -> str:
+    try:
+        completed = subprocess.run(
+            [
+                "curl",
+                "-4",
+                "-fsSL",
+                "--max-time",
+                str(max(1, int(timeout))),
+                "-A",
+                "SG-Gateway-Panel-Updater",
+                url,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=max(2.0, timeout + 2.0),
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise PanelUpdateError(f"GitHub недоступен: {exc}") from exc
+    if completed.returncode != 0:
+        detail = (completed.stderr or "").strip()
+        raise PanelUpdateError(f"GitHub недоступен через curl: {detail or f'rc={completed.returncode}'}")
+    return completed.stdout
+
+
+def _request_text(url: str, timeout: float = 8.0) -> str:
+    request = urllib.request.Request(url, headers={"User-Agent": "SG-Gateway-Panel-Updater"})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.read().decode("utf-8")
+    except (OSError, urllib.error.URLError, urllib.error.HTTPError, TimeoutError, UnicodeDecodeError) as first_exc:
+        try:
+            return _curl_text(url, timeout)
+        except PanelUpdateError as second_exc:
+            raise PanelUpdateError(f"Не удалось получить данные GitHub: {first_exc}; fallback: {second_exc}") from second_exc
+
+
 def _request_json(url: str, timeout: float = 8.0) -> Any:
     request = urllib.request.Request(url, headers=_headers())
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
-    except (OSError, urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError) as exc:
-        raise PanelUpdateError(f"Не удалось проверить GitHub main: {exc}") from exc
+    except (OSError, urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError, UnicodeDecodeError) as first_exc:
+        try:
+            return json.loads(_curl_text(url, timeout))
+        except (PanelUpdateError, json.JSONDecodeError) as second_exc:
+            raise PanelUpdateError(f"Не удалось проверить GitHub main: {first_exc}; fallback: {second_exc}") from second_exc
+
+
+def _latest_main() -> tuple[str, str, str]:
+    # Primary path: GitHub REST API. Fallback: the public Atom feed, which is
+    # not subject to the unauthenticated REST API rate-limit bucket.
+    try:
+        payload = _request_json(f"{GITHUB_API}/commits/main")
+        if not isinstance(payload, dict):
+            raise PanelUpdateError("GitHub не вернул commit main")
+        sha = str(payload.get("sha") or "").strip().lower()
+        if len(sha) != 40 or any(ch not in "0123456789abcdef" for ch in sha):
+            raise PanelUpdateError("GitHub вернул некорректный SHA commit")
+        commit = payload.get("commit") if isinstance(payload.get("commit"), dict) else {}
+        author = commit.get("author") if isinstance(commit.get("author"), dict) else {}
+        return sha, str(author.get("date") or ""), str(payload.get("html_url") or "")
+    except PanelUpdateError:
+        atom = _request_text(f"https://github.com/{GITHUB_REPO}/commits/main.atom", timeout=10.0)
+        match = re.search(r"Grit::Commit/([0-9a-fA-F]{40})", atom)
+        if not match:
+            raise PanelUpdateError("GitHub main не удалось определить ни через API, ни через Atom feed")
+        sha = match.group(1).lower()
+        date_match = re.search(r"<updated>([^<]+)</updated>", atom)
+        return sha, (date_match.group(1).strip() if date_match else ""), f"https://github.com/{GITHUB_REPO}/commit/{sha}"
+
+
+def _remote_version(commit: str) -> str:
+    value = _request_text(f"https://raw.githubusercontent.com/{GITHUB_REPO}/{commit}/VERSION", timeout=10.0).strip()
+    if not value or len(value) > 80:
+        raise PanelUpdateError("GitHub VERSION отсутствует или повреждён")
+    return value
+
+
+def _version_key(value: str) -> tuple[int, ...]:
+    numbers = re.findall(r"\d+", str(value or ""))
+    return tuple(int(item) for item in numbers) if numbers else ()
 
 
 def _read_state() -> dict[str, Any]:
@@ -87,42 +165,56 @@ def overview(*, refresh: bool = False) -> dict[str, Any]:
     installed_commit = str(state.get("commit") or "").strip().lower()
     recorded_fingerprint = str(state.get("source_fingerprint") or "").strip().lower()
     current_fingerprint = source_fingerprint()
-    baseline_valid = bool(installed_commit and recorded_fingerprint and current_fingerprint and recorded_fingerprint == current_fingerprint)
+    state_empty = not installed_commit and not recorded_fingerprint
+    baseline_valid = bool(
+        installed_commit
+        and recorded_fingerprint
+        and current_fingerprint
+        and recorded_fingerprint == current_fingerprint
+    )
     installed_version = get_version()
 
-    if not refresh and _CACHE and now - _CACHE[0] < CACHE_TTL_SECONDS:
-        cached = dict(_CACHE[1])
+    def _decorate(cached: dict[str, Any]) -> dict[str, Any]:
+        cached = dict(cached)
         cached["installed_commit"] = installed_commit
         cached["installed_version"] = installed_version
         cached["source_fingerprint"] = current_fingerprint
         cached["baseline_valid"] = baseline_valid
-        if not baseline_valid:
-            cached["state"] = "uninitialized"
-            cached["can_install"] = False
-            cached["message"] = "GitHub baseline ещё не привязан к этой локальной базе или после привязки код менялся. Panel Update заблокирован до публикации/синхронизации текущей базы."
-        elif installed_commit == cached.get("latest_commit"):
-            cached["state"] = "current"
-            cached["can_install"] = False
-            cached["message"] = "Локальная база уже соответствует проверенному GitHub main."
-        elif cached.get("latest_commit"):
+        cached["bootstrap_allowed"] = False
+        latest_commit = str(cached.get("latest_commit") or "")
+        latest_version = str(cached.get("latest_version") or "")
+        if baseline_valid:
+            if installed_commit == latest_commit:
+                cached["state"] = "current"
+                cached["can_install"] = False
+                cached["message"] = "Локальная база уже соответствует проверенному GitHub main."
+            elif latest_commit:
+                cached["state"] = "available"
+                cached["can_install"] = True
+                cached["message"] = "GitHub main содержит новый commit. Можно выполнить безопасное обновление панели."
+        elif state_empty and _version_key(latest_version) > _version_key(installed_version):
             cached["state"] = "available"
             cached["can_install"] = True
-            cached["message"] = "GitHub main содержит новый commit. Можно выполнить безопасное обновление панели."
+            cached["bootstrap_allowed"] = True
+            cached["message"] = (
+                f"Доступна VERSION {latest_version}. Это первое обновление для установки без updater-baseline: "
+                "перед заменой будет создан полный backup, а после успеха baseline привяжется к точному GitHub commit."
+            )
+        else:
+            cached["state"] = "uninitialized"
+            cached["can_install"] = False
+            cached["message"] = (
+                "GitHub baseline не привязан или локальный код изменён после привязки. "
+                "Автоматическое обновление заблокировано, чтобы не затереть непубликованные изменения."
+            )
         return cached
 
+    if not refresh and _CACHE and now - _CACHE[0] < CACHE_TTL_SECONDS:
+        return _decorate(_CACHE[1])
+
     try:
-        payload = _request_json(f"{GITHUB_API}/commits/main")
-        if not isinstance(payload, dict):
-            raise PanelUpdateError("GitHub не вернул commit main")
-        sha = str(payload.get("sha") or "").strip().lower()
-        if len(sha) != 40 or any(ch not in "0123456789abcdef" for ch in sha):
-            raise PanelUpdateError("GitHub вернул некорректный SHA commit")
-        commit = payload.get("commit") if isinstance(payload.get("commit"), dict) else {}
-        author = commit.get("author") if isinstance(commit.get("author"), dict) else {}
-        latest_date = str(author.get("date") or "")
-        html_url = str(payload.get("html_url") or "")
-        current = bool(baseline_valid and installed_commit == sha)
-        can_install = bool(baseline_valid and not current)
+        sha, latest_date, html_url = _latest_main()
+        latest_version = _remote_version(sha)
         result = {
             "checked": True,
             "error": "",
@@ -131,22 +223,17 @@ def overview(*, refresh: bool = False) -> dict[str, Any]:
             "installed_commit": installed_commit,
             "source_fingerprint": current_fingerprint,
             "baseline_valid": baseline_valid,
+            "bootstrap_allowed": False,
             "latest_commit": sha,
             "latest_short": sha[:8],
+            "latest_version": latest_version,
             "latest_date": latest_date,
             "html_url": html_url,
-            "state": "current" if current else ("available" if baseline_valid else "uninitialized"),
-            "can_install": can_install,
-            "message": (
-                "Локальная база уже соответствует проверенному GitHub main."
-                if current
-                else (
-                    "Доступен новый commit GitHub main. Перед применением будет создана полная страховочная копия кода."
-                    if baseline_valid
-                    else "GitHub baseline ещё не привязан к этой локальной базе или локальный код изменён после привязки. Panel Update намеренно заблокирован."
-                )
-            ),
+            "state": "unavailable",
+            "can_install": False,
+            "message": "",
         }
+        result = _decorate(result)
         _CACHE = (now, result)
         return dict(result)
     except PanelUpdateError as exc:
@@ -158,11 +245,14 @@ def overview(*, refresh: bool = False) -> dict[str, Any]:
             "installed_commit": installed_commit,
             "source_fingerprint": current_fingerprint,
             "baseline_valid": baseline_valid,
+            "bootstrap_allowed": False,
             "latest_commit": "",
             "latest_short": "",
+            "latest_version": "",
             "latest_date": "",
             "html_url": "",
             "state": "unavailable",
             "can_install": False,
             "message": "Проверка GitHub main не выполнена.",
         }
+

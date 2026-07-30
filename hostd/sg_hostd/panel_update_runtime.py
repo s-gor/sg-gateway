@@ -53,32 +53,62 @@ def _request_json(url: str, timeout: float = 20.0) -> Any:
 
 
 
-def _require_bound_baseline() -> dict[str, Any]:
+def _baseline_mode() -> tuple[str, dict[str, Any]]:
     try:
         state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return "bootstrap", {}
     except (OSError, ValueError, json.JSONDecodeError) as exc:
-        raise PanelUpdateRuntimeError(
-            "Panel Update заблокирован: текущая локальная база ещё не привязана к опубликованному GitHub commit."
-        ) from exc
+        raise PanelUpdateRuntimeError("Panel Update state повреждён") from exc
     if not isinstance(state, dict):
         raise PanelUpdateRuntimeError("Panel Update state повреждён")
     commit = str(state.get("commit") or "").strip().lower()
     recorded = str(state.get("source_fingerprint") or "").strip().lower()
+    if not commit and not recorded:
+        return "bootstrap", state
     current = source_fingerprint(LIVE_ROOT)
     if not _SHA_RE.fullmatch(commit) or not recorded or not current or recorded != current:
         raise PanelUpdateRuntimeError(
             "Panel Update заблокирован: локальный исходник не совпадает с последним привязанным GitHub baseline. Сначала нужно опубликовать/синхронизировать текущую принятую базу."
         )
-    return state
+    return "bound", state
+
+
+def _curl_text(url: str, timeout: float = 20.0) -> str:
+    try:
+        completed = subprocess.run(
+            ["curl", "-4", "-fsSL", "--max-time", str(max(1, int(timeout))), "-A", "SG-Gateway-Panel-Updater", url],
+            capture_output=True,
+            text=True,
+            timeout=max(2.0, timeout + 2.0),
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise PanelUpdateRuntimeError(f"GitHub недоступен: {exc}") from exc
+    if completed.returncode != 0:
+        detail = (completed.stderr or "").strip()
+        raise PanelUpdateRuntimeError(f"GitHub недоступен через curl: {detail or f'rc={completed.returncode}'}")
+    return completed.stdout
+
 
 def _latest_main_commit() -> str:
-    payload = _request_json(f"{GITHUB_API}/commits/main")
-    if not isinstance(payload, dict):
-        raise PanelUpdateRuntimeError("GitHub не вернул commit main")
-    sha = str(payload.get("sha") or "").strip().lower()
-    if not _SHA_RE.fullmatch(sha):
-        raise PanelUpdateRuntimeError("GitHub вернул некорректный SHA main")
-    return sha
+    try:
+        payload = _request_json(f"{GITHUB_API}/commits/main")
+        if not isinstance(payload, dict):
+            raise PanelUpdateRuntimeError("GitHub не вернул commit main")
+        sha = str(payload.get("sha") or "").strip().lower()
+        if not _SHA_RE.fullmatch(sha):
+            raise PanelUpdateRuntimeError("GitHub вернул некорректный SHA main")
+        return sha
+    except PanelUpdateRuntimeError:
+        try:
+            atom = _curl_text(f"https://github.com/{GITHUB_REPO}/commits/main.atom", timeout=20.0)
+        except PanelUpdateRuntimeError as exc:
+            raise PanelUpdateRuntimeError(f"GitHub main недоступен: {exc}") from exc
+        match = re.search(r"Grit::Commit/([0-9a-fA-F]{40})", atom)
+        if not match:
+            raise PanelUpdateRuntimeError("GitHub main не удалось определить ни через API, ни через Atom feed")
+        return match.group(1).lower()
 
 
 def _download_archive(commit: str, destination: Path) -> None:
@@ -364,9 +394,9 @@ def update_panel() -> dict[str, Any]:
         except BlockingIOError as exc:
             raise PanelUpdateRuntimeError("Другая операция обновления SG-Gateway уже выполняется") from exc
 
-        baseline = _require_bound_baseline()
+        baseline_mode, baseline = _baseline_mode()
         commit = _latest_main_commit()
-        if str(baseline.get("commit") or "").strip().lower() == commit:
+        if baseline_mode == "bound" and str(baseline.get("commit") or "").strip().lower() == commit:
             raise PanelUpdateRuntimeError(f"SG-Gateway уже соответствует GitHub main commit {commit[:12]}")
         UPDATE_ROOT.mkdir(parents=True, exist_ok=True)
         BACKUP_ROOT.mkdir(parents=True, exist_ok=True)
@@ -378,6 +408,13 @@ def update_panel() -> dict[str, Any]:
             print(f"[SG-Gateway Update 2/8] Snapshot скачан; SHA-256 {_sha256(archive)}", flush=True)
             source = _safe_extract(archive, temp / "source", commit)
             current_version, target_version = _validate_snapshot(source)
+            if baseline_mode == "bootstrap" and _version_key(target_version) <= _version_key(current_version):
+                raise PanelUpdateRuntimeError(
+                    "Первое обновление без updater-baseline разрешено только на строго более новую VERSION "
+                    f"({current_version} → {target_version})."
+                )
+            if baseline_mode == "bootstrap":
+                print("[SG-Gateway Update] Updater-baseline ещё не создан; разрешён безопасный bootstrap на более новую VERSION.", flush=True)
             print(f"[SG-Gateway Update 3/8] Staging прошёл Python/import проверки; VERSION {current_version} → {target_version}", flush=True)
             _check_space(source)
             backup = _backup_live()

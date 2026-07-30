@@ -12,6 +12,7 @@ def test_panel_update_overview_pins_exact_main_commit_but_blocks_unbound_baselin
     commit = "a" * 40
     monkeypatch.setattr(panel_updates, "STATE_FILE", tmp_path / "state.json")
     monkeypatch.setattr(panel_updates, "source_fingerprint", lambda: "f" * 64)
+    monkeypatch.setattr(panel_updates, "_remote_version", lambda sha: "0.1.0-021")
     monkeypatch.setattr(
         panel_updates,
         "_request_json",
@@ -36,6 +37,7 @@ def test_panel_update_state_marks_exact_commit_current(monkeypatch, tmp_path):
     state.write_text('{"commit":"' + commit + '","source_fingerprint":"' + fingerprint + '"}', encoding="utf-8")
     monkeypatch.setattr(panel_updates, "STATE_FILE", state)
     monkeypatch.setattr(panel_updates, "source_fingerprint", lambda: fingerprint)
+    monkeypatch.setattr(panel_updates, "_remote_version", lambda sha: "0.1.0-021.1")
     monkeypatch.setattr(
         panel_updates,
         "_request_json",
@@ -86,7 +88,7 @@ def test_panel_runtime_blocks_dependency_changes_and_has_rollback():
     assert "commits/main" in runtime
     assert "archive/{commit}.tar.gz" in runtime
     assert ".venv" in runtime
-    assert "_require_bound_baseline" in runtime
+    assert "_baseline_mode" in runtime
     assert "локальный исходник не совпадает" in runtime
 
 
@@ -112,3 +114,41 @@ def test_core_update_template_indexes_items_key_not_dict_method():
     template = (ROOT / "app/web/templates/maintenance.html").read_text(encoding="utf-8")
     assert 'core_updates["items"]' in template
     assert "core_updates.items if core_updates" not in template
+
+
+def test_panel_update_bootstrap_allows_strictly_newer_version_without_state(monkeypatch, tmp_path):
+    commit = "c" * 40
+    monkeypatch.setattr(panel_updates, "STATE_FILE", tmp_path / "missing-state.json")
+    monkeypatch.setattr(panel_updates, "source_fingerprint", lambda: "f" * 64)
+    monkeypatch.setattr(panel_updates, "get_version", lambda: "0.1.0-021")
+    monkeypatch.setattr(panel_updates, "_latest_main", lambda: (commit, "2026-07-30T00:00:00Z", "https://example.invalid/commit"))
+    monkeypatch.setattr(panel_updates, "_remote_version", lambda sha: "0.1.0-021.1")
+    panel_updates._CACHE = None
+    result = panel_updates.overview(refresh=True)
+    assert result["latest_commit"] == commit
+    assert result["latest_version"] == "0.1.0-021.1"
+    assert result["bootstrap_allowed"] is True
+    assert result["can_install"] is True
+    assert result["state"] == "available"
+
+
+def test_panel_update_bootstrap_does_not_allow_same_version(monkeypatch, tmp_path):
+    commit = "d" * 40
+    monkeypatch.setattr(panel_updates, "STATE_FILE", tmp_path / "missing-state.json")
+    monkeypatch.setattr(panel_updates, "source_fingerprint", lambda: "f" * 64)
+    monkeypatch.setattr(panel_updates, "get_version", lambda: "0.1.0-021.1")
+    monkeypatch.setattr(panel_updates, "_latest_main", lambda: (commit, "", ""))
+    monkeypatch.setattr(panel_updates, "_remote_version", lambda sha: "0.1.0-021.1")
+    panel_updates._CACHE = None
+    result = panel_updates.overview(refresh=True)
+    assert result["bootstrap_allowed"] is False
+    assert result["can_install"] is False
+    assert result["state"] == "uninitialized"
+
+
+def test_panel_runtime_has_bootstrap_path_and_atom_fallback():
+    runtime = (ROOT / "hostd/sg_hostd/panel_update_runtime.py").read_text(encoding="utf-8")
+    assert "def _baseline_mode" in runtime
+    assert 'return "bootstrap", {}' in runtime
+    assert "строго более новую VERSION" in runtime
+    assert "commits/main.atom" in runtime
