@@ -69,7 +69,7 @@ def _baseline_mode() -> tuple[str, dict[str, Any]]:
     current = source_fingerprint(LIVE_ROOT)
     if not _SHA_RE.fullmatch(commit) or not recorded or not current or recorded != current:
         raise PanelUpdateRuntimeError(
-            "Panel Update заблокирован: локальный исходник не совпадает с последней подтверждённой базой. Сначала нужно опубликовать или восстановить текущую принятую базу."
+            "Panel Update заблокирован: локальный исходник не совпадает с последним привязанным GitHub baseline. Сначала нужно опубликовать/синхронизировать текущую принятую базу."
         )
     return "bound", state
 
@@ -410,11 +410,11 @@ def update_panel() -> dict[str, Any]:
             current_version, target_version = _validate_snapshot(source)
             if baseline_mode == "bootstrap" and _version_key(target_version) <= _version_key(current_version):
                 raise PanelUpdateRuntimeError(
-                    "Обновление разрешено только на строго более новую VERSION "
+                    "Первое обновление без updater-baseline разрешено только на строго более новую VERSION "
                     f"({current_version} → {target_version})."
                 )
             if baseline_mode == "bootstrap":
-                print("[SG-Gateway Update] Подготавливаю безопасное обновление на более новую VERSION.", flush=True)
+                print("[SG-Gateway Update] Updater-baseline ещё не создан; разрешён безопасный bootstrap на более новую VERSION.", flush=True)
             print(f"[SG-Gateway Update 3/8] Staging прошёл Python/import проверки; VERSION {current_version} → {target_version}", flush=True)
             _check_space(source)
             backup = _backup_live()

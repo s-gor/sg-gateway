@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0-021.4",
+  "version": "0.1.0-021.5",
   "artifact_type": "full-clean-ec2-installer",
   "invariants": {
     "amneziawg_udp_port": 585,
@@ -12,6 +12,21 @@
     "clients_row_typography": "approved-v018-scale",
     "client_detail_bottom_add_device_button": false,
     "technical_links": "always-open",
-    "hysteria2_salamander_udp_exclusive": true
+    "hysteria2_salamander_udp_exclusive": true,
+    "sg_admin_optional": true,
+    "sg_admin_recreated_on_update": false,
+    "sg_admin_no_certificate_access": [
+      "amneziawg",
+      "xray_reality_tcp",
+      "xray_xhttp_reality",
+      "mihomo",
+      "sgclient"
+    ],
+    "certificate_bound_access_deferred": [
+      "xray_xhttp_tls",
+      "xray_hysteria2",
+      "anytls",
+      "tuic"
+    ]
   }
 }

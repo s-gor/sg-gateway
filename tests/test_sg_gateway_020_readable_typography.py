@@ -66,7 +66,7 @@ def test_standalone_login_and_recovery_load_readable_typography() -> None:
 
 
 def test_release_preserves_approved_typography_contract_in_020() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="utf-8").strip() == "0.1.0-021.4"
+    assert (ROOT / "VERSION").read_text(encoding="utf-8").strip() == "0.1.0-021.5"
     manifest = (ROOT / "release-manifest.json").read_text(encoding="utf-8")
     assert '"global_readable_typography_v018": true' in manifest
     assert '"client_detail_typography_preserved": true' in manifest

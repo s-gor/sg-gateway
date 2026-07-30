@@ -1,4 +1,12 @@
-# 0.1.0-021.4 — Hysteria2 Salamander exclusive UDP FinalMask
+# 0.1.0-021.5 — Optional sg-admin and complete no-certificate first access
+
+- `sg-admin` is explicitly a normal optional VPN client, not a Linux/system/panel account.
+- A clean install offers `sg-admin` with every access type that works before HTTPS: AmneziaWG, VLESS Reality TCP, VLESS XHTTP Reality, Mieru and SG Client.
+- Certificate-bound access is explicitly deferred until HTTPS exists: VLESS XHTTP TLS, Hysteria 2, AnyTLS and TUIC v5.
+- Panel/full updates never recreate `sg-admin` when the Clients database was intentionally left empty.
+- Installer output states both groups directly; no credentials are printed.
+
+# 0.1.0-021.5 — Hysteria2 Salamander exclusive UDP FinalMask
 
 - Salamander is now the only live `streamSettings.finalmask.udp` layer while enabled.
 - Existing/stored Hysteria2 UDP FinalMask masks are preserved in SG-Gateway state but suppressed from the live Xray config while Salamander is active.
@@ -6,7 +14,6 @@
 - Non-UDP FinalMask fields such as `tcp` and `quicParams` remain preserved.
 - Existing full-candidate Xray validation and transactional rollback remain unchanged.
 - Captured working live reference: Hysteria2 on UDP 8446 with exactly one `salamander` UDP FinalMask layer.
-- Panel update availability now uses one normal user-facing message; internal updater-baseline/bootstrap terminology is no longer shown in the panel or update job output.
 
 # 0.1.0-021.3 — Client QR display fix
 

@@ -14,7 +14,21 @@ INSTALLER = (ROOT / "install.sh").read_text(encoding="utf-8")
 def _seed_env(tmp_path: Path, *, update: bool) -> dict[str, str]:
     data_dir = tmp_path / "data"
     log_dir = tmp_path / "log"
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    awg = bin_dir / "awg"
+    awg.write_text(
+        "#!/bin/sh\n"
+        "case \"$1\" in\n"
+        "  genkey) echo test-awg-private-key ;;;\n"
+        "  pubkey) cat >/dev/null; echo test-awg-public-key ;;;\n"
+        "  *) exit 2 ;;;\n"
+        "esac\n".replace(";;;", ";;"),
+        encoding="utf-8",
+    )
+    awg.chmod(0o755)
     env = os.environ.copy()
+    env["PATH"] = str(bin_dir) + os.pathsep + env.get("PATH", "")
     env.update(
         {
             "PYTHONPATH": str(ROOT),
@@ -77,15 +91,39 @@ def test_stage6_update_repairs_empty_hosts_instead_of_asserting(tmp_path: Path):
     for row in rows:
         config = json.loads(row["config_json"])
         assert config["country_code"] == "fr"
-    assert connection.execute("SELECT COUNT(*) FROM clients").fetchone()[0] == 1
+    # Update mode must preserve an intentionally empty client database.
+    assert connection.execute("SELECT COUNT(*) FROM clients").fetchone()[0] == 0
 
 
-def test_stage6_clean_seed_creates_one_sg_admin(tmp_path: Path):
+def test_stage6_clean_seed_creates_one_sg_admin_with_all_no_tls_access(tmp_path: Path):
     database = _run_seed(tmp_path, update=False)
     connection = sqlite3.connect(database)
-    assert connection.execute(
-        "SELECT COUNT(*) FROM clients WHERE name = 'sg-admin'"
-    ).fetchone()[0] == 1
+    connection.row_factory = sqlite3.Row
+    row = connection.execute(
+        "SELECT id FROM clients WHERE name = 'sg-admin'"
+    ).fetchone()
+    assert row is not None
+    device = connection.execute(
+        "SELECT id FROM devices WHERE client_id = ? AND is_primary = 1",
+        (int(row["id"]),),
+    ).fetchone()
+    assert device is not None
+    credentials = connection.execute(
+        "SELECT engine, config_json FROM device_credentials WHERE device_id = ?",
+        (int(device["id"]),),
+    ).fetchall()
+    assert {item["engine"] for item in credentials} == {
+        "amneziawg", "xray", "mihomo", "sgclient"
+    }
+    xray = next(item for item in credentials if item["engine"] == "xray")
+    profiles = json.loads(xray["config_json"])["profiles"]
+    assert profiles == ["reality_tcp", "xhttp_reality"]
+
+
+def test_stage6_update_never_recreates_sg_admin_even_if_requested(tmp_path: Path):
+    database = _run_seed(tmp_path, update=True)
+    connection = sqlite3.connect(database)
+    assert connection.execute("SELECT COUNT(*) FROM clients").fetchone()[0] == 0
 
 
 def test_installer_uses_sg_panel_progress_contract_and_one_error_path():
@@ -146,4 +184,4 @@ def test_stage6_update_forces_active_reality_public_key_and_short_id(tmp_path: P
     assert config["short_id"] == "0123456789abcdef"
     assert connection.execute(
         "SELECT COUNT(*) FROM clients WHERE name = 'sg-admin'"
-    ).fetchone()[0] == 1
+    ).fetchone()[0] == 0

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="0.1.0-021.4"
+VERSION="0.1.0-021.5"
 INSTALLER_BUILD="021-full-clean-ec2-rebuilt"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 PREFIX="/opt/sg-gateway"
@@ -737,15 +737,9 @@ detect_existing_install() {
   local stored_server_name=""
   stored_server_name="$(env_value "$runtime_file" SG_GATEWAY_SERVER_NAME || true)"
   COUNTRY_CODE="$(env_value "$runtime_file" SG_GATEWAY_COUNTRY_CODE || true)"
+  # sg-admin is only a first-install convenience client.  An update must
+  # preserve an intentionally empty Clients database and never recreate it.
   CREATE_SG_ADMIN="0"
-  if [[ -f "$DATA_DIR/sg-gateway.sqlite" ]]; then
-    local existing_clients="0"
-    existing_clients="$(sqlite3 "$DATA_DIR/sg-gateway.sqlite" "SELECT COUNT(*) FROM clients;" 2>/dev/null || echo 0)"
-    [[ "$existing_clients" =~ ^[0-9]+$ ]] || existing_clients="0"
-    (( existing_clients == 0 )) && CREATE_SG_ADMIN="1"
-  else
-    CREATE_SG_ADMIN="1"
-  fi
   SECRET_KEY="$(env_value "$app_file" SG_GATEWAY_SECRET_KEY)"
   ADMIN_PASSWORD="$(env_value "$app_file" SG_GATEWAY_ADMIN_PASSWORD || true)"
   ADMIN_PASSWORD_HASH="$(env_value "$app_file" SG_GATEWAY_ADMIN_PASSWORD_HASH || true)"
@@ -965,7 +959,10 @@ collect_answers() {
     echo "Порт панели и Reality TCP не могут совпадать." >&2
     return 1
   fi
-  read_yes_no "Создать первого клиента sg-admin и сразу подготовить ссылки?" CREATE_SG_ADMIN 1
+  printf '[SG-Gateway] sg-admin — обычный VPN-клиент, не системный пользователь.\n'
+  printf '[SG-Gateway] Без сертификата ему сразу доступны: AmneziaWG, VLESS Reality TCP, VLESS XHTTP Reality, Mieru и SG Client.\n'
+  printf '[SG-Gateway] После настройки HTTPS можно добавить: VLESS XHTTP TLS, Hysteria 2, AnyTLS и TUIC v5.\n'
+  read_yes_no "Создать первого клиента sg-admin со всеми доступами без сертификата?" CREATE_SG_ADMIN 1
   read_password
   SECRET_KEY="$(openssl rand -hex 32)"
 }
@@ -2337,6 +2334,8 @@ verify_client_identities_after_update() {
 print_sg_admin_status() {
   [[ "$CREATE_SG_ADMIN" == "1" ]] || return 0
   printf '[SG-Gateway] Первый клиент sg-admin: создан\n'
+  printf '[SG-Gateway] Без сертификата включены: AmneziaWG · VLESS Reality TCP · VLESS XHTTP Reality · Mieru · SG Client\n'
+  printf '[SG-Gateway] После HTTPS можно добавить: VLESS XHTTP TLS · Hysteria 2 · AnyTLS · TUIC v5\n'
   printf '[SG-Gateway] Профили: Clients → sg-admin\n'
 }
 

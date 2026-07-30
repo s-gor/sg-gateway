@@ -19,7 +19,7 @@ def test_clients_row_double_override_is_removed() -> None:
 
 
 def test_release_marks_approved_scale_and_version() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="utf-8").strip() == "0.1.0-021.4"
+    assert (ROOT / "VERSION").read_text(encoding="utf-8").strip() == "0.1.0-021.5"
     manifest = json.loads((ROOT / "release-manifest.json").read_text(encoding="utf-8"))
     update = manifest["installer_update"]
     assert update["client_list_row_typography_v020"] == "reverted-to-approved-018-scale"
@@ -29,7 +29,10 @@ def test_release_marks_approved_scale_and_version() -> None:
 
 def test_sg_admin_prompt_has_explicit_enter_yes_default() -> None:
     assert 'local suffix="[Enter = Да / n = Нет]"' in INSTALL
-    assert 'read_yes_no "Создать первого клиента sg-admin и сразу подготовить ссылки?" CREATE_SG_ADMIN 1' in INSTALL
+    assert 'read_yes_no "Создать первого клиента sg-admin со всеми доступами без сертификата?" CREATE_SG_ADMIN 1' in INSTALL
+    assert "sg-admin — обычный VPN-клиент, не системный пользователь" in INSTALL
+    assert "Без сертификата ему сразу доступны: AmneziaWG, VLESS Reality TCP, VLESS XHTTP Reality, Mieru и SG Client" in INSTALL
+    assert "После настройки HTTPS можно добавить: VLESS XHTTP TLS, Hysteria 2, AnyTLS и TUIC v5" in INSTALL
     assert 'answer="${answer:-$([[ "$default_value" == "1" ]] && echo y || echo n)}"' in INSTALL
 
 

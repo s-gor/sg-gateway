@@ -212,11 +212,17 @@ def seed_or_migrate() -> None:
 
     created_admin = False
     if (
-        _text("SG_SEED_CREATE_ADMIN", "1") == "1"
+        not update_mode
+        and _text("SG_SEED_CREATE_ADMIN", "1") == "1"
         and count_clients() == 0
     ):
+        # First-install convenience only.  sg-admin is a normal VPN client, not
+        # a system account and never gets recreated by an update.  Give it every
+        # protocol that is valid before HTTPS exists; certificate-bound profiles
+        # stay intentionally absent until Security has a working certificate.
         admin_client_id = create_client(
-            "sg-admin", "xray_xhttp_reality,sgclient"
+            "sg-admin",
+            "amneziawg,xray_reality_tcp,xray_xhttp_reality,mihomo,sgclient",
         )
         if not admin_client_id:
             raise RuntimeError("Не удалось создать первого клиента sg-admin")
