@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -76,6 +77,164 @@ def _mihomo_restart() -> HostCommandResult:
 
 def _mihomo_rollback() -> HostCommandResult:
     return _mihomo_hostd_result("mihomo.rollback", "rollback")
+
+
+def _service_is_active(unit: str) -> bool:
+    return (
+        subprocess.run(
+            ["systemctl", "is-active", "--quiet", unit],
+            capture_output=True,
+            check=False,
+        ).returncode
+        == 0
+    )
+
+
+def _listener_rows() -> list[list[str]]:
+    result = subprocess.run(
+        ["ss", "-H", "-lntup"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
+    )
+    if result.returncode != 0:
+        return []
+    return [line.split() for line in result.stdout.splitlines() if line.strip()]
+
+
+def _listener_is_bound(
+    rows: list[list[str]],
+    network: str,
+    port: int,
+    process_name: str,
+) -> bool:
+    expected_net = network.strip().lower()
+    expected_port = str(port)
+    expected_process = process_name.strip().lower()
+    for parts in rows:
+        if len(parts) < 5 or parts[0].lower() != expected_net:
+            continue
+        local = parts[4]
+        actual_port = local.rsplit(":", 1)[-1].rstrip("]")
+        if actual_port != expected_port:
+            continue
+        line = " ".join(parts).lower()
+        if expected_process in line:
+            return True
+    return False
+
+
+def _mihomo_safe_runtime_status() -> HostCommandResult:
+    """Return listener truth without exposing passwords or TLS key material."""
+
+    protocols: dict[str, dict] = {
+        "mieru": {"active": False, "port": None, "transport": "TCP", "engine": "mihomo"},
+        "anytls": {"active": False, "port": None, "transport": "TCP", "engine": "sing-box"},
+        "tuic": {"active": False, "port": None, "transport": "UDP", "engine": "sing-box"},
+    }
+    rows = _listener_rows()
+    mihomo_active = _service_is_active("mihomo.service")
+    singbox_active = _service_is_active("sg-gateway-singbox.service")
+
+    mihomo_config = Path("/etc/mihomo/config.yaml")
+    if mihomo_active and mihomo_config.is_file():
+        try:
+            current = ""
+            for raw in mihomo_config.read_text(encoding="utf-8").splitlines():
+                line = raw.strip()
+                if line in {"- name: mieru-in", "name: mieru-in"}:
+                    current = "mieru"
+                    protocols[current]["engine"] = "mihomo"
+                    continue
+                if line in {"- name: anytls-in", "name: anytls-in"}:
+                    current = "anytls"
+                    protocols[current]["engine"] = "mihomo"
+                    continue
+                if line in {"- name: tuicv5-in", "name: tuicv5-in"}:
+                    current = "tuic"
+                    protocols[current]["engine"] = "mihomo"
+                    continue
+                if current and line.startswith("port:"):
+                    try:
+                        protocols[current]["port"] = int(line.partition(":")[2].strip())
+                    except ValueError:
+                        pass
+                if current == "mieru" and line.startswith("transport:"):
+                    value = line.partition(":")[2].strip().upper()
+                    protocols[current]["transport"] = "UDP" if value == "UDP" else "TCP"
+        except OSError:
+            pass
+
+    singbox_config = Path("/etc/sing-box/config.json")
+    if singbox_active and singbox_config.is_file():
+        try:
+            payload = json.loads(singbox_config.read_text(encoding="utf-8"))
+            inbounds = payload.get("inbounds") if isinstance(payload, dict) else None
+            if isinstance(inbounds, list):
+                for inbound in inbounds:
+                    if not isinstance(inbound, dict):
+                        continue
+                    kind = str(inbound.get("type") or "").strip().lower()
+                    tag = str(inbound.get("tag") or "").strip().lower()
+                    protocol = ""
+                    if kind == "anytls" or tag == "sg-anytls-in":
+                        protocol = "anytls"
+                    elif kind == "tuic" or tag == "sg-tuic-in":
+                        protocol = "tuic"
+                    if not protocol:
+                        continue
+                    try:
+                        protocols[protocol]["port"] = int(inbound.get("listen_port"))
+                    except (TypeError, ValueError):
+                        continue
+                    protocols[protocol]["engine"] = "sing-box"
+                    protocols[protocol]["transport"] = "UDP" if protocol == "tuic" else "TCP"
+        except (OSError, ValueError, json.JSONDecodeError):
+            pass
+
+    for protocol, item in protocols.items():
+        port = item.get("port")
+        if not isinstance(port, int) or not (1 <= port <= 65535):
+            continue
+        engine = str(item.get("engine") or "")
+        network = str(item.get("transport") or "TCP").lower()
+        process = "sing-box" if engine == "sing-box" else "mihomo"
+        service_ok = singbox_active if engine == "sing-box" else mihomo_active
+        item["active"] = bool(
+            service_ok and _listener_is_bound(rows, network, port, process)
+        )
+
+    active_engines = {
+        str(item.get("engine"))
+        for item in protocols.values()
+        if item.get("active")
+    }
+    if active_engines == {"mihomo", "sing-box"}:
+        source = "mihomo+singbox"
+    elif active_engines == {"sing-box"}:
+        source = "singbox"
+    elif active_engines == {"mihomo"}:
+        source = "mihomo"
+    else:
+        source = "none"
+
+    active_count = sum(1 for item in protocols.values() if item.get("active"))
+    return HostCommandResult(
+        command="mihomo.status",
+        status="ok",
+        message=f"Mihomo/sing-box runtime: {active_count}/3 listeners active",
+        payload={
+            "runtime_source": source,
+            "listener_active": active_count,
+            "listener_total": 3,
+            "protocols": protocols,
+        },
+    )
+
+
+def _mihomo_status() -> HostCommandResult:
+    return _mihomo_safe_runtime_status()
 
 
 def _sg_gateway_privileged_result(command: str) -> HostCommandResult:
@@ -473,6 +632,7 @@ _COMMANDS: dict[str, Callable[[], HostCommandResult]] = {
     "mihomo.test": _mihomo_test,
     "mihomo.restart": _mihomo_restart,
     "mihomo.rollback": _mihomo_rollback,
+    "mihomo.status": _mihomo_status,
     "awg.status": _awg_status,
     "xray.status": _xray_status,
     "nftables.status": _nftables_status,

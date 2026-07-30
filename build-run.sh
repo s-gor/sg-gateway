@@ -78,7 +78,7 @@ extract_payload(){
 }
 verify_source(){
   local root="\$TEMP_DIR/\$SOURCE_FOLDER"
-  [[ "\$(cat "\$root/VERSION")" == "0.1.0-021" ]] || fail "version mismatch"
+  [[ "\$(cat "\$root/VERSION")" == "0.1.0-021.1" ]] || fail "version mismatch"
   [[ "\$(sha256sum "\$root/install.sh" | awk '{print \$1}')" == "\$EXPECTED_INSTALL_SHA256" ]] || fail "install.sh mismatch"
   [[ "\$(sha256sum "\$root/app/routing/warp.py" | awk '{print \$1}')" == "\$EXPECTED_WARP_SHA256" ]] || fail "WARP core mismatch"
   [[ "\$(sha256sum "\$root/app/routing/warp_helper.py" | awk '{print \$1}')" == "\$EXPECTED_WARP_HELPER_SHA256" ]] || fail "WARP helper mismatch"

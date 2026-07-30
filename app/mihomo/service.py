@@ -1124,21 +1124,78 @@ def _parse_legacy_singbox_live_settings(
     return live, active
 
 
-def _fallback_live_snapshot() -> tuple[dict[str, Any], set[str], str]:
+def _hostd_live_snapshot(
+    settings: dict[str, Any],
+) -> tuple[dict[str, Any], set[str], str] | None:
+    """Read safe runtime truth from privileged HostD.
+
+    The web panel intentionally runs as the unprivileged sg-gateway user and
+    cannot read root-only Mihomo/sing-box configs containing client secrets.
+    HostD returns only listener state, ports and non-secret transport metadata.
+    """
+
+    result = run_hostd_command("mihomo.status", timeout=5)
+    if result.status != "ok":
+        return None
+    payload = result.payload if isinstance(result.payload, dict) else {}
+    protocols = payload.get("protocols")
+    if not isinstance(protocols, dict):
+        return None
+
+    live = dict(settings)
+    active: set[str] = set()
+    for protocol in PROTOCOLS:
+        live[f"{protocol}_enabled"] = False
+        item = protocols.get(protocol)
+        if not isinstance(item, dict):
+            continue
+        port = item.get("port")
+        if port is not None:
+            live[f"{protocol}_port"] = _int(
+                port,
+                live[f"{protocol}_port"],
+            )
+        if protocol == "mieru":
+            transport = str(item.get("transport") or "").strip().upper()
+            if transport in {"TCP", "UDP"}:
+                live["mieru_transport"] = transport
+        if _bool(item.get("active")):
+            live[f"{protocol}_enabled"] = True
+            active.add(protocol)
+
+    return live, active, str(payload.get("runtime_source") or "hostd")
+
+
+def _fallback_live_snapshot(
+    base_settings: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], set[str], str]:
+    # Runtime truth comes from the two live engines.  applied.json may contain
+    # the last form snapshot from the old unified-Mihomo design, so it cannot
+    # be used to decide whether AnyTLS/TUIC are actually running in sing-box.
     settings = _settings_payload()
+    if isinstance(base_settings, dict):
+        settings.update(base_settings)
+
+    # Normal panel path: ask privileged HostD.  This avoids weakening the
+    # root-only permissions of /etc/mihomo/config.yaml and sing-box config.
+    hostd_snapshot = _hostd_live_snapshot(settings)
+    if hostd_snapshot is not None:
+        return hostd_snapshot
+
+    # Fallback for privileged/offline diagnostics if HostD is unavailable.
     for protocol in PROTOCOLS:
         settings[f"{protocol}_enabled"] = False
 
     settings, mihomo_active = _parse_mihomo_live_settings(settings)
-    settings, legacy_active = _parse_legacy_singbox_live_settings(settings)
-    active = mihomo_active | legacy_active
+    settings, singbox_active = _parse_legacy_singbox_live_settings(settings)
+    active = mihomo_active | singbox_active
     for protocol in active:
         settings[f"{protocol}_enabled"] = True
 
-    if legacy_active and mihomo_active:
-        source = "mihomo+legacy-singbox"
-    elif legacy_active:
-        source = "legacy-singbox"
+    if singbox_active and mihomo_active:
+        source = "mihomo+singbox"
+    elif singbox_active:
+        source = "singbox"
     elif mihomo_active:
         source = "mihomo"
     else:
@@ -1149,20 +1206,13 @@ def _fallback_live_snapshot() -> tuple[dict[str, Any], set[str], str]:
 def applied_state() -> dict[str, Any]:
     meta = _read_applied_meta()
     raw_settings = meta.get("settings") if isinstance(meta, dict) else None
-    if isinstance(raw_settings, dict):
-        settings = dict(raw_settings)
-        active_protocols = (
-            {
-                protocol
-                for protocol in PROTOCOLS
-                if _bool(settings.get(f"{protocol}_enabled"))
-            }
-            if _service_active() and MIHOMO_CONFIG.is_file()
-            else set()
-        )
-        source = "mihomo"
-    else:
-        settings, active_protocols, source = _fallback_live_snapshot()
+
+    # Preserve non-runtime fields from the last applied form snapshot for
+    # pending-change detection, but always detect active listeners from the
+    # real Mihomo + sing-box configurations/services.
+    settings, active_protocols, source = _fallback_live_snapshot(
+        raw_settings if isinstance(raw_settings, dict) else None
+    )
 
     protocols = [protocol for protocol in PROTOCOLS if protocol in active_protocols]
     return {
@@ -1270,25 +1320,29 @@ def _protocol_runtime_view(
     active = protocol in active_protocols
     changed = any(draft.get(field) != live.get(field) for field in fields)
 
-    if applied_enabled and not active:
+    if active:
+        # Runtime status and draft/apply status are separate concerns.
+        # A live listener must never be labelled "Не применено" merely
+        # because the form contains pending changes.
+        state = "active"
+        state_label = "Работает"
+        if changed and not desired_enabled:
+            state_note = "сейчас работает; после применения будет выключен"
+        elif changed:
+            state_note = "работает; есть неприменённые изменения"
+        else:
+            state_note = f"{transport} · порт {live.get(f'{protocol}_port', '')}"
+    elif applied_enabled:
         state = "error"
         state_label = "Ошибка"
         state_note = "listener применён, но порт не слушается"
     elif changed:
         state = "pending"
         state_label = "Не применено"
-        if active and not desired_enabled:
-            state_note = "сейчас работает; после применения будет выключен"
-        elif active:
-            state_note = "сейчас работает со старыми параметрами"
-        elif desired_enabled:
+        if desired_enabled:
             state_note = "после применения будет включён"
         else:
             state_note = "изменения ожидают применения"
-    elif active:
-        state = "active"
-        state_label = "Работает"
-        state_note = f"{transport} · порт {live.get(f'{protocol}_port', '')}"
     else:
         state = "off"
         state_label = "Выключен"

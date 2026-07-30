@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-021.1
+
+- Connections: runtime status now reflects the real split engines: Mieru from Mihomo, AnyTLS and TUIC v5 from sing-box.
+- The panel reads safe listener truth through privileged HostD without weakening root-only runtime configuration permissions.
+- Runtime state (Работает/Ошибка/Выключен) is separated from pending form changes, so a working listener is no longer mislabeled «Не применено».
+
 ## 0.1.0-021
 
 Первый стабильный публичный выпуск SG-Gateway.
