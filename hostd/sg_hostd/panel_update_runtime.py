@@ -69,7 +69,7 @@ def _baseline_mode() -> tuple[str, dict[str, Any]]:
     current = source_fingerprint(LIVE_ROOT)
     if not _SHA_RE.fullmatch(commit) or not recorded or not current or recorded != current:
         raise PanelUpdateRuntimeError(
-            "Panel Update заблокирован: локальный исходник изменён после последнего подтверждённого обновления. Сначала нужно опубликовать или восстановить текущую принятую базу."
+            "Panel Update заблокирован: локальный исходник не совпадает с последней подтверждённой базой. Сначала нужно опубликовать или восстановить текущую принятую базу."
         )
     return "bound", state
 
