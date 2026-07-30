@@ -159,25 +159,7 @@ GeoFiles работают парой `geoip.dat` + `geosite.dat`. Доступн
 
 ![Routing и GeoFiles](docs/screenshots/routing.png)
 
-### Простое обновление GeoFiles
-
-Для обычного обновления не нужно вручную скачивать и заменять файлы на сервере. Выберите источник, нажмите **«Проверить источник»**, а после успешной проверки — **«Обновить GeoFiles»**.
-
-**1. Выберите источник и проверьте его**
-
-![GeoFiles — выбор источника и успешная проверка](docs/screenshots/geofiles-01-source-check.png)
-
-**2. Подтвердите обновление**
-
-![GeoFiles — подтверждение обновления](docs/screenshots/geofiles-02-confirm-update.png)
-
-**3. Готово — новая пара GeoFiles установлена**
-
-![GeoFiles — результат после обновления](docs/screenshots/geofiles-03-result.png)
-
-SG-Gateway сам проверяет новую пару, совместимость Routing и полный будущий Xray config, создаёт резервную копию и выполняет безопасное переключение. Пользовательские правила не удаляются автоматически: если новой паре не хватает нужной категории, применение блокируется с понятным сообщением.
-
-Подробно: [Routing и простое обновление GeoFiles](docs/ROUTING.md#простое-обновление-geofiles).
+Пошагово: [простое обновление GeoFiles](docs/ROUTING.md#простое-обновление-geofiles).
 
 ## HTTPS и безопасность
 
@@ -245,40 +227,12 @@ SG-Gateway не является уменьшенной копией всей SG
 
 Это не список забытых функций. Это границы проекта.
 
-## Какие порты открыть
-
-Перед установкой проверьте **AWS Security Group / firewall VPS**. Порты ниже идут по возрастанию. Открывать все VPN-порты сразу не обязательно: достаточно панели и тех подключений, которыми вы действительно будете пользоваться.
-
-| Порт | Протокол | Назначение | Нужно открывать |
-|---:|:---:|---|---|
-| `22` | TCP | SSH | Для администрирования. Лучше разрешить только со своего IP |
-| `80` | TCP | HTTP / Let’s Encrypt | Нужен для выпуска и обновления HTTPS-сертификата |
-| `443` | TCP | VLESS Reality TCP | Если используется этот профиль |
-| `585` | UDP | AmneziaWG | Если используется AmneziaWG; порт фиксированный |
-| `2099` | TCP | Mieru | Если используется Mieru; TCP — значение по умолчанию |
-| `8444` | TCP | VLESS XHTTP Reality | Если используется этот профиль |
-| `8445` | TCP | VLESS XHTTP TLS | Если используется этот профиль |
-| `8446` | UDP | Hysteria 2 | Если используется Hysteria 2 |
-| `9443` | TCP | AnyTLS | Если используется AnyTLS |
-| `10443` | UDP | TUIC v5 | Если используется TUIC v5 |
-| `63443` | TCP | Веб-панель SG-Gateway | Нужен для доступа к панели; лучше ограничить своим IP, если это возможно |
-
-> Если Mieru в панели переключён с TCP на UDP, откройте `2099/UDP` вместо `2099/TCP`. Если вы меняете настраиваемый порт профиля в интерфейсе, правило AWS/firewall тоже должно соответствовать новому порту.
-
-Служебные локальные порты **не открываются наружу**:
-
-- `8090/TCP` — HostD, только `127.0.0.1`;
-- `18080/TCP` — backend панели, только `127.0.0.1`.
-
-Для AWS обычно достаточно создать inbound rules в **Security Group**. Если UFW на Ubuntu уже активен, установщик SG-Gateway добавляет правила для стандартных портов автоматически, но AWS Security Group он изменить не может.
-
-
 ## Установка
 
 Используйте чистую Ubuntu EC2/VPS:
 
 ```bash
-sudo bash -c 'set -Eeuo pipefail; LOG=/var/log/sg-gateway-bootstrap.log; : >"$LOG"; chmod 600 "$LOG"; export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a; missing=(); for pkg in ca-certificates curl tar gzip; do dpkg-query -W -f="${db:Status-Abbrev}" "$pkg" 2>/dev/null | grep -q "^ii" || missing+=("$pkg"); done; if ((${#missing[@]})); then printf "[SG-Gateway] Installing missing Ubuntu tools...\n"; apt-get update -qq >>"$LOG" 2>&1 && apt-get install -y -qq --no-install-recommends "${missing[@]}" >>"$LOG" 2>&1 || { printf "[SG-Gateway] Bootstrap failed. Last log lines:\n" >&2; tail -n 80 "$LOG" >&2; exit 1; }; fi; printf "[SG-Gateway] [OK] Ubuntu tools ready\n"; curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | bash'
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | sudo bash
 ```
 
 После установки панель доступна по адресу, показанному установщиком. Начальная настройка может выполняться по HTTP и IP; домен и HTTPS добавляются позднее из раздела `Security`.
@@ -298,7 +252,7 @@ sudo bash -c 'set -Eeuo pipefail; LOG=/var/log/sg-gateway-bootstrap.log; : >"$LO
 Для обновления используется та же команда:
 
 ```bash
-sudo bash -c 'set -Eeuo pipefail; LOG=/var/log/sg-gateway-bootstrap.log; : >"$LOG"; chmod 600 "$LOG"; export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a; missing=(); for pkg in ca-certificates curl tar gzip; do dpkg-query -W -f="${db:Status-Abbrev}" "$pkg" 2>/dev/null | grep -q "^ii" || missing+=("$pkg"); done; if ((${#missing[@]})); then printf "[SG-Gateway] Installing missing Ubuntu tools...\n"; apt-get update -qq >>"$LOG" 2>&1 && apt-get install -y -qq --no-install-recommends "${missing[@]}" >>"$LOG" 2>&1 || { printf "[SG-Gateway] Bootstrap failed. Last log lines:\n" >&2; tail -n 80 "$LOG" >&2; exit 1; }; fi; printf "[SG-Gateway] [OK] Ubuntu tools ready\n"; curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | bash'
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | sudo bash
 ```
 
 Updater сохраняет управляемые данные и резервную копию текущего состояния перед обновлением.

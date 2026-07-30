@@ -20,8 +20,22 @@ trap cleanup EXIT INT TERM
 
 [[ "$(id -u)" -eq 0 ]] || fail "run this installer through sudo"
 
+missing_packages=()
+command -v curl >/dev/null 2>&1 || missing_packages+=(curl)
+command -v tar >/dev/null 2>&1 || missing_packages+=(tar)
+command -v gzip >/dev/null 2>&1 || missing_packages+=(gzip)
+[[ -s /etc/ssl/certs/ca-certificates.crt ]] || missing_packages+=(ca-certificates)
+
+if (( ${#missing_packages[@]} > 0 )); then
+  command -v apt-get >/dev/null 2>&1 || fail "apt-get is required to install bootstrap dependencies"
+  printf '[SG-Gateway] Preparing required Ubuntu tools...\n'
+  apt-get -o Dpkg::Use-Pty=0 update -qq
+  env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+    apt-get -o Dpkg::Use-Pty=0 install -y -qq --no-install-recommends "${missing_packages[@]}"
+fi
+
 for command in curl tar gzip; do
-  command -v "$command" >/dev/null 2>&1 || fail "missing command: $command"
+  command -v "$command" >/dev/null 2>&1 || fail "missing command after bootstrap: $command"
 done
 
 TEMP_DIR="$(mktemp -d /tmp/sg-gateway-github-install.XXXXXX)"
@@ -30,7 +44,7 @@ SOURCE_DIR="$TEMP_DIR/source"
 mkdir -p "$SOURCE_DIR"
 
 printf '[SG-Gateway] Downloading GitHub branch %s...\n' "$BRANCH"
-curl -fsSL --retry 6 --retry-all-errors --retry-delay 3 --connect-timeout 20 \
+curl -fL --retry 6 --retry-all-errors --retry-delay 3 --connect-timeout 20 \
   "$ARCHIVE_URL" -o "$ARCHIVE"
 
 gzip -t "$ARCHIVE"

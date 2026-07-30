@@ -392,27 +392,19 @@ HTTPS-транзакция выполняется привилегированн
 
 ## 18. Порты
 
-Основные значения по умолчанию, по возрастанию порта:
+Основные значения по умолчанию:
 
-| Порт | Протокол | Назначение | Публичный |
-|---:|:---:|---|:---:|
-| `22` | TCP | SSH | Да, желательно только с IP администратора |
-| `80` | TCP | HTTP / Let’s Encrypt | Да |
-| `443` | TCP | VLESS Reality TCP | Да |
-| `585` | UDP | AmneziaWG | Да, фиксированный |
-| `2099` | TCP | Mieru по умолчанию | Да, если включён |
-| `8090` | TCP | HostD | **Нет**, localhost |
-| `8444` | TCP | VLESS XHTTP Reality | Да |
-| `8445` | TCP | VLESS XHTTP TLS | Да |
-| `8446` | UDP | Hysteria 2 | Да |
-| `9443` | TCP | AnyTLS | Да, если включён |
-| `10443` | UDP | TUIC v5 | Да, если включён |
-| `18080` | TCP | Backend панели | **Нет**, localhost |
-| `63443` | TCP | Публичная панель | Да, желательно только с IP администратора |
+| Назначение | Порт |
+|---|---|
+| Публичная панель | TCP `63443` |
+| Backend панели | TCP `18080`, localhost |
+| VLESS Reality TCP | TCP `443` |
+| VLESS XHTTP Reality | TCP `8444` |
+| VLESS XHTTP TLS | TCP `8445` |
+| Hysteria 2 | UDP `8446` |
+| AmneziaWG | UDP `585` |
 
-AmneziaWG сохраняет фиксированный внешний порт UDP `585`.
-
-`8090/TCP` и `18080/TCP` не должны публиковаться в AWS Security Group или внешнем firewall. Mieru может быть переключён на UDP; в таком случае внешнее правило должно использовать `2099/UDP`. Порты Xray и дополнительных движков проверяются на конфликты перед применением. Значения профилей, кроме архитектурно фиксированных, могут изменяться через интерфейс.
+Порты Xray и Mihomo проверяются на конфликты перед применением. Значения профилей, кроме архитектурно фиксированных, могут изменяться через интерфейс.
 
 ## 19. Клиенты и устройства
 
@@ -503,7 +495,7 @@ SG-Gateway рассчитан на один сервер и не предост�
 Установка и обновление:
 
 ```bash
-sudo bash -c 'set -Eeuo pipefail; LOG=/var/log/sg-gateway-bootstrap.log; : >"$LOG"; chmod 600 "$LOG"; export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a; missing=(); for pkg in ca-certificates curl tar gzip; do dpkg-query -W -f="${db:Status-Abbrev}" "$pkg" 2>/dev/null | grep -q "^ii" || missing+=("$pkg"); done; if ((${#missing[@]})); then printf "[SG-Gateway] Installing missing Ubuntu tools...\n"; apt-get update -qq >>"$LOG" 2>&1 && apt-get install -y -qq --no-install-recommends "${missing[@]}" >>"$LOG" 2>&1 || { printf "[SG-Gateway] Bootstrap failed. Last log lines:\n" >&2; tail -n 80 "$LOG" >&2; exit 1; }; fi; printf "[SG-Gateway] [OK] Ubuntu tools ready\n"; curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | bash'
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | sudo bash
 ```
 
 Полное удаление:
