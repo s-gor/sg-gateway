@@ -1,8 +1,12 @@
-# 0.1.0-021.2 — Nginx HTTPS compatibility
+# 0.1.0-021.2 — HTTPS, Salamander diagnostics and split runtime Apply
 
 - HTTPS setup no longer assumes `proxy_cookie_flags` support.
 - Nginx 1.19.3+ keeps `proxy_cookie_flags`; Ubuntu Nginx 1.18 uses a compatible `proxy_cookie_path` fallback with Secure, HttpOnly and SameSite=Lax.
 - Existing successful Let’s Encrypt certificate is reused on retry; rollback behavior is unchanged.
+- Hysteria2 Salamander diagnostics no longer try to read the root-only Xray config from the web process; safe runtime truth is obtained through privileged HostD without exposing the password.
+- Connections → Mieru / AnyTLS / TUIC v5 now applies the real split runtime: Mieru to Mihomo, AnyTLS and TUIC v5 to sing-box.
+- The full requested form is validated before Apply, so enabling AnyTLS/TUIC without credentials or HTTPS gives a real error instead of staying silently in «Не применено».
+- AnyTLS/TUIC sing-box runtime now uses the applied server ports/TUIC ALPN and updates client export endpoint fields only after successful runtime validation/restart.
 
 # Changelog
 

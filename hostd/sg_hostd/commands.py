@@ -17,7 +17,12 @@ from sg_hostd.operation_jobs import (
     start_core_update_job,
 )
 
-from sg_hostd.client_runtime import apply_all_clients, apply_xray_runtime, test_xray_candidate
+from sg_hostd.client_runtime import (
+    apply_all_clients,
+    apply_split_mihomo_singbox_runtime,
+    apply_xray_runtime,
+    test_xray_candidate,
+)
 
 from sg_hostd.privileged_runtime import execute_privileged_action
 
@@ -65,6 +70,24 @@ def _mihomo_hostd_result(
 
 def _mihomo_apply() -> HostCommandResult:
     return _mihomo_hostd_result("mihomo.apply", "apply")
+
+
+def _mihomo_split_apply() -> HostCommandResult:
+    try:
+        payload = apply_split_mihomo_singbox_runtime()
+    except Exception as exc:
+        return HostCommandResult(
+            command="mihomo.split.apply",
+            status="error",
+            message=str(exc),
+            payload={},
+        )
+    return HostCommandResult(
+        command="mihomo.split.apply",
+        status="ok" if payload.get("ok") else "error",
+        message=str(payload.get("message") or "Mieru / AnyTLS / TUIC применены"),
+        payload={key: value for key, value in payload.items() if key not in {"ok", "message"}},
+    )
 
 
 def _mihomo_test() -> HostCommandResult:
@@ -578,6 +601,66 @@ def _xray_status() -> HostCommandResult:
     )
 
 
+def _xray_salamander_status() -> HostCommandResult:
+    """Inspect root-only Xray config and return no secret material."""
+    from app.connections.settings import get_connection_settings
+
+    path = Path("/usr/local/etc/xray/config.json")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return HostCommandResult(
+            command="xray.salamander.status", status="error",
+            message="Xray config not found", payload={"readable": False},
+        )
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return HostCommandResult(
+            command="xray.salamander.status", status="error",
+            message=f"Xray config is unreadable: {exc}", payload={"readable": False},
+        )
+
+    inbound = None
+    for item in payload.get("inbounds", []) if isinstance(payload, dict) else []:
+        if isinstance(item, dict) and str(item.get("tag") or "") == "sg-hysteria2":
+            inbound = item
+            break
+
+    live_active = False
+    live_password = ""
+    if isinstance(inbound, dict):
+        stream = inbound.get("streamSettings")
+        finalmask = stream.get("finalmask") if isinstance(stream, dict) else None
+        udp = finalmask.get("udp") if isinstance(finalmask, dict) else None
+        if isinstance(udp, list):
+            for item in udp:
+                if not isinstance(item, dict) or str(item.get("type") or "").strip().lower() != "salamander":
+                    continue
+                live_active = True
+                settings = item.get("settings")
+                if isinstance(settings, dict):
+                    live_password = str(settings.get("password") or "")
+                break
+
+    db = get_connection_settings("xray")
+    db_config = dict(db.config)
+    db_mode = str(db_config.get("hysteria2_obfs_mode") or "none").strip().lower()
+    db_password = str(db_config.get("hysteria2_obfs_password") or "")
+    database_enabled = db_mode == "salamander"
+    password_matches = bool(database_enabled and live_active and db_password and live_password and db_password == live_password)
+
+    return HostCommandResult(
+        command="xray.salamander.status", status="ok",
+        message="Hysteria2 Salamander runtime inspected",
+        payload={
+            "readable": True,
+            "inbound_present": inbound is not None,
+            "finalmask_udp_active": live_active,
+            "live_password_configured": bool(live_password),
+            "password_matches_database": password_matches,
+        },
+    )
+
+
 def _nftables_status() -> HostCommandResult:
     return HostCommandResult(
         command="nftables.status",
@@ -629,12 +712,14 @@ _COMMANDS: dict[str, Callable[[], HostCommandResult]] = {
     "tls.renew": _tls_renew,
     "tls.rollback": _tls_rollback,
     "mihomo.apply": _mihomo_apply,
+    "mihomo.split.apply": _mihomo_split_apply,
     "mihomo.test": _mihomo_test,
     "mihomo.restart": _mihomo_restart,
     "mihomo.rollback": _mihomo_rollback,
     "mihomo.status": _mihomo_status,
     "awg.status": _awg_status,
     "xray.status": _xray_status,
+    "xray.salamander.status": _xray_salamander_status,
     "nftables.status": _nftables_status,
     "system.diagnostics": _system_diagnostics,
 }

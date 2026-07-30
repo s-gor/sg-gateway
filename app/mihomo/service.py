@@ -865,12 +865,16 @@ def _render_server_yaml(
 
 def build_candidate() -> dict[str, Any]:
     _ensure_dirs()
-    settings = _settings_payload()
+    requested_settings = _settings_payload()
+    deployments = list_protocol_deployments()
+    # Validate the complete Connections form first. AnyTLS/TUIC are served by
+    # sing-box, but missing credentials/TLS/port conflicts must still block the
+    # Apply button instead of silently leaving the form in "Не применено".
+    _validate_settings(requested_settings, deployments)
+    settings = dict(requested_settings)
     # SG-Gateway working split runtime: Mihomo serves Mieru only.
     settings["anytls_enabled"] = False
     settings["tuic_enabled"] = False
-    deployments = list_protocol_deployments()
-    _validate_settings(settings, deployments)
     body = _render_server_yaml(settings, deployments)
     try:
         MIHOMO_CANDIDATE.write_text(body, encoding="utf-8", newline="\n")
@@ -929,7 +933,12 @@ def _run_helper(action: str) -> dict[str, Any]:
 
 def apply_candidate() -> dict[str, Any]:
     build_candidate()
-    payload = _run_helper("apply")
+    result = run_hostd_command("mihomo.split.apply", timeout=240)
+    if result.status != "ok":
+        raise MihomoError(result.message or "Не удалось применить Mieru / AnyTLS / TUIC")
+    payload = dict(result.payload)
+    payload.setdefault("ok", True)
+    payload.setdefault("message", result.message)
     log_operation(
         "mihomo.apply",
         "mihomo:runtime",

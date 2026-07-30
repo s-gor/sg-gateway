@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from app.connections.settings import get_connection_settings
+from app.hostd.client import run_hostd_command
 from app.xray.salamander import (
     SALAMANDER_MODE,
     SALAMANDER_MODE_NONE,
@@ -87,6 +88,17 @@ def inspect(path: Path = XRAY_CONFIG_PATH) -> dict[str, Any]:
         and live_secret_ready
         and secret == live_password
     )
+
+    # The web process intentionally cannot read root-only Xray config. Ask
+    # privileged HostD for a safe, secret-free runtime verdict instead.
+    if live_error:
+        hostd = run_hostd_command("xray.salamander.status", timeout=5)
+        if hostd.status == "ok" and hostd.payload.get("readable"):
+            live_error = ""
+            inbound = {} if hostd.payload.get("inbound_present") else None
+            live_active = bool(hostd.payload.get("finalmask_udp_active"))
+            live_secret_ready = bool(hostd.payload.get("live_password_configured"))
+            password_matches = bool(hostd.payload.get("password_matches_database"))
     consistent = (
         (not database_enabled and not live_active)
         or password_matches

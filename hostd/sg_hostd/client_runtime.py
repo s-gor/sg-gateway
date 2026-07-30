@@ -1345,7 +1345,7 @@ def _singbox_runtime_valid() -> bool:
     )
 
 
-def _render_singbox_config(anytls_rows, tuic_rows) -> str:
+def _render_singbox_config(anytls_rows, tuic_rows, settings: dict[str, Any]) -> str:
     tls = tls_overview()
     domain = str(tls.get("domain") or "").strip()
     if not tls.get("https_ready") or not domain:
@@ -1360,7 +1360,7 @@ def _render_singbox_config(anytls_rows, tuic_rows) -> str:
     inbounds: list[dict[str, Any]] = []
     if anytls_rows:
         users = []
-        port = 9443
+        port = int(settings.get("anytls_port") or 9443)
         for row in anytls_rows:
             config = _json(row["config_json"])
             password = str(config.get("password") or "").strip()
@@ -1368,7 +1368,6 @@ def _render_singbox_config(anytls_rows, tuic_rows) -> str:
                 raise ClientRuntimeError(
                     f"AnyTLS: отсутствует пароль клиента {row['client_name']}"
                 )
-            port = int(config.get("port") or port)
             users.append({
                 "name": f"client-{row['client_id']}",
                 "password": password,
@@ -1389,7 +1388,7 @@ def _render_singbox_config(anytls_rows, tuic_rows) -> str:
 
     if tuic_rows:
         users = []
-        port = 10443
+        port = int(settings.get("tuic_port") or 10443)
         for row in tuic_rows:
             config = _json(row["config_json"])
             user_id = str(config.get("uuid") or row["engine_object_id"] or "").strip()
@@ -1398,7 +1397,6 @@ def _render_singbox_config(anytls_rows, tuic_rows) -> str:
                 raise ClientRuntimeError(
                     f"TUIC v5: отсутствуют credentials клиента {row['client_name']}"
                 )
-            port = int(config.get("port") or port)
             users.append({
                 "name": f"client-{row['client_id']}",
                 "uuid": user_id,
@@ -1410,12 +1408,12 @@ def _render_singbox_config(anytls_rows, tuic_rows) -> str:
             "listen": "::",
             "listen_port": port,
             "users": users,
-            "congestion_control": "bbr",
+            "congestion_control": str(settings.get("tuic_congestion_controller") or "bbr"),
             "zero_rtt_handshake": False,
             "tls": {
                 "enabled": True,
                 "server_name": domain,
-                "alpn": ["h3"],
+                "alpn": [str(settings.get("tuic_alpn") or "h3")],
                 "certificate_path": cert,
                 "key_path": key,
             },
@@ -1432,9 +1430,40 @@ def _render_singbox_config(anytls_rows, tuic_rows) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
 
 
+def _sync_singbox_client_configs(settings: dict[str, Any], anytls_rows, tuic_rows) -> None:
+    """Commit server endpoint settings to client exports only after runtime succeeds."""
+    tls = tls_overview()
+    domain = str(tls.get("domain") or "").strip()
+    with connect() as connection:
+        for engine, rows in (("anytls", anytls_rows), ("tuic", tuic_rows)):
+            for row in rows:
+                config = _json(row["config_json"])
+                config["host"] = domain
+                config["server_name"] = domain
+                if engine == "anytls":
+                    config["port"] = int(settings.get("anytls_port") or 9443)
+                else:
+                    config["port"] = int(settings.get("tuic_port") or 10443)
+                    config["congestion_control"] = str(settings.get("tuic_congestion_controller") or "bbr")
+                    config["udp_relay_mode"] = str(settings.get("tuic_udp_relay_mode") or "native")
+                    config["alpn"] = str(settings.get("tuic_alpn") or "h3")
+                connection.execute(
+                    """
+                    UPDATE device_credentials
+                    SET config_json = ?
+                    WHERE device_id = ? AND engine = ?
+                    """,
+                    (json.dumps(config, ensure_ascii=False, sort_keys=True), int(row["client_id"]), engine),
+                )
+
+
 def _apply_singbox() -> list[EngineResult]:
-    anytls_rows = _deployment_rows("anytls")
-    tuic_rows = _deployment_rows("tuic")
+    server = get_connection_settings("mihomo")
+    settings = dict(server.config)
+    anytls_enabled = bool(settings.get("anytls_enabled"))
+    tuic_enabled = bool(settings.get("tuic_enabled"))
+    anytls_rows = _deployment_rows("anytls") if anytls_enabled else []
+    tuic_rows = _deployment_rows("tuic") if tuic_enabled else []
     rows_by_engine = {"anytls": anytls_rows, "tuic": tuic_rows}
     ids_by_engine = {
         engine: [int(row["client_id"]) for row in rows]
@@ -1470,7 +1499,7 @@ def _apply_singbox() -> list[EngineResult]:
     try:
         for engine, ids in ids_by_engine.items():
             _set_engine_status(engine, ids, "checking")
-        body = _render_singbox_config(anytls_rows, tuic_rows)
+        body = _render_singbox_config(anytls_rows, tuic_rows, settings)
         _atomic_write(candidate, body, 0o600)
         binary = _singbox_binary()
         _run([binary, "check", "-c", str(candidate)], timeout=60)
@@ -1485,6 +1514,7 @@ def _apply_singbox() -> list[EngineResult]:
         _run(["systemctl", "enable", SINGBOX_SERVICE])
         _run(["systemctl", "restart", SINGBOX_SERVICE], timeout=90)
         _run(["systemctl", "is-active", "--quiet", SINGBOX_SERVICE])
+        _sync_singbox_client_configs(settings, anytls_rows, tuic_rows)
         for engine, ids in ids_by_engine.items():
             _set_engine_status(engine, ids, "applied")
         return [
@@ -1634,6 +1664,29 @@ def apply_xray_runtime(*, force_profiles: bool = False) -> dict[str, Any]:
                 current.id, status="rolled_back_unhandled_runtime_error"
             )
         raise
+
+
+def apply_split_mihomo_singbox_runtime() -> dict[str, Any]:
+    """Apply the Connections card: Mieru in Mihomo plus AnyTLS/TUIC in sing-box."""
+    from app.mihomo.helper import apply_candidate as apply_mihomo_candidate
+
+    mihomo = apply_mihomo_candidate()
+    if not mihomo.get("ok"):
+        raise ClientRuntimeError(str(mihomo.get("message") or "Mihomo apply failed"))
+    singbox = _apply_singbox()
+    failed = [item for item in singbox if not item.ok]
+    messages = [str(mihomo.get("message") or "Mieru применён")] + [item.message for item in singbox]
+    if failed:
+        return {
+            "ok": False,
+            "message": "; ".join(messages),
+            "engines": {item.engine: item.ok for item in singbox},
+        }
+    return {
+        "ok": True,
+        "message": "; ".join(messages),
+        "engines": {"mihomo": True, **{item.engine: item.ok for item in singbox}},
+    }
 
 
 def apply_all_clients() -> dict[str, Any]:
