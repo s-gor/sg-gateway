@@ -89,7 +89,8 @@ def test_panel_runtime_blocks_dependency_changes_and_has_rollback():
     assert "archive/{commit}.tar.gz" in runtime
     assert ".venv" in runtime
     assert "_baseline_mode" in runtime
-    assert "локальный исходник не совпадает" in runtime
+    assert "Автоматическое обновление сейчас недоступно." in runtime
+    assert "локальный исходник не совпадает" not in runtime
 
 
 def test_core_runtime_requires_official_digest_and_atomic_replace():
@@ -130,6 +131,8 @@ def test_panel_update_bootstrap_allows_strictly_newer_version_without_state(monk
     assert result["bootstrap_allowed"] is True
     assert result["can_install"] is True
     assert result["state"] == "available"
+    assert result["message"] == "Доступна VERSION 0.1.0-021.4. Можно выполнить безопасное обновление SG-Gateway."
+    assert "baseline" not in result["message"].lower()
 
 
 def test_panel_update_bootstrap_does_not_allow_same_version(monkeypatch, tmp_path):
@@ -151,4 +154,5 @@ def test_panel_runtime_has_bootstrap_path_and_atom_fallback():
     assert "def _baseline_mode" in runtime
     assert 'return "bootstrap", {}' in runtime
     assert "строго более новую VERSION" in runtime
+    assert "updater-baseline" not in runtime
     assert "commits/main.atom" in runtime
