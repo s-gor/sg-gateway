@@ -46,7 +46,7 @@ def test_minimum_version_contract():
     assert not version_supported("26.3.26")
 
 
-def test_finalmask_merge_preserves_unmanaged_layers():
+def test_finalmask_merge_makes_salamander_exclusive_for_udp_and_restores_base_when_off():
     base = {
         "quicParams": {"maxIdleTimeout": 30},
         "tcp": [{"type": "padding", "settings": {"size": 9}}],
@@ -55,11 +55,13 @@ def test_finalmask_merge_preserves_unmanaged_layers():
     merged = merge_finalmask(base, "salamander", "A" * 32)
     assert merged["quicParams"] == base["quicParams"]
     assert merged["tcp"] == base["tcp"]
-    assert merged["udp"][0] == base["udp"][0]
-    assert merged["udp"][1] == {
-        "type": "salamander",
-        "settings": {"password": "A" * 32},
-    }
+    assert merged["udp"] == [
+        {
+            "type": "salamander",
+            "settings": {"password": "A" * 32},
+        }
+    ]
+    # Stored base state is not mutated and is restored exactly when Salamander is off.
     assert base["udp"] == [{"type": "padding", "settings": {"size": 7}}]
     assert merge_finalmask(base, "none", "") == base
 
@@ -157,7 +159,10 @@ def test_runtime_candidate_merges_salamander_and_quic_params(monkeypatch):
     config = {
         "server_name": "www.bing.com",
         "target": "www.bing.com:443",
-        "hysteria2_finalmask": {"quicParams": {"maxIdleTimeout": 45}},
+        "hysteria2_finalmask": {
+            "quicParams": {"maxIdleTimeout": 45},
+            "udp": [{"type": "padding", "settings": {"size": 11}}],
+        },
         "hysteria2_obfs_mode": "salamander",
         "hysteria2_obfs_password": "C" * 32,
     }

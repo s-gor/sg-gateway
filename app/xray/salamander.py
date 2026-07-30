@@ -101,11 +101,14 @@ def ensure_base_has_no_salamander(value: Any) -> dict[str, Any]:
 
 
 def merge_finalmask(base_value: Any, mode: Any, password: Any) -> dict[str, Any]:
-    """Merge the SG-managed Salamander layer without replacing other FinalMask fields.
+    """Render the Hysteria2 FinalMask for the selected obfuscation mode.
 
-    The stored base never contains the SG-managed layer. This means disabling
-    Salamander restores the exact base object, including quicParams and any
-    other TCP/UDP masks, without guessing which layer belonged to the user.
+    SG-Gateway stores the pre-Salamander/base FinalMask separately.  Salamander
+    is exclusive for the UDP FinalMask path: while it is enabled, stored base
+    UDP masks are preserved in state but are not rendered into the live Xray
+    config.  Disabling Salamander restores the exact stored base, including its
+    UDP masks.  Non-UDP FinalMask fields (for example tcp and quicParams) stay
+    active in both modes.
     """
     base = finalmask_base(base_value)
     selected = normalise_mode(mode)
@@ -118,14 +121,15 @@ def merge_finalmask(base_value: Any, mode: Any, password: Any) -> dict[str, Any]
             "Нельзя добавить управляемый Salamander поверх существующего слоя Salamander"
         )
 
-    udp = list(base.get("udp") or [])
-    udp.append(
+    # Hysteria2 Salamander is the only live UDP FinalMask layer in this mode.
+    # Keep any stored base UDP masks untouched in the database so they can be
+    # restored exactly when Salamander is disabled.
+    base["udp"] = [
         {
             "type": SALAMANDER_MODE,
             "settings": {"password": secret},
         }
-    )
-    base["udp"] = udp
+    ]
     return base
 
 

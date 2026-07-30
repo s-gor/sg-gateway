@@ -1,3 +1,12 @@
+# 0.1.0-021.4 — Hysteria2 Salamander exclusive UDP FinalMask
+
+- Salamander is now the only live `streamSettings.finalmask.udp` layer while enabled.
+- Existing/stored Hysteria2 UDP FinalMask masks are preserved in SG-Gateway state but suppressed from the live Xray config while Salamander is active.
+- Disabling Salamander restores the exact stored base UDP FinalMask.
+- Non-UDP FinalMask fields such as `tcp` and `quicParams` remain preserved.
+- Existing full-candidate Xray validation and transactional rollback remain unchanged.
+- Captured working live reference: Hysteria2 on UDP 8446 with exactly one `salamander` UDP FinalMask layer.
+
 # 0.1.0-021.3 — Client QR display fix
 
 - QR-коды клиента и QR подписки теперь открываются как отдельное окно поверх страницы.

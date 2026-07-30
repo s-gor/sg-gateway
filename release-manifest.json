@@ -1,6 +1,6 @@
 {
   "name": "sg-gateway",
-  "version": "0.1.0-021.3",
+  "version": "0.1.0-021.4",
   "channel": "clean-rebuild-warp-salamander-awg585",
   "runtime": "native-systemd",
   "services": [
@@ -69,7 +69,10 @@
       "password_bytes": 24,
       "password_encoding": "base64url-no-padding",
       "backup_restore": true,
-      "diagnostics_redacted": true
+      "diagnostics_redacted": true,
+      "udp_finalmask_exclusive": true,
+      "stored_base_udp_suppressed_while_enabled": true,
+      "stored_base_udp_restored_on_disable": true
     }
   },
   "client_creation": {

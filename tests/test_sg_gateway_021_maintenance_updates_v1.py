@@ -37,7 +37,7 @@ def test_panel_update_state_marks_exact_commit_current(monkeypatch, tmp_path):
     state.write_text('{"commit":"' + commit + '","source_fingerprint":"' + fingerprint + '"}', encoding="utf-8")
     monkeypatch.setattr(panel_updates, "STATE_FILE", state)
     monkeypatch.setattr(panel_updates, "source_fingerprint", lambda: fingerprint)
-    monkeypatch.setattr(panel_updates, "_remote_version", lambda sha: "0.1.0-021.3")
+    monkeypatch.setattr(panel_updates, "_remote_version", lambda sha: "0.1.0-021.4")
     monkeypatch.setattr(
         panel_updates,
         "_request_json",
@@ -122,11 +122,11 @@ def test_panel_update_bootstrap_allows_strictly_newer_version_without_state(monk
     monkeypatch.setattr(panel_updates, "source_fingerprint", lambda: "f" * 64)
     monkeypatch.setattr(panel_updates, "get_version", lambda: "0.1.0-021")
     monkeypatch.setattr(panel_updates, "_latest_main", lambda: (commit, "2026-07-30T00:00:00Z", "https://example.invalid/commit"))
-    monkeypatch.setattr(panel_updates, "_remote_version", lambda sha: "0.1.0-021.3")
+    monkeypatch.setattr(panel_updates, "_remote_version", lambda sha: "0.1.0-021.4")
     panel_updates._CACHE = None
     result = panel_updates.overview(refresh=True)
     assert result["latest_commit"] == commit
-    assert result["latest_version"] == "0.1.0-021.3"
+    assert result["latest_version"] == "0.1.0-021.4"
     assert result["bootstrap_allowed"] is True
     assert result["can_install"] is True
     assert result["state"] == "available"
@@ -136,9 +136,9 @@ def test_panel_update_bootstrap_does_not_allow_same_version(monkeypatch, tmp_pat
     commit = "d" * 40
     monkeypatch.setattr(panel_updates, "STATE_FILE", tmp_path / "missing-state.json")
     monkeypatch.setattr(panel_updates, "source_fingerprint", lambda: "f" * 64)
-    monkeypatch.setattr(panel_updates, "get_version", lambda: "0.1.0-021.3")
+    monkeypatch.setattr(panel_updates, "get_version", lambda: "0.1.0-021.4")
     monkeypatch.setattr(panel_updates, "_latest_main", lambda: (commit, "", ""))
-    monkeypatch.setattr(panel_updates, "_remote_version", lambda sha: "0.1.0-021.3")
+    monkeypatch.setattr(panel_updates, "_remote_version", lambda sha: "0.1.0-021.4")
     panel_updates._CACHE = None
     result = panel_updates.overview(refresh=True)
     assert result["bootstrap_allowed"] is False

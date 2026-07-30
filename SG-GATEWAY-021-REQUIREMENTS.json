@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0-021.3",
+  "version": "0.1.0-021.4",
   "artifact_type": "full-clean-ec2-installer",
   "invariants": {
     "amneziawg_udp_port": 585,
@@ -11,6 +11,7 @@
     "hysteria2_salamander_preserved": true,
     "clients_row_typography": "approved-v018-scale",
     "client_detail_bottom_add_device_button": false,
-    "technical_links": "always-open"
+    "technical_links": "always-open",
+    "hysteria2_salamander_udp_exclusive": true
   }
 }
