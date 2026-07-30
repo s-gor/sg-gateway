@@ -10,7 +10,7 @@ def test_collect_diagnostics(tmp_path, monkeypatch):
     labels = {item.label: item.value for item in diagnostics}
 
     assert labels["Клиенты"] == "1"
-    assert labels["Клиенты AmneziaWG"] == "0"
+    assert labels["Клиенты AmneziaWG"] == "1"
     assert labels["Клиенты Xray"] == "1"
 
 

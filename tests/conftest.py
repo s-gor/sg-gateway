@@ -10,6 +10,19 @@ def isolate_sg_gateway_runtime_paths(tmp_path: Path, monkeypatch: pytest.MonkeyP
     """Keep tests away from privileged production paths such as /var/lib."""
 
     from app.mihomo import service as mihomo_service
+    from app.engines import provisioning as engine_provisioning
+
+    # Unit/source tests run on generic GitHub runners where the production
+    # AmneziaWG binary is intentionally absent. Keep provisioning semantics
+    # covered without making the whole test suite depend on a kernel/VPN tool.
+    monkeypatch.setattr(
+        engine_provisioning,
+        "_awg_keypair",
+        lambda: (
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+        ),
+    )
 
     runtime_root = tmp_path / ".sg-gateway-test-runtime"
     candidate_dir = runtime_root / "candidates" / "mihomo"
