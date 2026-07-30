@@ -16,7 +16,7 @@
     <div class="cv2-heading-copy">
       <div class="cv2-kicker"><span></span> SG-GATEWAY / CLIENTS</div>
       <h1>Clients</h1>
-      <p>Клиенты и их устройства. Ссылки, QR и управление находятся внутри карточки клиента.</p>
+      <p>Без HTTPS сразу доступны AmneziaWG, VLESS Reality TCP, VLESS XHTTP Reality, Mieru и SG Client. TLS-профили добавляются после настройки HTTPS в Security.</p>
     </div>
 
     <div class="cv2-heading-actions cv10-heading-actions">
@@ -134,24 +134,24 @@
 
 <dialog class="cv2-dialog cv10-dialog sg-ljd-raised" id="cv2-dialog">
   <form method="post" action="{{ url_for('add_client') }}" class="cv2-create-form cv10-create-form">
-    <header class="cv2-dialog-head"><div><div class="cv2-kicker"><span></span> НОВЫЙ КЛИЕНТ</div><h2>Добавить клиента</h2><p>Основное устройство создаётся автоматически. Технические ключи панель подготовит сама.</p></div><button class="cv2-dialog-close" type="button" data-close-client-form aria-label="Закрыть">×</button></header>
+    <header class="cv2-dialog-head"><div><div class="cv2-kicker"><span></span> НОВЫЙ КЛИЕНТ</div><h2>Добавить клиента</h2><p>Все подключения, работающие без сертификата, уже выбраны. После HTTPS в Security можно добавить VLESS XHTTP TLS, Hysteria 2, AnyTLS и TUIC v5.</p></div><button class="cv2-dialog-close" type="button" data-close-client-form aria-label="Закрыть">×</button></header>
 
     <label><span>Имя клиента</span><input type="text" name="name" maxlength="80" required placeholder="Например: Сергей" autocomplete="off"></label>
 
     <fieldset class="cv10-protocols cv12-protocols">
       <legend>Каналы основного устройства</legend>
-      <label class="cv10-protocol"><input type="checkbox" name="protocols" value="amneziawg"><span><strong>AmneziaWG</strong><small>Полная конфигурация и QR</small></span></label>
+      <label class="cv10-protocol"><input type="checkbox" name="protocols" value="amneziawg" checked><span><strong>AmneziaWG</strong><small>Полная конфигурация и QR · без HTTPS</small></span></label>
       {% for profile in xray_profiles.profiles %}
       {% set token = 'xray_' ~ profile.id %}
       <label class="cv10-protocol {{ 'is-locked' if not profile.ready else '' }}">
-        <input type="checkbox" name="protocols" value="{{ token }}" {% if profile.ready and profile.id == 'xhttp_reality' %}checked{% elif not profile.ready %}disabled{% endif %}>
+        <input type="checkbox" name="protocols" value="{{ token }}" {% if profile.ready and profile.id in ['reality_tcp', 'xhttp_reality'] %}checked{% elif not profile.ready %}disabled{% endif %}>
         <span><strong>{{ profile.title }}</strong><small>{% if profile.ready %}Отдельный профиль и QR{% elif profile.tls_required and not xray_profiles.tls_ready %}Сначала настройте HTTPS в Security{% elif profile.encryption_required and not profile.encryption_ready %}Сначала восстановите VLESS Encryption{% elif not profile.enabled %}Сначала включите профиль в Connections{% else %}Проверьте профиль Xray в Connections{% endif %}</small></span>
       </label>
       {% endfor %}
-      <label class="cv10-protocol"><input type="checkbox" name="protocols" value="mihomo" checked><span><strong>Mieru</strong><small>Mieru-ссылка и Mihomo YAML</small></span></label>
+      <label class="cv10-protocol"><input type="checkbox" name="protocols" value="mihomo" checked><span><strong>Mieru</strong><small>Mieru-ссылка и Mihomo YAML · без HTTPS</small></span></label>
       <label class="cv10-protocol {{ 'is-locked' if not tls.https_ready else '' }}"><input type="checkbox" name="protocols" value="anytls" {% if not tls.https_ready %}disabled{% endif %}><span><strong>AnyTLS</strong><small>{{ 'Отдельный TLS-профиль и QR' if tls.https_ready else 'Сначала настройте HTTPS в Security' }}</small></span></label>
       <label class="cv10-protocol {{ 'is-locked' if not tls.https_ready else '' }}"><input type="checkbox" name="protocols" value="tuic" {% if not tls.https_ready %}disabled{% endif %}><span><strong>TUIC v5</strong><small>{{ 'Отдельный QUIC/UDP-профиль и QR' if tls.https_ready else 'Сначала настройте HTTPS в Security' }}</small></span></label>
-      <label class="cv10-protocol"><input type="checkbox" name="protocols" value="sgclient" checked><span><strong>SG Client</strong><small>Одна подписка из всех готовых ссылок</small></span></label>
+      <label class="cv10-protocol"><input type="checkbox" name="protocols" value="sgclient" checked><span><strong>SG Client</strong><small>Одна подписка из всех готовых ссылок · без HTTPS</small></span></label>
     </fieldset>
 
     <label><span>Срок действия</span><input type="date" name="expires_at"><small>Пустое поле означает бессрочный доступ.</small></label>

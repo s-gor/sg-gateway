@@ -179,7 +179,7 @@ def _device_name_exists(connection, client_id: int, clean_name: str) -> bool:
 def _parse_access(access: str) -> tuple[list[str], list[str], list[str]]:
     value = (access or "").strip().lower()
     aliases = {
-        "recommended": "xray_xhttp_reality,sgclient",
+        "recommended": "amneziawg,xray_reality_tcp,xray_xhttp_reality,mihomo,sgclient",
         "full": (
             "amneziawg,xray_reality_tcp,xray_xhttp_reality,"
             "xray_xhttp_tls,xray_hysteria2,sgclient"

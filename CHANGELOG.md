@@ -5,6 +5,9 @@
 - Certificate-bound access is explicitly deferred until HTTPS exists: VLESS XHTTP TLS, Hysteria 2, AnyTLS and TUIC v5.
 - Panel/full updates never recreate `sg-admin` when the Clients database was intentionally left empty.
 - Installer output states both groups directly; no credentials are printed.
+- The main GitHub README now states the no-HTTPS starter set near the top of the first page.
+- Clients and Add device screens state the same rule and preselect every no-certificate access: AmneziaWG, Reality TCP, XHTTP Reality, Mieru and SG Client.
+- Help repeats which profiles require HTTPS.
 
 # 0.1.0-021.5 — Hysteria2 Salamander exclusive UDP FinalMask
 

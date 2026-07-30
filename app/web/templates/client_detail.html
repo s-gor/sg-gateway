@@ -164,7 +164,7 @@
       <div>
         <span>НОВОЕ УСТРОЙСТВО</span>
         <h2>Добавить устройство</h2>
-        <p>Введите имя. Ключи и подписку панель создаст сама.</p>
+        <p>Введите имя. Все подключения, работающие без сертификата, уже выбраны; TLS-профили можно добавить после настройки HTTPS.</p>
       </div>
       <button class="dv16-dialog-close" type="button" data-close-device-form aria-label="Закрыть">×</button>
     </header>
@@ -178,7 +178,7 @@
     <section class="dv16-recommended">
       <div>
         <strong>Рекомендуемый набор уже выбран</strong>
-        <span>VLESS XHTTP Reality, Mieru и персональная подписка.</span>
+        <span>AmneziaWG, VLESS Reality TCP, VLESS XHTTP Reality, Mieru и персональная SG Client subscription.</span>
       </div>
     </section>
 
@@ -189,7 +189,7 @@
         {% for profile in xray_profiles.profiles %}
         {% set token = 'xray_' ~ profile.id %}
         <label class="dv16-protocol {{ 'is-locked' if not profile.ready else '' }}">
-          <input type="checkbox" name="protocols" value="{{ token }}" {% if profile.ready and profile.id == 'xhttp_reality' %}checked{% elif not profile.ready %}disabled{% endif %}>
+          <input type="checkbox" name="protocols" value="{{ token }}" {% if profile.ready and profile.id in ['reality_tcp', 'xhttp_reality'] %}checked{% elif not profile.ready %}disabled{% endif %}>
           <span><strong>{{ profile.title }}</strong><small>{% if profile.ready %}Доступен{% elif profile.tls_required %}Нужен HTTPS{% else %}Сначала включите профиль в Connections{% endif %}</small></span>
         </label>
         {% endfor %}
@@ -198,7 +198,7 @@
           <span><strong>Mieru</strong><small>Отдельные username и password</small></span>
         </label>
         <label class="dv16-protocol">
-          <input type="checkbox" name="protocols" value="amneziawg">
+          <input type="checkbox" name="protocols" value="amneziawg" checked>
           <span><strong>AmneziaWG</strong><small>Отдельная конфигурация и QR</small></span>
         </label>
         <label class="dv16-protocol {{ 'is-locked' if not tls.https_ready else '' }}">
