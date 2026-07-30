@@ -1,13 +1,19 @@
+# 0.1.0-021.2 — Nginx HTTPS compatibility
+
+- HTTPS setup no longer assumes `proxy_cookie_flags` support.
+- Nginx 1.19.3+ keeps `proxy_cookie_flags`; Ubuntu Nginx 1.18 uses a compatible `proxy_cookie_path` fallback with Secure, HttpOnly and SameSite=Lax.
+- Existing successful Let’s Encrypt certificate is reused on retry; rollback behavior is unchanged.
+
 # Changelog
 
-## 0.1.0-021.1 · Panel updater bootstrap fix
+## 0.1.0-021.2 · Panel updater bootstrap fix
 
 - исправлена первая проверка/обновление из GitHub main после чистой установки, когда `panel-state.json` ещё не создан;
 - первое обновление без baseline разрешается только на строго более новую `VERSION`, с полным backup и последующей привязкой к точному commit SHA;
 - GitHub main получает fallback через публичный Atom feed / curl, если REST API временно недоступен;
 - уже привязанный baseline с локально изменённым кодом по-прежнему блокирует автообновление.
 
-## 0.1.0-021.1
+## 0.1.0-021.2
 
 - Connections: runtime status now reflects the real split engines: Mieru from Mihomo, AnyTLS and TUIC v5 from sing-box.
 - The panel reads safe listener truth through privileged HostD without weakening root-only runtime configuration permissions.

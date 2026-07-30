@@ -324,12 +324,24 @@ restore_backup(){
   fi
 }
 
+nginx_cookie_security_directive(){
+  local version=""
+  version="$(nginx -v 2>&1 | sed -n 's#^nginx version: nginx/\([^ ]*\).*$#\1#p')"
+  if [[ -n "$version" ]] && command -v dpkg >/dev/null 2>&1 && dpkg --compare-versions "$version" ge '1.19.3'; then
+    printf '%s' 'proxy_cookie_flags ~ secure httponly samesite=lax;'
+  else
+    # Ubuntu 20.04/22.04 ship Nginx 1.18, which has no proxy_cookie_flags.
+    # Keep equivalent cookie hardening with the long-supported proxy_cookie_path fallback.
+    printf '%s' 'proxy_cookie_path / "/; Secure; HttpOnly; SameSite=Lax";'
+  fi
+}
+
 configure_https(){
   [[ -n "$HOST" ]] || fail "укажите домен"
   HOST="${HOST,,}"
   [[ "$HOST" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]] || fail "некорректное доменное имя"
 
-  local public_ip resolved cert_dir cert_file key_file https_authority
+  local public_ip resolved cert_dir cert_file key_file https_authority cookie_security_directive
   SG_HTTPS_BACKUP_DIR=""
   SG_HTTPS_COMMITTED=0
   public_ip="$(detect_public_ipv4)"
@@ -390,6 +402,9 @@ EOF_ACME
       --keep-until-expiring
   fi
   [[ -s "$cert_file" && -s "$key_file" ]] || fail "Certbot не создал ожидаемые файлы сертификата"
+
+  cookie_security_directive="$(nginx_cookie_security_directive)"
+  log "Nginx cookie hardening: $cookie_security_directive"
 
   https_authority="$HOST"
   [[ "$PUBLIC_PORT" == "443" ]] || https_authority="$HOST:$PUBLIC_PORT"
@@ -454,7 +469,7 @@ server {
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_cookie_flags ~ secure httponly samesite=lax;
+        $cookie_security_directive
         proxy_read_timeout 120s;
     }
 }
