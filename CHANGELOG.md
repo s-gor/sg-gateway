@@ -6,6 +6,7 @@
 - Non-UDP FinalMask fields such as `tcp` and `quicParams` remain preserved.
 - Existing full-candidate Xray validation and transactional rollback remain unchanged.
 - Captured working live reference: Hysteria2 on UDP 8446 with exactly one `salamander` UDP FinalMask layer.
+- Panel update availability now uses one normal user-facing message; internal updater-baseline/bootstrap terminology is no longer shown in the panel or update job output.
 
 # 0.1.0-021.3 — Client QR display fix
 
