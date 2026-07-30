@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0-021.4",
+  "version": "0.1.0-021.7",
   "artifact_type": "full-clean-ec2-installer",
   "invariants": {
     "amneziawg_udp_port": 585,
@@ -12,6 +12,9 @@
     "clients_row_typography": "approved-v018-scale",
     "client_detail_bottom_add_device_button": false,
     "technical_links": "always-open",
-    "hysteria2_salamander_udp_exclusive": true
+    "hysteria2_salamander_udp_exclusive": true,
+    "clients_protocol_grid": "4x2-desktop-8-real-vpn-protocols",
+    "sgclient_selectable_access": false,
+    "sg_admin_explainer_location": "clients"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "sg-gateway",
-  "version": "0.1.0-021.4",
+  "version": "0.1.0-021.7",
   "channel": "clean-rebuild-warp-salamander-awg585",
   "runtime": "native-systemd",
   "services": [
@@ -138,7 +138,11 @@
     "dark_palette": "crisp-graphite",
     "small_text_scope": "all-current-pages-readable-v3-client-detail-preserved",
     "duplicate_bottom_add_device_removed": true,
-    "list_row_typography": "approved-v018-scale-restored"
+    "list_row_typography": "approved-v018-scale-restored",
+    "create_protocol_grid": "4x2-desktop-8-real-vpn-protocols",
+    "sgclient_selectable_card": false,
+    "sgclient_subscription": "automatic-hidden-service-value",
+    "sg_admin_explainer": "clients-page-only-while-sg-admin-exists"
   },
   "installer_update": {
     "preserve_existing_mihomo_runtime": true,

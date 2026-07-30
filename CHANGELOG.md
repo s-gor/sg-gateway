@@ -1,3 +1,12 @@
+# 0.1.0-021.7 — Clients onboarding and protocol grid
+
+- The Clients page now explains that `sg-admin` is the automatically created first VPN client, not a Linux/system user and not a panel login.
+- The `sg-admin` note is shown only while that client exists; it tells the administrator to create personal clients and that `sg-admin` can be deleted after verification.
+- The new-client dialog contains exactly eight selectable VPN protocol cards in a stable 4 × 2 desktop grid: four Xray profiles on the first row, then AmneziaWG, Mieru, AnyTLS and TUIC v5.
+- `SG Client` is no longer a selectable protocol card; its subscription is still requested automatically as a hidden service value.
+- TLS-dependent cards remain in place when unavailable and show `Требуется HTTPS`.
+- Based strictly on the accepted 0.1.0-021.4 line; rejected 021.5/021.5.1/021.6 experiments are not merged.
+
 # 0.1.0-021.4 — Hysteria2 Salamander exclusive UDP FinalMask
 
 - Salamander is now the only live `streamSettings.finalmask.udp` layer while enabled.
@@ -6,6 +15,7 @@
 - Non-UDP FinalMask fields such as `tcp` and `quicParams` remain preserved.
 - Existing full-candidate Xray validation and transactional rollback remain unchanged.
 - Captured working live reference: Hysteria2 on UDP 8446 with exactly one `salamander` UDP FinalMask layer.
+- Panel update availability now uses one normal user-facing message; internal updater-baseline/bootstrap terminology is no longer shown in the panel or update job output.
 
 # 0.1.0-021.3 — Client QR display fix
 
