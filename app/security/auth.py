@@ -17,6 +17,7 @@ PUBLIC_ENDPOINTS = {
     "static",
     "recovery",
     "download_diagnostics",
+    "public_device_subscription",
 }
 
 

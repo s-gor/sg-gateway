@@ -1,6 +1,6 @@
 {
   "name": "sg-gateway",
-  "version": "0.1.0-021.5",
+  "version": "0.1.0-021.5.1",
   "channel": "clean-rebuild-warp-salamander-awg585",
   "runtime": "native-systemd",
   "services": [
@@ -149,7 +149,9 @@
     "dark_palette": "crisp-graphite",
     "small_text_scope": "all-current-pages-readable-v3-client-detail-preserved",
     "duplicate_bottom_add_device_removed": true,
-    "list_row_typography": "approved-v018-scale-restored"
+    "list_row_typography": "approved-v018-scale-restored",
+    "subscription_qr": "token-protected-public-url",
+    "subscription_qr_payload": "short-url-not-base64-body"
   },
   "installer_update": {
     "preserve_existing_mihomo_runtime": true,

@@ -16,6 +16,10 @@ from app.clients.exports import (
     protocol_ready,
 )
 from app.clients.qr import ClientQrError, build_qr_svg
+from app.clients.subscription_tokens import (
+    device_subscription_token,
+    verify_device_subscription_token,
+)
 from app.clients.runtime import ClientWorkflowError, apply_clients_runtime
 from app.clients.repository import (
     count_clients,
@@ -1022,11 +1026,55 @@ def create_app() -> Flask:
         export = build_protocol_export(client, kind, device)
         if not export.body:
             abort(409)
+        qr_payload = export.body
+        if kind == "subscription":
+            token = device_subscription_token(client_id, device_id)
+            path = url_for(
+                "public_device_subscription",
+                client_id=client_id,
+                device_id=device_id,
+                token=token,
+            )
+            tls_state = security_tls_overview()
+            if tls_state.get("https_ready") and tls_state.get("public_url"):
+                public_base = str(tls_state["public_url"]).rstrip("/")
+            else:
+                config = load_config()
+                address = str(config.public_address or "").strip()
+                if address:
+                    port = int(config.public_port)
+                    suffix = "" if port == 80 else f":{port}"
+                    public_base = f"http://{address}{suffix}"
+                else:
+                    public_base = request.host_url.rstrip("/")
+            qr_payload = public_base + path
         try:
-            svg = build_qr_svg(export.body)
+            svg = build_qr_svg(qr_payload)
         except ClientQrError as exc:
             return Response(str(exc), status=409, mimetype="text/plain")
         return Response(svg, mimetype="image/svg+xml")
+
+    @app.get("/s/<int:client_id>/<int:device_id>/<token>")
+    def public_device_subscription(client_id: int, device_id: int, token: str):
+        client = get_client(client_id)
+        device = get_device(device_id, client_id)
+        if client is None or device is None:
+            abort(404)
+        if not verify_device_subscription_token(client_id, device_id, token):
+            abort(404)
+        if not protocol_ready(client, "subscription", device):
+            abort(404)
+        export = build_subscription(client, device)
+        if not export.body:
+            abort(404)
+        return Response(
+            export.body,
+            mimetype=export.media_type,
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": f'inline; filename="{export.filename}"',
+            },
+        )
 
     @app.get("/connections")
     def connections():

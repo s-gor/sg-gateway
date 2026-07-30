@@ -19,7 +19,7 @@ def test_clients_row_double_override_is_removed() -> None:
 
 
 def test_release_marks_approved_scale_and_version() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="utf-8").strip() == "0.1.0-021.5"
+    assert (ROOT / "VERSION").read_text(encoding="utf-8").strip() == "0.1.0-021.5.1"
     manifest = json.loads((ROOT / "release-manifest.json").read_text(encoding="utf-8"))
     update = manifest["installer_update"]
     assert update["client_list_row_typography_v020"] == "reverted-to-approved-018-scale"
