@@ -1,3 +1,9 @@
+# 0.1.0-021.3 — Client QR display fix
+
+- QR-коды клиента и QR подписки теперь открываются как отдельное окно поверх страницы.
+- Исправлено обрезание QR рамкой страницы Clients (`overflow:hidden`).
+- Backend и содержимое QR не изменялись: исправлено именно отображение уже успешно сгенерированного QR.
+
 # 0.1.0-021.2 — HTTPS, Salamander diagnostics and split runtime Apply
 
 - HTTPS setup no longer assumes `proxy_cookie_flags` support.

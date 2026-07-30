@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0-021.2",
+  "version": "0.1.0-021.3",
   "artifact_type": "full-clean-ec2-installer",
   "invariants": {
     "amneziawg_udp_port": 585,
