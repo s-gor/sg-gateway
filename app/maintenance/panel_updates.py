@@ -196,16 +196,13 @@ def overview(*, refresh: bool = False) -> dict[str, Any]:
             cached["state"] = "available"
             cached["can_install"] = True
             cached["bootstrap_allowed"] = True
-            cached["message"] = (
-                f"Доступна VERSION {latest_version}. Это первое обновление для установки без updater-baseline: "
-                "перед заменой будет создан полный backup, а после успеха baseline привяжется к точному GitHub commit."
-            )
+            cached["message"] = f"Доступна VERSION {latest_version}. Можно выполнить безопасное обновление SG-Gateway."
         else:
             cached["state"] = "uninitialized"
             cached["can_install"] = False
             cached["message"] = (
-                "GitHub baseline не привязан или локальный код изменён после привязки. "
-                "Автоматическое обновление заблокировано, чтобы не затереть непубликованные изменения."
+                "Автоматическое обновление сейчас недоступно. "
+                "Текущая версия SG-Gateway продолжает работать нормально."
             )
         return cached
 
