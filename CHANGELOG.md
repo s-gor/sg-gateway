@@ -1,21 +1,4 @@
-## 0.1.0-021.5.1
-
-- Исправлен QR подписки устройства: QR теперь содержит короткий защищённый URL подписки вместо длинного Base64 payload, поэтому не переполняет QR version 40.
-- Добавлен публичный token-protected endpoint только для конкретной device subscription; авторизация панели и остальные endpoints не ослаблены.
-- Содержимое самой subscription не изменено.
-
-# 0.1.0-021.5.1 — Optional sg-admin and complete no-certificate first access
-
-- `sg-admin` is explicitly a normal optional VPN client, not a Linux/system/panel account.
-- A clean install offers `sg-admin` with every access type that works before HTTPS: AmneziaWG, VLESS Reality TCP, VLESS XHTTP Reality, Mieru and SG Client.
-- Certificate-bound access is explicitly deferred until HTTPS exists: VLESS XHTTP TLS, Hysteria 2, AnyTLS and TUIC v5.
-- Panel/full updates never recreate `sg-admin` when the Clients database was intentionally left empty.
-- Installer output states both groups directly; no credentials are printed.
-- The main GitHub README now states the no-HTTPS starter set near the top of the first page.
-- Clients and Add device screens state the same rule and preselect every no-certificate access: AmneziaWG, Reality TCP, XHTTP Reality, Mieru and SG Client.
-- Help repeats which profiles require HTTPS.
-
-# 0.1.0-021.5.1 — Hysteria2 Salamander exclusive UDP FinalMask
+# 0.1.0-021.4 — Hysteria2 Salamander exclusive UDP FinalMask
 
 - Salamander is now the only live `streamSettings.finalmask.udp` layer while enabled.
 - Existing/stored Hysteria2 UDP FinalMask masks are preserved in SG-Gateway state but suppressed from the live Xray config while Salamander is active.

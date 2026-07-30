@@ -10,9 +10,9 @@ def test_create_client_with_recommended_access(tmp_path, monkeypatch):
     clients = list_clients()
     assert count_clients() == 1
     assert clients[0].name == "Irina iPhone"
-    assert clients[0].awg_status == "creating"
+    assert clients[0].awg_status == "missing"
     assert clients[0].xray_status == "creating"
-    assert clients[0].mihomo_status == "creating"
+    assert clients[0].mihomo_status == "missing"
     assert clients[0].sgclient_status == "creating"
     assert clients[0].device_count == 1
     assert clients[0].active_device_count == 1

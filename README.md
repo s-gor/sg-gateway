@@ -4,7 +4,7 @@
 
 > **Один сервер. Одна панель. Семейный VPN без серверной акробатики.**
 
-![Версия](https://img.shields.io/badge/version-0.1.0--021.5-3b82f6)
+![Версия](https://img.shields.io/badge/version-0.1.0--021-3b82f6)
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-native-E95420?logo=ubuntu&logoColor=white)
 ![Xray](https://img.shields.io/badge/Xray-supported-2563EB)
 ![AmneziaWG](https://img.shields.io/badge/AmneziaWG-supported-6D5BD0)
@@ -21,20 +21,6 @@ SG-Gateway устанавливается на **один самостоятел
 **Gateway — это просто выход в интернет. Без квантовой механики.**
 
 Установили панель, создали клиентов и устройства, получили ссылки, QR-коды и подписки — пользуетесь.
-
-## Что работает сразу, без HTTPS
-
-Сертификат **не нужен**, чтобы начать пользоваться SG-Gateway. Для нового клиента или устройства сразу доступны и по умолчанию выбираются:
-
-- **AmneziaWG**;
-- **VLESS Reality TCP**;
-- **VLESS XHTTP Reality**;
-- **Mieru**;
-- **SG Client subscription**.
-
-После настройки HTTPS в **Security** становятся доступны дополнительные TLS-профили: **VLESS XHTTP TLS, Hysteria 2, AnyTLS и TUIC v5**.
-
-`sg-admin` при чистой установке — только удобный первый VPN-клиент. Это не Linux-пользователь и не системная зависимость SG-Gateway; его можно не создавать или удалить позже.
 
 ### System — состояние сервера
 

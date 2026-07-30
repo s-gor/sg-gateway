@@ -1,8 +1,6 @@
 # Документация SG-Gateway
 
-Документация относится к линии **SG-Gateway 021** и версии приложения **`0.1.0-021.5.1`**.
-
-> **Без HTTPS уже работают:** AmneziaWG, VLESS Reality TCP, VLESS XHTTP Reality, Mieru и SG Client. После настройки HTTPS добавляются VLESS XHTTP TLS, Hysteria 2, AnyTLS и TUIC v5.
+Документация относится к линии **SG-Gateway 021** и версии приложения **`0.1.0-021.4`**.
 
 ## Две дороги
 

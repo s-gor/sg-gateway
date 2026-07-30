@@ -1,6 +1,6 @@
 {
   "name": "sg-gateway",
-  "version": "0.1.0-021.5.1",
+  "version": "0.1.0-021.4",
   "channel": "clean-rebuild-warp-salamander-awg585",
   "runtime": "native-systemd",
   "services": [
@@ -80,8 +80,6 @@
     "first_client": "sg-admin",
     "default_profile": "xhttp_reality",
     "first_access": [
-      "amneziawg",
-      "reality_tcp",
       "xhttp_reality",
       "mieru",
       "sgclient"
@@ -95,15 +93,6 @@
       "xhttp_reality",
       "mieru",
       "sgclient"
-    ],
-    "first_client_optional": true,
-    "recreate_first_client_on_update": false,
-    "first_client_requires_certificate": false,
-    "certificate_bound_access_deferred": [
-      "xhttp_tls",
-      "hysteria2",
-      "anytls",
-      "tuic"
     ]
   },
   "clients_ui": {
@@ -149,9 +138,7 @@
     "dark_palette": "crisp-graphite",
     "small_text_scope": "all-current-pages-readable-v3-client-detail-preserved",
     "duplicate_bottom_add_device_removed": true,
-    "list_row_typography": "approved-v018-scale-restored",
-    "subscription_qr": "token-protected-public-url",
-    "subscription_qr_payload": "short-url-not-base64-body"
+    "list_row_typography": "approved-v018-scale-restored"
   },
   "installer_update": {
     "preserve_existing_mihomo_runtime": true,
