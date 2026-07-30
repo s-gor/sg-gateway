@@ -1116,7 +1116,9 @@ EOF
   chmod 0644 /etc/systemd/system/xray.service
   systemctl daemon-reload
   rm -rf "$temp"
-  /usr/local/bin/xray version | head -n 1
+  local xray_version_output=""
+  xray_version_output="$(/usr/local/bin/xray version)"
+  printf '%s\n' "${xray_version_output%%$'\n'*}"
 }
 
 install_mihomo_from_vendor() {
@@ -1146,7 +1148,9 @@ install_sing_box_from_vendor() {
   # only the package/runtime registration after the replacement binary has
   # already passed its own smoke test; keep /etc/sing-box configuration.
   systemctl disable --now sing-box.service >/dev/null 2>&1 || true
-  if dpkg-query -W -f='${Status}' sing-box 2>/dev/null | grep -q 'install ok installed'; then
+  local singbox_pkg_status=""
+  singbox_pkg_status="$(dpkg-query -W -f='${Status}' sing-box 2>/dev/null || true)"
+  if [[ "$singbox_pkg_status" == *"install ok installed"* ]]; then
     apt_get remove -y sing-box
   fi
   rm -f /etc/apt/sources.list.d/sagernet.sources /etc/apt/sources.list.d/sagernet.list
@@ -1160,14 +1164,19 @@ install_sing_box_from_vendor() {
   fi
   ln -sfn /usr/local/bin/sing-box /usr/bin/sing-box
   rm -rf "$temp"
-  /usr/local/bin/sing-box version | head -n 2
+  local singbox_version_output=""
+  singbox_version_output="$(/usr/local/bin/sing-box version)"
+  printf '%s\n' "$singbox_version_output"
 }
 
 install_wgcf_from_vendor() {
   local archive temp bin
   archive="$VENDOR_CORES_DIR/$WGCF_VENDOR_FILE"
   temp="$(mktemp -d)"
-  zstd -dc "$archive" | tar -xf - -C "$temp"
+  local unpacked_tar="$temp/wgcf.tar"
+  zstd -dc "$archive" > "$unpacked_tar"
+  tar -xf "$unpacked_tar" -C "$temp"
+  rm -f "$unpacked_tar"
   bin="$(find "$temp" -type f -name wgcf-cli -print -quit)"
   [[ -n "$bin" ]] || { rm -rf "$temp"; echo "wgcf-cli binary not found in vendor archive" >&2; return 1; }
   chmod 0755 "$bin"
@@ -1193,7 +1202,7 @@ install_amneziawg_from_vendor() {
   if (( UPDATE_MODE == 1 )) && amneziawg_runtime_ready; then
     echo "AmneziaWG: существующий рабочий runtime сохранён при обновлении."
     awg --version || true
-    modinfo amneziawg | sed -n '1,6p' || true
+    modinfo amneziawg || true
     return 0
   fi
 
@@ -1219,7 +1228,9 @@ install_amneziawg_from_vendor() {
   awg --version
 
   echo "AmneziaWG kernel module ${AMNEZIAWG_KMOD_VERSION}: DKMS из локального source"
-  if dkms status -m amneziawg -v "$AMNEZIAWG_DKMS_VERSION" 2>/dev/null | grep -q .; then
+  local dkms_existing=""
+  dkms_existing="$(dkms status -m amneziawg -v "$AMNEZIAWG_DKMS_VERSION" 2>/dev/null || true)"
+  if [[ -n "$dkms_existing" ]]; then
     dkms remove -m amneziawg -v "$AMNEZIAWG_DKMS_VERSION" --all || true
   fi
   # DKMS can leave this directory behind even when `dkms status` is empty.
@@ -1231,13 +1242,15 @@ install_amneziawg_from_vendor() {
   dkms build -m amneziawg -v "$AMNEZIAWG_DKMS_VERSION"
   dkms install -m amneziawg -v "$AMNEZIAWG_DKMS_VERSION"
   modprobe amneziawg
-  modinfo amneziawg | sed -n '1,8p'
+  modinfo amneziawg
   rm -rf "$temp"
 }
 
 xray_installed_version() {
-  local value
-  value="$(/usr/local/bin/xray version 2>/dev/null | awk 'NR == 1 {print $2}')"
+  local output="" first_line="" value=""
+  output="$(/usr/local/bin/xray version 2>/dev/null || true)"
+  first_line="${output%%$'\n'*}"
+  read -r _ value _ <<< "$first_line"
   value="v${value#v}"
   printf '%s' "$value"
 }
@@ -1276,6 +1289,8 @@ verify_xray_version() {
 }
 
 stage_engine_runtimes() {
+  # RC141 FIX2: Stage 4 intentionally avoids producer|consumer pipelines.
+  # With global pipefail, early consumer exit on some VPS can surface as SIGPIPE (141).
   verify_vendor_core_set
 
   echo "[Engine 1/5] AmneziaWG tools ${AMNEZIAWG_TOOLS_VERSION} / kernel ${AMNEZIAWG_KMOD_VERSION}"
