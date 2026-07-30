@@ -163,7 +163,7 @@
       {% set token = 'xray_' ~ profile.id %}
       <label class="cv10-protocol {{ 'is-locked' if not profile.ready else '' }}">
         <input type="checkbox" name="protocols" value="{{ token }}" {% if profile.ready and profile.id == 'xhttp_reality' %}checked{% elif not profile.ready %}disabled{% endif %}>
-        <span><strong>{{ profile.title }}</strong><small>{% if profile.ready %}Отдельный профиль и QR{% elif profile.tls_required and not xray_profiles.tls_ready %}Требуется HTTPS{% else %}Сначала включите профиль в Connections{% endif %}</small></span>
+        <span><strong>{{ profile.title }}</strong><small>{% if profile.ready %}Отдельный профиль и QR{% elif profile.tls_required and not xray_profiles.tls_ready %}Требуется HTTPS{% elif profile.encryption_required and not profile.encryption_ready %}Сначала восстановите VLESS Encryption{% elif not profile.enabled %}Сначала включите профиль в Connections{% else %}Проверьте профиль Xray в Connections{% endif %}</small></span>
       </label>
       {% endfor %}
       <label class="cv10-protocol"><input type="checkbox" name="protocols" value="amneziawg"><span><strong>AmneziaWG</strong><small>Полная конфигурация и QR</small></span></label>
