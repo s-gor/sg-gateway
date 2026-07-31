@@ -1,6 +1,7 @@
 import os
 import re
 import shutil
+import time
 from pathlib import Path
 from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, send_file, url_for
 
@@ -34,6 +35,8 @@ from app.clients.repository import (
     snapshot_client,
 )
 from app.config import load_config
+from app.cpu_activity import collect_cpu_activity
+from app.system_activity import collect_system_activity
 from app.connections.geoip_country import lookup_country_code
 from app.connections.service import list_connections
 from app.connections.settings import get_connection_settings, update_connection_settings
@@ -66,6 +69,8 @@ from app.security.auth import (
     is_authenticated,
     login_user,
     logout_user,
+    password_is_default,
+    set_password,
     should_skip_auth,
     verify_password,
 )
@@ -191,6 +196,180 @@ def _resource_state(percent: int) -> tuple[str, str]:
     return "normal", "Норма"
 
 
+_DISK_BREAKDOWN_CACHE: dict[str, object] = {
+    "updated_at": 0.0,
+    "device": None,
+    "rows": [],
+}
+
+
+def _allocated_size(path: Path, device: int) -> int:
+    try:
+        root_stat = path.stat(follow_symlinks=False)
+    except OSError:
+        return 0
+
+    if root_stat.st_dev != device:
+        return 0
+
+    if path.is_file():
+        return max(0, int(getattr(root_stat, "st_blocks", 0))) * 512
+
+    if not path.is_dir():
+        return 0
+
+    total = 0
+    stack = [path]
+    while stack:
+        current = stack.pop()
+        try:
+            with os.scandir(current) as entries:
+                for entry in entries:
+                    try:
+                        stat = entry.stat(follow_symlinks=False)
+                    except OSError:
+                        continue
+                    if stat.st_dev != device or entry.is_symlink():
+                        continue
+                    if entry.is_dir(follow_symlinks=False):
+                        stack.append(Path(entry.path))
+                    elif entry.is_file(follow_symlinks=False):
+                        total += max(0, int(getattr(stat, "st_blocks", 0))) * 512
+        except OSError:
+            continue
+    return total
+
+
+def _dashboard_disk_breakdown(data_dir: Path, disk_used: int) -> list[dict]:
+    now = time.monotonic()
+    try:
+        device = data_dir.stat().st_dev
+    except OSError:
+        return []
+
+    force_refresh = False
+    try:
+        from flask import has_request_context, request
+        force_refresh = (
+            has_request_context()
+            and request.args.get("disk_refresh") == "1"
+        )
+    except Exception:
+        force_refresh = False
+
+    cached_at = float(_DISK_BREAKDOWN_CACHE.get("updated_at") or 0.0)
+    cached_device = _DISK_BREAKDOWN_CACHE.get("device")
+    cached_rows = _DISK_BREAKDOWN_CACHE.get("rows")
+    if (
+        not force_refresh
+        and cached_device == device
+        and isinstance(cached_rows, list)
+        and now - cached_at < 60.0
+    ):
+        return cached_rows
+
+    app_root = Path(__file__).resolve().parents[1]
+    backup_dir = data_dir / "backups"
+    database_file = data_dir / "sg-gateway.sqlite"
+    log_dir = Path("/var/log/sg-gateway")
+    geofiles_dir = Path("/usr/local/share/xray")
+
+    data_total = _allocated_size(data_dir, device)
+    backup_size = _allocated_size(backup_dir, device)
+    database_size = _allocated_size(database_file, device)
+    data_misc = max(0, data_total - backup_size - database_size)
+
+    parts = [
+        {"key": "gateway", "label": "SG-Gateway", "note": "/opt/sg-gateway",
+         "bytes": _allocated_size(app_root, device), "color": "#4f9bff"},
+        {"key": "data", "label": "Данные", "note": str(data_dir),
+         "bytes": data_misc, "color": "#38c6c2"},
+        {"key": "backups", "label": "Резервные копии", "note": str(backup_dir),
+         "bytes": backup_size, "color": "#9b7bff"},
+        {"key": "database", "label": "База данных", "note": database_file.name,
+         "bytes": database_size, "color": "#4ecb86"},
+        {"key": "logs", "label": "Логи", "note": str(log_dir),
+         "bytes": _allocated_size(log_dir, device), "color": "#e7c45b"},
+        {"key": "geofiles", "label": "GeoFiles Xray", "note": str(geofiles_dir),
+         "bytes": _allocated_size(geofiles_dir, device), "color": "#f28a5b"},
+    ]
+
+    known = sum(max(0, int(item["bytes"])) for item in parts)
+    parts.append({
+        "key": "other",
+        "label": "Система и прочее",
+        "note": "Остальное занятое место на разделе",
+        "bytes": max(0, int(disk_used) - known),
+        "color": "#7890a8",
+    })
+
+    parts = [item for item in parts if int(item["bytes"]) > 0]
+    parts.sort(key=lambda item: int(item["bytes"]), reverse=True)
+
+    denominator = max(1, int(disk_used))
+    rows: list[dict] = []
+    for item in parts:
+        amount = max(0, int(item["bytes"]))
+        percent_value = min(100.0, amount * 100.0 / denominator)
+        rows.append({
+            "key": item["key"],
+            "label": item["label"],
+            "note": item["note"],
+            "value": _format_bytes(amount),
+            "percent": f"{percent_value:.1f}%",
+            "percent_value": round(percent_value, 1),
+            "bar_width": round(max(2.0, percent_value), 1) if amount else 0,
+            "color": item["color"],
+        })
+
+    _DISK_BREAKDOWN_CACHE["updated_at"] = now
+    _DISK_BREAKDOWN_CACHE["device"] = device
+    _DISK_BREAKDOWN_CACHE["rows"] = rows
+    return rows
+
+def _disk_filesystem_info(path: Path) -> dict[str, str]:
+    resolved = str(path.resolve())
+    best_mount = "/"
+    best_fstype = "—"
+
+    try:
+        lines = Path("/proc/self/mountinfo").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return {"filesystem": best_fstype, "mount_point": best_mount}
+
+    for line in lines:
+        fields = line.split()
+        if "-" not in fields or len(fields) < 7:
+            continue
+        sep = fields.index("-")
+        if sep + 1 >= len(fields):
+            continue
+
+        mount = fields[4]
+        mount = (
+            mount.replace(r"\040", " ")
+                 .replace(r"\011", "\t")
+                 .replace(r"\134", "\\")
+        )
+        candidate = str(Path(mount).resolve())
+        inside = (
+            resolved == candidate
+            or candidate == "/"
+            or resolved.startswith(candidate.rstrip("/") + "/")
+        )
+        if not inside:
+            continue
+
+        if len(candidate) >= len(best_mount):
+            best_mount = candidate
+            best_fstype = fields[sep + 1]
+
+    return {
+        "filesystem": best_fstype,
+        "mount_point": best_mount,
+    }
+
+
 def _dashboard_resources() -> dict:
     mem = _read_meminfo()
     total = mem.get("MemTotal", 0)
@@ -234,11 +413,15 @@ def _dashboard_resources() -> dict:
     data_dir = load_config().data_dir
     data_dir.mkdir(parents=True, exist_ok=True)
     disk = shutil.disk_usage(str(data_dir))
+    disk_fs = _disk_filesystem_info(data_dir)
     disk_percent = round(disk.used * 100 / disk.total) if disk.total else 0
     disk_state, disk_label = _resource_state(disk_percent)
+    disk_rows = _dashboard_disk_breakdown(data_dir, disk.used)
 
     load = os.getloadavg() if hasattr(os, "getloadavg") else (0.0, 0.0, 0.0)
     cpu_count = os.cpu_count() or 1
+    cpu_activity = collect_cpu_activity(cpu_count, load)
+    cpu_state, cpu_label = _resource_state(cpu_activity["percent"])
 
     return {
         "memory": {
@@ -257,9 +440,12 @@ def _dashboard_resources() -> dict:
             "used": _format_bytes(disk.used),
             "free": _format_bytes(disk.free),
             "total": _format_bytes(disk.total),
+            "filesystem": disk_fs["filesystem"],
+            "mount_point": disk_fs["mount_point"],
             "percent": disk_percent,
             "percent_text": f"{disk_percent}%",
             "free_percent": max(0, 100 - disk_percent),
+            "rows": disk_rows,
             "state": disk_state,
             "state_label": disk_label,
             "gradient": (
@@ -270,7 +456,14 @@ def _dashboard_resources() -> dict:
         "cpu": {
             "count": cpu_count,
             "load": f"{load[0]:.2f} / {load[1]:.2f} / {load[2]:.2f}",
-            "percent": min(100, round((load[0] / cpu_count) * 100)) if cpu_count else 0,
+            "percent": cpu_activity["percent"],
+            "percent_value": cpu_activity["percent_value"],
+            "state": cpu_state,
+            "state_label": cpu_label,
+            "rows": cpu_activity["rows"],
+            "uptime": cpu_activity["uptime"],
+            "processes": cpu_activity["processes"],
+            "running": cpu_activity["running"],
         },
     }
 
@@ -589,7 +782,7 @@ def create_app() -> Flask:
     @app.get("/security")
     def security():
         network_accessible = bool(config.public_address) or config.host not in {"127.0.0.1", "localhost", "::1"}
-        default_password = not config.admin_password_hash and config.admin_password == "admin"
+        default_password = password_is_default()
         return render_template(
             "security.html",
             active_page="security",
@@ -613,6 +806,34 @@ def create_app() -> Flask:
         tls=security_tls_overview(),
         )
 
+
+    @app.post("/security/password")
+    def security_password_change():
+        current_password = request.form.get("current_password", "")
+        new_password = request.form.get("new_password", "")
+        confirm_password = request.form.get("confirm_password", "")
+        target = url_for("security") + "#password-change"
+
+        if not verify_password(current_password):
+            flash("Текущий пароль указан неверно.", "error")
+            return redirect(target)
+        if len(new_password) < 8:
+            flash("Новый пароль должен содержать не менее 8 символов.", "error")
+            return redirect(target)
+        if new_password != confirm_password:
+            flash("Новый пароль и подтверждение не совпадают.", "error")
+            return redirect(target)
+        if new_password == current_password:
+            flash("Новый пароль совпадает с текущим.", "error")
+            return redirect(target)
+        try:
+            set_password(new_password)
+        except OSError as exc:
+            flash(f"Пароль не изменён: {exc}", "error")
+            return redirect(target)
+
+        flash("Пароль администратора изменён. Новый пароль уже используется для следующих входов.", "success")
+        return redirect(target)
 
     @app.post("/security/tls/check")
     def security_tls_check():
@@ -1333,6 +1554,18 @@ def create_app() -> Flask:
         if topic is None:
             abort(404)
         return render_template("help.html", active_page="help", topics=list_topics(), topic=topic)
+
+    @app.get("/api/system/activity")
+    def system_activity_api():
+        activity = collect_system_activity()
+        clients = list_clients()
+        activity["clients"] = {
+            "total": len(clients),
+            "enabled": sum(1 for client in clients if bool(getattr(client, "enabled", False))),
+            "devices_total": sum(int(getattr(client, "device_count", 0) or 0) for client in clients),
+            "devices_enabled": sum(int(getattr(client, "active_device_count", 0) or 0) for client in clients),
+        }
+        return jsonify(activity)
 
     @app.get("/api/status")
     def api_status():

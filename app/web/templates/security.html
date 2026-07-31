@@ -2,6 +2,7 @@
 {% block title %}SG-Gateway · Security{% endblock %}
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='sg-security-v2.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='sg-security-password-fix1.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -101,20 +102,21 @@
       </div>
     </div>
 
-    <form class="secv2-domain-form"
+    <form class="secv2-domain-form secv2-domain-form-fix1"
           method="post"
           action="{{ url_for('security_tls_check') }}">
-      <label>
-        <span>Домен панели</span>
-        <input type="text"
+      <label class="secv2-domain-label" for="secv2-domain-input">Домен панели</label>
+      <div class="secv2-domain-line">
+        <input id="secv2-domain-input"
+               type="text"
                name="domain"
                value="{{ tls.domain }}"
                placeholder="panel.example.com"
                autocomplete="off"
                required>
-        <small>Только доменное имя — без <code>https://</code> и без пути.</small>
-      </label>
-      <button class="button primary" type="submit">Проверить домен</button>
+        <button class="button primary" type="submit">Проверить домен</button>
+      </div>
+      <small class="secv2-domain-help">Только доменное имя — без <code>https://</code> и без пути.</small>
     </form>
 
     <div class="secv2-checks sg-ljd-nested-group">
@@ -184,6 +186,36 @@
     </div>
   </article>
 
+
+  <article class="secv2-password-card sg-ljd-card-large" id="password-change">
+    <header class="secv2-card-head">
+      <div>
+        <div class="secv2-kicker">ПАРОЛЬ АДМИНИСТРАТОРА</div>
+        <h2>Сменить пароль</h2>
+        <p>Укажите текущий пароль, затем новый пароль дважды.</p>
+      </div>
+      <span class="secv2-pill {{ 'warning' if security.default_password else 'ok' }}">
+        {{ 'Стандартный' if security.default_password else 'Пользовательский' }}
+      </span>
+    </header>
+    <form class="secv2-password-form" method="post" action="{{ url_for('security_password_change') }}">
+      <label>
+        <span>Текущий пароль</span>
+        <input type="password" name="current_password" autocomplete="current-password" required>
+      </label>
+      <label>
+        <span>Новый пароль</span>
+        <input type="password" name="new_password" autocomplete="new-password" minlength="8" required>
+      </label>
+      <label>
+        <span>Повторите новый пароль</span>
+        <input type="password" name="confirm_password" autocomplete="new-password" minlength="8" required>
+      </label>
+      <div class="secv2-password-actions">
+        <button class="button primary" type="submit">Сменить пароль</button>
+      </div>
+    </form>
+  </article>
   <section class="secv2-lower-grid">
     <article class="secv2-card sg-ljd-card">
       <header class="secv2-card-head">

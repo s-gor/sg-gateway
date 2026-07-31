@@ -1,0 +1,41 @@
+/* SG-Gateway 0.1.0-021.7 — Dial SG-Gateway Sector Fix 1
+   Green = SG-Gateway share inside the USED sector only.
+   Blue = the rest of used resources. Neutral = available/free. */
+
+body.page-system {
+  --sg-dial-gateway-green: #45c486;
+  --sg-dial-used-blue: #4d97ef;
+}
+
+html[data-theme="dark"] body.page-system,
+html[data-theme="graphite"] body.page-system,
+body.page-system:not([data-theme]) {
+  --sg-dial-neutral: #233d57;
+}
+
+html[data-theme="light"] body.page-system {
+  --sg-dial-neutral: #d7e1dd;
+}
+
+/* Memory + Disk: SG-Gateway is a green sub-sector of USED, never of FREE. */
+body.page-system [data-sg-memory-card="1"] .sv1-donut,
+body.page-system [data-sg-disk-card="1"] .sv1-donut {
+  background:
+    conic-gradient(
+      from -90deg,
+      var(--sg-dial-gateway-green) 0 calc(var(--sg-dial-gateway-percent, 0) * 1%),
+      var(--sg-dial-used-blue) calc(var(--sg-dial-gateway-percent, 0) * 1%) calc(var(--sg-dial-used-percent, 0) * 1%),
+      var(--sg-dial-neutral) calc(var(--sg-dial-used-percent, 0) * 1%) 100%
+    ) !important;
+}
+
+/* CPU: same idea — SG-Gateway is a green piece inside current CPU load. */
+body.page-system [data-sg-cpu-card="1"] .sv1-cpu-dial {
+  background:
+    conic-gradient(
+      from -90deg,
+      var(--sg-dial-gateway-green) 0 calc(var(--sg-dial-gateway-percent, 0) * 1%),
+      var(--sg-dial-used-blue) calc(var(--sg-dial-gateway-percent, 0) * 1%) calc(var(--sg-dial-used-percent, 0) * 1%),
+      var(--sg-dial-neutral) calc(var(--sg-dial-used-percent, 0) * 1%) 100%
+    ) !important;
+}

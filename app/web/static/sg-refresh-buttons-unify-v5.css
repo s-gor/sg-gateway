@@ -1,0 +1,13 @@
+/* SG-Gateway 0.1.0-021.7 — Refresh final V5 consolidated.
+   FIX2 owns the common RAM/Disk/CPU button geometry.
+   Accepted final optical correction: Disk native stack -23px; RAM/CPU unchanged. */
+@media (min-width:1180px) {
+  [data-sg-disk-card="1"] .sv1-disk-bar,
+  [data-sg-disk-card="1"] .sv1-disk-labels,
+  [data-sg-disk-card="1"] .sv1-disk-breakdown { transform:translateY(-23px)!important; }
+}
+@media (max-width:1179px) {
+  [data-sg-disk-card="1"] .sv1-disk-bar,
+  [data-sg-disk-card="1"] .sv1-disk-labels,
+  [data-sg-disk-card="1"] .sv1-disk-breakdown { transform:none!important; }
+}

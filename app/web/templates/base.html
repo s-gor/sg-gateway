@@ -39,6 +39,19 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-readable-typography-v3.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-page-frame-routing-v1.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-controls-final-v1.css') }}">
+  {% if active_page|default('') == 'system' %}
+<link rel="stylesheet" href="{{ url_for('static', filename='sg-system-unified-free-color-v2.css') }}?v={{ app_version }}">
+<script src="{{ url_for('static', filename='sg-system-unified-free-color-v2.js') }}?v={{ app_version }}" defer></script>
+{% endif %}
+  {% if active_page|default('') == 'system' %}<link rel="stylesheet" href="{{ url_for('static', filename='sg-system-cpu-summary-header-v1.css') }}?v={{ app_version }}"><script src="{{ url_for('static', filename='sg-system-cpu-summary-header-v1.js') }}?v={{ app_version }}" defer></script>{% endif %}
+  {% if active_page|default('') == 'system' %}<link rel="stylesheet" href="{{ url_for('static', filename='sg-system-memory-row-bars-v1.css') }}?v={{ app_version }}"><script src="{{ url_for('static', filename='sg-system-memory-row-bars-v1.js') }}?v={{ app_version }}" defer></script>{% endif %}
+  {% if active_page|default('') == 'system' %}<link rel="stylesheet" href="{{ url_for('static', filename='sg-system-dial-sg-gateway-sector-v1.css') }}?v={{ app_version }}"><script src="{{ url_for('static', filename='sg-system-dial-sg-gateway-sector-v1.js') }}?v={{ app_version }}" defer></script>{% endif %}
+  {% if active_page|default('') == 'system' %}<script src="{{ url_for('static', filename='sg-system-dial-math-sync-v1.js') }}?v={{ app_version }}" defer></script>{% endif %}
+  {% if active_page|default('') == 'system' %}
+<link rel="stylesheet" href="{{ url_for('static', filename='sg-system-top-dividers-remove-v2.css') }}?v={{ app_version }}">
+{% endif %}
+  {% if active_page|default('') == 'system' %}<link rel="stylesheet" href="{{ url_for('static', filename='sg-system-memory-legend-divider-remove-v1.css') }}?v={{ app_version }}">{% endif %}
+  {% if active_page|default('') == 'system' %}<link rel="stylesheet" href="{{ url_for('static', filename='sg-system-light-theme-v3.css') }}?v={{ app_version }}">{% endif %}
 </head>
 <body class="sg-body page-{{ active_page|default('system') }}">
   <div class="sg-shell" id="sg-shell">
