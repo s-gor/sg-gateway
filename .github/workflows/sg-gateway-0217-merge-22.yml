@@ -34,7 +34,7 @@ jobs:
           set -Eeuo pipefail
           echo "788bc3d3e534cfc14bc17117cddf1088cbc09a670e3e52f283f6094839eaa79f  tools/sg-gateway-0217-checkpoint1-22-fix-replay.run" | sha256sum -c -
           bash -n "tools/sg-gateway-0217-checkpoint1-22-fix-replay.run"
-          "tools/sg-gateway-0217-checkpoint1-22-fix-replay.run" --verify-only
+          bash "tools/sg-gateway-0217-checkpoint1-22-fix-replay.run" --verify-only
 
       - name: Freeze protected Connections runtime hashes
         shell: bash
@@ -66,8 +66,7 @@ jobs:
           SG_GATEWAY_BACKUP_ROOT: ${{ runner.temp }}/sg-gateway-hotfix-backups
         run: |
           set -Eeuo pipefail
-          chmod +x "tools/sg-gateway-0217-checkpoint1-22-fix-replay.run"
-          "tools/sg-gateway-0217-checkpoint1-22-fix-replay.run" --all
+          bash "tools/sg-gateway-0217-checkpoint1-22-fix-replay.run" --all
 
       - name: Verify protected Connections runtime unchanged
         shell: bash
