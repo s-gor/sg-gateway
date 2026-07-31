@@ -1,0 +1,15 @@
+SG-Gateway 0.1.0-021.7 - verified GitHub main + exact 22 fixes
+
+Published directory:
+artifacts/0217/verified-main-plus-22/
+
+Verified FULL installer:
+SG-Gateway-0217-FULL-CLEAN-GITHUB-MAIN-PLUS-22-FIXES-FIX2.run
+SHA-256:
+53240d404b88df8fc49a7bd1ee679b37b6ca1f2b9b8c17e2ac56ca0aa80879b3
+
+After publication, raw URL:
+https://raw.githubusercontent.com/s-gor/sg-gateway/main/artifacts/0217/verified-main-plus-22/SG-Gateway-0217-FULL-CLEAN-GITHUB-MAIN-PLUS-22-FIXES-FIX2.run
+
+Clean EC2 test command:
+curl -fL https://raw.githubusercontent.com/s-gor/sg-gateway/main/artifacts/0217/verified-main-plus-22/SG-Gateway-0217-FULL-CLEAN-GITHUB-MAIN-PLUS-22-FIXES-FIX2.run -o SG-Gateway-0217-FULL-CLEAN-GITHUB-MAIN-PLUS-22-FIXES-FIX2.run && chmod +x SG-Gateway-0217-FULL-CLEAN-GITHUB-MAIN-PLUS-22-FIXES-FIX2.run && sudo ./SG-Gateway-0217-FULL-CLEAN-GITHUB-MAIN-PLUS-22-FIXES-FIX2.run
