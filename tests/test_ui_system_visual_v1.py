@@ -25,49 +25,51 @@ def test_system_visual_v1_has_compact_user_layout():
         "sg-ljd-system-summary",
         "sv1-resource-grid",
         "sv1-health-panel",
-        "sv1-action-grid",
-        "Частые операции",
+        "sa2-panel",
+        "Трафик и активность",
     ):
         assert marker in template
     for removed in (
         "sv1-connections-panel",
         "Панель и hostd",
         "Управление системой",
+        "sv1-action-grid",
+        "Частые операции",
     ):
         assert removed not in template
 
 
-def test_system_visual_v1_quick_actions_are_real_actions():
+def test_system_visual_v1_activity_panel_replaces_quick_actions():
     template = (ROOT / "app/web/templates/system.html").read_text(encoding="utf-8")
     for marker in (
+        "data-system-activity",
+        "url_for('system_activity_api')",
+        "data-activity=\"today-total\"",
+        "data-activity=\"month-total\"",
+        "data-activity=\"clients-total\"",
+        "data-activity=\"devices-total\"",
+        "Последние 24 часа",
+    ):
+        assert marker in template
+    for removed in (
         "Создать клиента",
         "Настроить подключение",
         "Создать резервную копию",
-        "Скачать диагностику",
         "url_for('create_backup_route')",
-        "url_for('download_diagnostics')",
         "url_for('clients', new='1')",
+        "url_for('connections')",
+        "sv1-action-grid",
     ):
-        assert marker in template
-    quick_actions = template.split('<div class="sv1-action-grid', 1)[1].split('</div>\n    </article>', 1)[0]
-    for duplicated_menu_label in (
-        ">Clients<",
-        ">Connections<",
-        ">Maintenance<",
-        ">Recovery<",
-    ):
-        assert duplicated_menu_label not in quick_actions
+        assert removed not in template
 
 
-def test_system_visual_v1_uses_existing_routes():
+def test_system_visual_v1_uses_current_routes():
     template = (ROOT / "app/web/templates/system.html").read_text(encoding="utf-8")
     for route in (
         "download_diagnostics",
         "maintenance",
         "api_status",
-        "connections",
-        "clients",
-        "create_backup_route",
+        "system_activity_api",
     ):
         assert f"url_for('{route}'" in template
 
