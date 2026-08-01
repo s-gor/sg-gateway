@@ -64,7 +64,6 @@
 
     if (!centerStrong || !centerLabel || !copy || !number || !subtitle) return;
 
-    // Already converted. This also makes MutationObserver safe.
     if (
       trim(centerLabel.textContent) === "Доступно"
       && trim(subtitle.textContent) === "Доступно"
@@ -106,6 +105,28 @@
     );
   }
 
+  function ensureDiskLogPath() {
+    const card = document.querySelector('[data-sg-disk-card="1"]');
+    const copy = card?.querySelector(".sv1-resource-copy");
+    if (!copy) return;
+
+    const lines = [...copy.querySelectorAll(".sv1-resource-available")];
+    const line = lines.find((node) =>
+      /файловая\s+система|логи/i.test(trim(node.textContent))
+    );
+    if (!line) return;
+
+    if (
+      line.dataset.sgDiskLogPath === "1"
+      && trim(line.textContent) === "Логи: /var/log/sg-gateway"
+    ) {
+      return;
+    }
+
+    line.innerHTML = 'Логи: <strong>/var/log/sg-gateway</strong>';
+    line.dataset.sgDiskLogPath = "1";
+  }
+
   function applyAll() {
     applyCard({
       selector: '[data-sg-memory-card="1"]',
@@ -120,6 +141,8 @@
       labelsSelector: ".sv1-disk-labels",
       freePattern: /свободно|доступно/i,
     });
+
+    ensureDiskLogPath();
   }
 
   let scheduled = false;
