@@ -1,0 +1,149 @@
+name: SG-Gateway 021.7 publish final simple System dials
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/sg-gateway-0217-publish-simple-dials.yml"
+      - "tools/sg-gateway-0217-system-simple-dials-source-merge.run"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sg-gateway-0217-publish-simple-dials
+  cancel-in-progress: false
+
+jobs:
+  publish-source:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify exact source merge script
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "aa222fa69a0004bee03764c4523ead14f0b83b1ef3086c16ed1bd81b3549050c  tools/sg-gateway-0217-system-simple-dials-source-merge.run" | sha256sum -c -
+          bash -n tools/sg-gateway-0217-system-simple-dials-source-merge.run
+
+      - name: Freeze unrelated runtime hashes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          protected=(
+            app/web/templates/connections.html
+            app/web/templates/_mihomo_panel.html
+            app/mihomo/service.py
+            app/mihomo/helper.py
+            app/clients/exports.py
+            hostd/sg_hostd/client_runtime.py
+            hostd/sg_hostd/commands.py
+            hostd/sg_hostd/operation_jobs.py
+            hostd/sg_hostd/operation_job_runner.py
+          )
+          : > "$RUNNER_TEMP/protected-before.sha256"
+          for f in "${protected[@]}"; do
+            test -f "$f"
+            sha256sum "$f" >> "$RUNNER_TEMP/protected-before.sha256"
+          done
+
+      - name: Merge accepted System state into source
+        shell: bash
+        env:
+          SG_GATEWAY_APP_ROOT: ${{ github.workspace }}
+        run: |
+          set -Eeuo pipefail
+          bash tools/sg-gateway-0217-system-simple-dials-source-merge.run
+
+      - name: Verify unrelated runtime unchanged
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          protected=(
+            app/web/templates/connections.html
+            app/web/templates/_mihomo_panel.html
+            app/mihomo/service.py
+            app/mihomo/helper.py
+            app/clients/exports.py
+            hostd/sg_hostd/client_runtime.py
+            hostd/sg_hostd/commands.py
+            hostd/sg_hostd/operation_jobs.py
+            hostd/sg_hostd/operation_job_runner.py
+          )
+          : > "$RUNNER_TEMP/protected-after.sha256"
+          for f in "${protected[@]}"; do
+            sha256sum "$f" >> "$RUNNER_TEMP/protected-after.sha256"
+          done
+          diff -u "$RUNNER_TEMP/protected-before.sha256" "$RUNNER_TEMP/protected-after.sha256"
+
+      - name: Verify final source state
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile app/main.py
+          grep -Fq 'sg-system-simple-dials-v1.css' app/web/templates/base.html
+          ! grep -Fq 'sg-system-dial-sg-gateway-sector-v1.css' app/web/templates/base.html
+          ! grep -Fq 'sg-system-dial-sg-gateway-sector-v1.js' app/web/templates/base.html
+          ! grep -Fq 'sg-system-dial-math-sync-v1.js' app/web/templates/base.html
+          grep -Fq -- '--sg-simple-dial-used: #4F9BFF' app/web/static/sg-system-simple-dials-v1.css
+          grep -Fq -- '--sg-simple-dial-empty: #233D57' app/web/static/sg-system-simple-dials-v1.css
+          grep -Fq -- '--sg-simple-dial-empty: #D7E1DD' app/web/static/sg-system-simple-dials-v1.css
+          test ! -e app/web/static/sg-system-dial-sg-gateway-sector-v1.css
+          test ! -e app/web/static/sg-system-dial-sg-gateway-sector-v1.js
+          test ! -e app/web/static/sg-system-dial-math-sync-v1.js
+          git diff --check
+
+      - name: Stage only accepted source changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          rm -f .github/workflows/sg-gateway-0217-publish-simple-dials.yml
+          rm -f tools/sg-gateway-0217-system-simple-dials-source-merge.run
+
+          git add -- app tests
+          git add -u -- \
+            .github/workflows/sg-gateway-0217-publish-simple-dials.yml \
+            tools/sg-gateway-0217-system-simple-dials-source-merge.run
+
+          bad=0
+          while IFS= read -r path; do
+            test -n "$path" || continue
+            case "$path" in
+              app/main.py|app/web/templates/base.html|app/web/templates/system.html|app/web/static/sg-*.css|app/web/static/sg-*.js|tests/*.py|.github/workflows/sg-gateway-0217-publish-simple-dials.yml|tools/sg-gateway-0217-system-simple-dials-source-merge.run)
+                ;;
+              *)
+                echo "UNEXPECTED CHANGED PATH: $path" >&2
+                bad=1
+                ;;
+            esac
+          done < <(git diff --cached --name-only)
+
+          test "$bad" -eq 0
+          git diff --cached --check
+          echo "===== FINAL STAGED FILES ====="
+          git diff --cached --name-status
+
+      - name: Commit final source to main
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+            exit 1
+          fi
+
+          git commit -m "SG-Gateway 0.1.0-021.7 publish final simple System dials"
+          git push origin HEAD:main
