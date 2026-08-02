@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          echo "aa222fa69a0004bee03764c4523ead14f0b83b1ef3086c16ed1bd81b3549050c  tools/sg-gateway-0217-system-simple-dials-source-merge.run" | sha256sum -c -
+          echo "be82129778d94fb454bddfeb3b580860cfdc80257de0d142d652c53cdca3d33d  tools/sg-gateway-0217-system-simple-dials-source-merge.run" | sha256sum -c -
           bash -n tools/sg-gateway-0217-system-simple-dials-source-merge.run
 
       - name: Freeze unrelated runtime hashes

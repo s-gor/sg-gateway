@@ -180,8 +180,11 @@ obsolete = [
 for path in (base_path, system_path):
     text = path.read_text(encoding="utf-8")
     for filename in obsolete:
+        # System assets in base.html can be wrapped by a Jinja condition on
+        # the same physical line. Remove the complete line that contains the
+        # exact obsolete link/script, not only lines that start with <link>.
         text = re.sub(
-            rf'^[ \t]*<(?:link|script)\b[^\n]*{re.escape(filename)}[^\n]*(?:</script>)?>\s*\n?',
+            rf'^[^\n]*(?:<link|<script)\b[^\n]*{re.escape(filename)}[^\n]*\n?',
             "",
             text,
             flags=re.MULTILINE,
