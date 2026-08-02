@@ -4,7 +4,6 @@ import json
 import os
 from typing import Any
 
-from app.clients.repository import count_clients, create_client
 from app.connections.settings import get_connection_settings, update_connection_settings
 from app.constants import AMNEZIAWG_UDP_PORT
 from app.db import connect, init_db
@@ -190,7 +189,7 @@ def seed_or_migrate() -> None:
     if not update_mode:
         mihomo_config.update(
             {
-                "mieru_enabled": True,
+                "mieru_enabled": False,
                 "mieru_port": 2099,
                 "anytls_enabled": False,
                 "anytls_port": 9443,
@@ -210,24 +209,12 @@ def seed_or_migrate() -> None:
         vless_encryption=vless_encryption,
     )
 
-    created_admin = False
-    if (
-        _text("SG_SEED_CREATE_ADMIN", "1") == "1"
-        and count_clients() == 0
-    ):
-        admin_client_id = create_client(
-            "sg-admin", "xray_xhttp_reality,sgclient"
-        )
-        if not admin_client_id:
-            raise RuntimeError("Не удалось создать первого клиента sg-admin")
-        created_admin = True
-
     mode = "migration" if update_mode else "seed"
     print(
         "Database "
         f"{mode}: OK; host={public_host}; country={country}; "
         f"xray_credentials_synchronized={synchronized_credentials}; "
-        f"sg_admin_created={int(created_admin)}"
+        "clients_seeded=0"
     )
 
 

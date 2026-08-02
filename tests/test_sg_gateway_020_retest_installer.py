@@ -23,14 +23,17 @@ def test_release_marks_approved_scale_and_version() -> None:
     manifest = json.loads((ROOT / "release-manifest.json").read_text(encoding="utf-8"))
     update = manifest["installer_update"]
     assert update["client_list_row_typography_v020"] == "reverted-to-approved-018-scale"
-    assert update["sg_admin_enter_defaults_to_yes"] is True
+    assert update["noninteractive_install"] is True
     assert update["permanent_log_secret_redaction"] is True
 
 
-def test_sg_admin_prompt_has_explicit_enter_yes_default() -> None:
-    assert 'local suffix="[Enter = Да / n = Нет]"' in INSTALL
-    assert 'read_yes_no "Создать первого клиента sg-admin и сразу подготовить ссылки?" CREATE_SG_ADMIN 1' in INSTALL
-    assert 'answer="${answer:-$([[ "$default_value" == "1" ]] && echo y || echo n)}"' in INSTALL
+def test_fresh_install_is_noninteractive_and_creates_no_vpn_client() -> None:
+    assert "collect_automatic_parameters" in INSTALL
+    assert "collect_answers" not in INSTALL
+    assert "Создать первого клиента sg-admin" not in INSTALL
+    assert 'CREATE_SG_ADMIN="1"' not in INSTALL
+    assert "installer_port_preflight" in INSTALL
+    assert "generate_admin_password" in INSTALL
 
 
 def test_installer_uses_sanitized_permanent_log() -> None:
@@ -82,5 +85,5 @@ def test_final_success_block_does_not_dump_credentials() -> None:
     assert "mieru://" not in final
     assert "BEGIN CERTIFICATE" not in final
     assert "BEGIN PRIVATE KEY" not in final
-    assert "print_sg_admin_status" in final
-    assert "Профили: Clients → sg-admin" in INSTALL
+    assert "print_initial_client_status" in final
+    assert "Пароль:       %s" in final

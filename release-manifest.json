@@ -77,7 +77,7 @@
   },
   "client_creation": {
     "atomic": true,
-    "first_client": "sg-admin",
+    "first_client": "created-by-owner",
     "default_profile": "xhttp_reality",
     "first_access": [
       "xhttp_reality",
@@ -93,7 +93,8 @@
       "xhttp_reality",
       "mieru",
       "sgclient"
-    ]
+    ],
+    "automatic_on_install": false
   },
   "clients_ui": {
     "summary_strip": false,
@@ -201,14 +202,15 @@
     ],
     "client_detail_typography_preserved": true,
     "client_list_row_typography_v020": "reverted-to-approved-018-scale",
-    "sg_admin_enter_defaults_to_yes": true,
     "permanent_log_secret_redaction": true,
     "pem_and_profile_output_redaction": true,
     "final_success_output": "compact-status-only",
     "amneziawg_udp_port_invariant": "database-seed-backend-ui-firewall-runtime-profile",
     "clean_install_database_assertion": true,
     "rejected_v019_double_typography_removed": true,
-    "version": "021-rebuilt"
+    "version": "021-rebuilt",
+    "noninteractive_install": true,
+    "mandatory_port_preflight": "before-bootstrap-and-before-mutation"
   },
   "routing_ui": {
     "source": "SG Client 096",
@@ -355,13 +357,15 @@
     "single_spinner": true,
     "quiet_technical_output": true,
     "same_ec2_retry": true,
-    "server_name_prompt": true,
+    "server_name_prompt": false,
     "public_ip_fallbacks": 4,
     "country_flag_detection": true,
-    "optional_sg_admin": true,
+    "optional_sg_admin": false,
     "domain_optional": true,
-    "sg_admin_default": "yes-on-enter",
-    "secret_safe_permanent_log": true
+    "sg_admin_default": "not-created",
+    "secret_safe_permanent_log": true,
+    "automatic_panel_password": true,
+    "mandatory_port_preflight": true
   },
   "installer_preview54": {
     "sg_panel_progress_style": true,

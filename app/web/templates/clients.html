@@ -32,7 +32,7 @@
       </form>
       <button class="button primary cv2-button-main sg-ljd-key-action" type="button" data-open-client-form>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        Добавить клиента
+        {{ 'Создать первого клиента' if not clients else 'Добавить клиента' }}
       </button>
     </div>
   </header>
@@ -85,7 +85,15 @@
     </div>
   </section>
 
-  {% if clients %}
+  {% if not clients %}
+  <section class="cv2-list-panel cv15-list-panel sg-ljd-card" aria-label="Первый клиент">
+    <div class="cv15-no-results" style="display:flex" data-sg-empty-clients="1">
+      <strong>Клиентов пока нет</strong>
+      <span>SG-Gateway установлен и готов. Создайте первого клиента и выберите нужные профили.</span>
+      <button class="button primary sg-ljd-key-action" type="button" data-open-client-form>Создать первого клиента</button>
+    </div>
+  </section>
+  {% else %}
   <section class="cv2-list-panel cv15-list-panel" aria-label="Список клиентов">
     <div class="cv2-table-scroll">
       <table class="cv2-table cv10-table cv15-table">
@@ -152,7 +160,7 @@
 
 <dialog class="cv2-dialog cv10-dialog sg-ljd-raised" id="cv2-dialog">
   <form method="post" action="{{ url_for('add_client') }}" class="cv2-create-form cv10-create-form">
-    <header class="cv2-dialog-head"><div><div class="cv2-kicker"><span></span> НОВЫЙ КЛИЕНТ</div><h2>Добавить клиента</h2><p>Основное устройство создаётся автоматически. Технические ключи панель подготовит сама.</p></div><button class="cv2-dialog-close" type="button" data-close-client-form aria-label="Закрыть">×</button></header>
+    <header class="cv2-dialog-head"><div><div class="cv2-kicker"><span></span> НОВЫЙ КЛИЕНТ</div><h2>{{ 'Создать первого клиента' if not clients else 'Добавить клиента' }}</h2><p>Выберите нужные профили. Панель подготовит реквизиты и применит конфигурацию.</p></div><button class="cv2-dialog-close" type="button" data-close-client-form aria-label="Закрыть">×</button></header>
 
     <label><span>Имя клиента</span><input type="text" name="name" maxlength="80" required placeholder="Например: Сергей" autocomplete="off"></label>
 
@@ -162,11 +170,11 @@
       {% for profile in xray_profiles.profiles %}
       {% set token = 'xray_' ~ profile.id %}
       <label class="cv10-protocol {{ 'is-locked' if not profile.ready else '' }}">
-        <input type="checkbox" name="protocols" value="{{ token }}" {% if profile.ready and profile.id == 'xhttp_reality' %}checked{% elif not profile.ready %}disabled{% endif %}>
+        <input type="checkbox" name="protocols" value="{{ token }}" {% if profile.ready and profile.id in ['reality_tcp', 'xhttp_reality'] %}checked{% elif not profile.ready %}disabled{% endif %}>
         <span><strong>{{ profile.title }}</strong><small>{% if profile.ready %}Отдельный профиль и QR{% elif profile.tls_required and not xray_profiles.tls_ready %}Требуется HTTPS{% elif profile.encryption_required and not profile.encryption_ready %}Сначала восстановите VLESS Encryption{% elif not profile.enabled %}Сначала включите профиль в Connections{% else %}Проверьте профиль Xray в Connections{% endif %}</small></span>
       </label>
       {% endfor %}
-      <label class="cv10-protocol"><input type="checkbox" name="protocols" value="amneziawg"><span><strong>AmneziaWG</strong><small>Полная конфигурация и QR</small></span></label>
+      <label class="cv10-protocol"><input type="checkbox" name="protocols" value="amneziawg" checked><span><strong>AmneziaWG</strong><small>Полная конфигурация и QR</small></span></label>
       <label class="cv10-protocol"><input type="checkbox" name="protocols" value="mihomo" checked><span><strong>Mieru</strong><small>Mieru-ссылка и Mihomo YAML</small></span></label>
       <label class="cv10-protocol {{ 'is-locked' if not tls.https_ready else '' }}"><input type="checkbox" name="protocols" value="anytls" {% if not tls.https_ready %}disabled{% endif %}><span><strong>AnyTLS</strong><small>{{ 'Отдельный TLS-профиль и QR' if tls.https_ready else 'Требуется HTTPS' }}</small></span></label>
       <label class="cv10-protocol {{ 'is-locked' if not tls.https_ready else '' }}"><input type="checkbox" name="protocols" value="tuic" {% if not tls.https_ready %}disabled{% endif %}><span><strong>TUIC v5</strong><small>{{ 'Отдельный QUIC/UDP-профиль и QR' if tls.https_ready else 'Требуется HTTPS' }}</small></span></label>

@@ -469,6 +469,29 @@ def list_protocol_deployments() -> dict[str, list[MihomoProtocolDeployment]]:
     return result
 
 
+def _protocol_assignment_counts() -> dict[str, int]:
+    init_db()
+    mapping = {"mihomo": "mieru", "anytls": "anytls", "tuic": "tuic"}
+    counts = {protocol: 0 for protocol in PROTOCOLS}
+    sql = (
+        "SELECT dc.engine, COUNT(*) AS amount "
+        "FROM device_credentials dc "
+        "JOIN devices d ON d.id = dc.device_id "
+        "JOIN clients c ON c.id = d.client_id "
+        "WHERE c.enabled = 1 AND d.enabled = 1 "
+        "AND dc.engine IN ('mihomo', 'anytls', 'tuic') "
+        "AND dc.status != 'disabled' "
+        "GROUP BY dc.engine"
+    )
+    with connect() as connection:
+        rows = connection.execute(sql).fetchall()
+    for row in rows:
+        protocol = mapping.get(str(row["engine"]))
+        if protocol:
+            counts[protocol] = int(row["amount"] or 0)
+    return counts
+
+
 _PLACEHOLDER_HOSTS = {
     "",
     "0.0.0.0",
@@ -643,7 +666,7 @@ def _settings_payload() -> dict[str, Any]:
         "endpoint_source": metadata["endpoint_source"],
         "domain": domain,
         "tls_ready": _tls_ready(domain),
-        "mieru_enabled": _bool(config.get("mieru_enabled", True)),
+        "mieru_enabled": _bool(config.get("mieru_enabled", False)),
         "mieru_port": _int(config.get("mieru_port"), settings.port or 2099),
         "mieru_transport": (
             "UDP"
@@ -867,9 +890,9 @@ def build_candidate() -> dict[str, Any]:
     _ensure_dirs()
     requested_settings = _settings_payload()
     deployments = list_protocol_deployments()
-    # Validate the complete Connections form first. AnyTLS/TUIC are served by
-    # sing-box, but missing credentials/TLS/port conflicts must still block the
-    # Apply button instead of silently leaving the form in "Не применено".
+    assignment_counts = _protocol_assignment_counts()
+    for protocol in PROTOCOLS:
+        requested_settings[f"{protocol}_enabled"] = assignment_counts[protocol] > 0
     _validate_settings(requested_settings, deployments)
     settings = dict(requested_settings)
     # SG-Gateway working split runtime: Mihomo serves Mieru only.
@@ -1378,6 +1401,9 @@ def overview() -> dict[str, Any]:
     _ensure_dirs()
     settings = _settings_payload()
     deployments = list_protocol_deployments()
+    assignment_counts = _protocol_assignment_counts()
+    for protocol in PROTOCOLS:
+        settings[f"{protocol}_enabled"] = assignment_counts[protocol] > 0
     candidate = None
     try:
         candidate = json.loads(MIHOMO_CANDIDATE_META.read_text(encoding="utf-8"))

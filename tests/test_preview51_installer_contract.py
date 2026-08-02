@@ -22,21 +22,24 @@ def test_single_visible_spinner_and_quiet_technical_output():
     assert "-- No entries --" not in INSTALLER
 
 
-def test_same_ec2_retry_identity_ip_country_and_admin_prompts():
+def test_same_ec2_retry_identity_ip_country_and_noninteractive_contract():
     for token in (
         "detect_public_ip()",
         "checkip.amazonaws.com",
         "latest/meta-data/public-ipv4",
         "detect_country_code()",
-        "Имя сервера и hostname SSH",
+        "collect_automatic_parameters",
+        "installer_port_preflight",
+        "generate_admin_password",
         "hostnamectl set-hostname",
-        "Создать первого клиента sg-admin",
         "SG_GATEWAY_CREATE_SG_ADMIN",
         "SG_GATEWAY_SERVER_NAME",
         "SG_GATEWAY_COUNTRY_CODE",
         "Повторный запуск выполняется на этом же EC2",
     ):
         assert token in INSTALLER
+    assert "Создать первого клиента sg-admin" not in INSTALLER
+    assert 'CREATE_SG_ADMIN="1"' not in INSTALLER
 
 
 def test_domain_is_optional_and_panel_uses_public_ip():

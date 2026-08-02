@@ -20,10 +20,47 @@ trap cleanup EXIT INT TERM
 
 [[ "$(id -u)" -eq 0 ]] || fail "run this installer through sudo"
 
+bootstrap_port_preflight() {
+  [[ ! -f /opt/sg-gateway/VERSION ]] || return 0
+  local specs=(tcp:80 tcp:63443 tcp:443 tcp:2099 tcp:8444 tcp:8445 tcp:9443 tcp:8090 tcp:18080 udp:585 udp:8446 udp:10443)
+  local item protocol port hex file local_address state found failures=0
+  printf '[SG-Gateway] Early clean-server port check before bootstrap changes:\n'
+  for item in "${specs[@]}"; do
+    IFS=: read -r protocol port <<< "$item"
+    printf -v hex '%04X' "$port"
+    found=0
+    if [[ "$protocol" == "tcp" ]]; then
+      files=(/proc/net/tcp /proc/net/tcp6)
+    else
+      files=(/proc/net/udp /proc/net/udp6)
+    fi
+    for file in "${files[@]}"; do
+      [[ -r "$file" ]] || continue
+      while read -r _ local_address _ state _; do
+        [[ "${local_address##*:}" == "$hex" ]] || continue
+        [[ "$protocol" != "tcp" || "$state" == "0A" ]] || continue
+        found=1
+        break
+      done < <(tail -n +2 "$file")
+      (( found == 0 )) || break
+    done
+    if (( found == 1 )); then
+      printf '  [BUSY] %s/%s\n' "$port" "${protocol^^}"
+      failures=$((failures + 1))
+    else
+      printf '  [OK]   %s/%s\n' "$port" "${protocol^^}"
+    fi
+  done
+  (( failures == 0 )) || fail "required port is occupied; server was not changed"
+}
+
+bootstrap_port_preflight
+
 missing_packages=()
 command -v curl >/dev/null 2>&1 || missing_packages+=(curl)
 command -v tar >/dev/null 2>&1 || missing_packages+=(tar)
 command -v gzip >/dev/null 2>&1 || missing_packages+=(gzip)
+command -v python3 >/dev/null 2>&1 || missing_packages+=(python3)
 [[ -s /etc/ssl/certs/ca-certificates.crt ]] || missing_packages+=(ca-certificates)
 
 if (( ${#missing_packages[@]} > 0 )); then
