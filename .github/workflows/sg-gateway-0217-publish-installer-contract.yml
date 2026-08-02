@@ -1,0 +1,151 @@
+name: SG-Gateway 021.7 publish noninteractive installer contract
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/sg-gateway-0217-publish-installer-contract.yml"
+      - "tools/sg-gateway-0217-installer-contract-source-merge.py"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sg-gateway-0217-installer-contract
+  cancel-in-progress: false
+
+jobs:
+  publish-installer-contract:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify exact source merge script
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "b05e53264f8b3e54ce53125f6ceacebe4a6757e3e747fbdd2b91115d0f3067ad  tools/sg-gateway-0217-installer-contract-source-merge.py" | sha256sum -c -
+          python3 -m py_compile tools/sg-gateway-0217-installer-contract-source-merge.py
+
+      - name: Freeze accepted System and unrelated runtime
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          protected=(
+            app/main.py
+            app/web/templates/base.html
+            app/web/templates/system.html
+            app/web/static/sg-system-simple-dials-v1.css
+            app/web/static/sg-refresh-buttons-unify-v5.css
+            app/web/static/sg-system-resource-labels-v2.js
+            app/web/templates/connections.html
+            app/web/templates/_mihomo_panel.html
+            app/mihomo/helper.py
+            app/clients/exports.py
+            hostd/sg_hostd/client_runtime.py
+            hostd/sg_hostd/commands.py
+            hostd/sg_hostd/operation_jobs.py
+            hostd/sg_hostd/operation_job_runner.py
+          )
+          : > "$RUNNER_TEMP/protected-before.sha256"
+          for f in "${protected[@]}"; do
+            test -f "$f"
+            sha256sum "$f" >> "$RUNNER_TEMP/protected-before.sha256"
+          done
+
+      - name: Merge accepted installer contract into source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 tools/sg-gateway-0217-installer-contract-source-merge.py "$GITHUB_WORKSPACE"
+          bash -n install.sh
+          bash -n deploy/install-from-github.sh
+          python3 -m py_compile             deploy/installer-port-preflight.py             app/install_seed.py             app/mihomo/service.py             tests/test_installer_noninteractive_port_preflight.py
+
+      - name: Verify protected source unchanged
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          protected=(
+            app/main.py
+            app/web/templates/base.html
+            app/web/templates/system.html
+            app/web/static/sg-system-simple-dials-v1.css
+            app/web/static/sg-refresh-buttons-unify-v5.css
+            app/web/static/sg-system-resource-labels-v2.js
+            app/web/templates/connections.html
+            app/web/templates/_mihomo_panel.html
+            app/mihomo/helper.py
+            app/clients/exports.py
+            hostd/sg_hostd/client_runtime.py
+            hostd/sg_hostd/commands.py
+            hostd/sg_hostd/operation_jobs.py
+            hostd/sg_hostd/operation_job_runner.py
+          )
+          : > "$RUNNER_TEMP/protected-after.sha256"
+          for f in "${protected[@]}"; do sha256sum "$f" >> "$RUNNER_TEMP/protected-after.sha256"; done
+          diff -u "$RUNNER_TEMP/protected-before.sha256" "$RUNNER_TEMP/protected-after.sha256"
+
+      - name: Verify final installer contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ! grep -Fq 'Создать первого клиента sg-admin' install.sh
+          ! grep -Fq 'CREATE_SG_ADMIN="1"' install.sh
+          ! grep -Fq 'collect_answers' install.sh
+          ! grep -Fq 'read_password' install.sh
+          grep -Fq 'collect_automatic_parameters' install.sh
+          grep -Fq 'installer_port_preflight' install.sh
+          grep -Fq 'bootstrap_port_preflight' deploy/install-from-github.sh
+          grep -Fq 'Пароль:       %s' install.sh
+          test -x deploy/installer-port-preflight.py
+          python3 -m pytest -q tests/test_installer_noninteractive_port_preflight.py tests/test_sg_gateway_020_retest_installer.py tests/test_preview51_installer_contract.py tests/test_sg_gateway_017_warp_panel_port.py
+          git diff --check
+
+      - name: Stage only installer contract changes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -f ".github/workflows/sg-gateway-0217-publish-installer-contract.yml"
+          rm -f "tools/sg-gateway-0217-installer-contract-source-merge.py"
+
+          git add --             install.sh             deploy/install-from-github.sh             deploy/installer-port-preflight.py             app/install_seed.py             app/mihomo/service.py             app/web/templates/clients.html             docs/INSTALLATION.md             release-manifest.json             tests/test_installer_noninteractive_port_preflight.py tests/test_sg_gateway_020_retest_installer.py tests/test_preview51_installer_contract.py tests/test_sg_gateway_017_warp_panel_port.py
+          git add -u --             .github/workflows/sg-gateway-0217-publish-installer-contract.yml             tools/sg-gateway-0217-installer-contract-source-merge.py
+
+          bad=0
+          while IFS= read -r path; do
+            test -n "$path" || continue
+            case "$path" in
+              install.sh|deploy/install-from-github.sh|deploy/installer-port-preflight.py|app/install_seed.py|app/mihomo/service.py|app/web/templates/clients.html|docs/INSTALLATION.md|release-manifest.json|tests/test_installer_noninteractive_port_preflight.py|tests/test_sg_gateway_020_retest_installer.py|tests/test_preview51_installer_contract.py|tests/test_sg_gateway_017_warp_panel_port.py|.github/workflows/sg-gateway-0217-publish-installer-contract.yml|tools/sg-gateway-0217-installer-contract-source-merge.py)
+                ;;
+              *)
+                echo "UNEXPECTED CHANGED PATH: $path" >&2
+                bad=1
+                ;;
+            esac
+          done < <(git diff --cached --name-only)
+          test "$bad" -eq 0
+          git diff --cached --check
+          echo "===== FINAL STAGED FILES ====="
+          git diff --cached --name-status
+
+      - name: Commit final installer contract to main
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --cached --quiet; then
+            echo "No source changes to commit." >&2
+            exit 1
+          fi
+          git commit -m "SG-Gateway 0.1.0-021.7 restore noninteractive installer and port preflight"
+          git push origin HEAD:main
