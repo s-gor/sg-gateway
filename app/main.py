@@ -375,29 +375,33 @@ def _dashboard_resources() -> dict:
     total = mem.get("MemTotal", 0)
     available = mem.get("MemAvailable", 0)
     free = mem.get("MemFree", 0)
-    cached = mem.get("Cached", 0) + mem.get("SReclaimable", 0)
     used = max(0, total - available)
     used_percent = round(used * 100 / total) if total else 0
     memory_state, memory_label = _resource_state(used_percent)
 
-    panel = _process_rss(("python", "waitress"))
-    web = _process_rss(("nginx",))
+    panel_rss = _process_rss(("python", "waitress"))
+    web_rss = _process_rss(("nginx",))
+
+    # Build one non-overlapping partition of total RAM for the detail rows.
+    # Linux MemAvailable already includes reclaimable cache, therefore cache
+    # must not be added on top of used memory.
+    panel = min(max(0, panel_rss), used)
+    web = min(max(0, web_rss), max(0, used - panel))
     other = max(0, used - panel - web)
+    cache = max(0, available - free)
+    free_partition = max(0, total - used - cache)
+
     memory_parts = [
-        ("panel", "SG-Gateway", "Панель и дочерние процессы", panel, "#4f9bff"),
-        ("web", "Веб-сервер", "Процессы Nginx и reverse proxy, если используются", web, "#9b7bff"),
-        ("system", "Системные службы", "Остальные процессы операционной системы", other, "#38c6c2"),
-        ("cache", "Файловый кэш", "Память, которую система может освободить", cached, "#e7c45b"),
-        ("free", "Свободно", f"Доступно с учётом кэша: {_format_bytes(available)}", free, "#4ecb86"),
+        ("panel", "SG-Gateway", "Панель и дочерние процессы", panel, "#8279B8"),
+        ("web", "Веб-сервер", "Процессы Nginx и reverse proxy, если используются", web, "#B9839A"),
+        ("system", "Системные службы", "Остальные процессы операционной системы", other, "#7897A8"),
+        ("cache", "Файловый кэш", "Доступная память, занятая файловым кэшем", cache, "#C9A15B"),
+        ("free", "Доступно", f"Доступно с учётом кэша: {_format_bytes(available)}", free_partition, "var(--sg-simple-dial-empty)"),
     ]
 
-    start = 0.0
-    gradient_parts: list[str] = []
     memory_rows: list[dict] = []
     for key, label, note, amount, color in memory_parts:
         percent = round(amount * 100 / total, 1) if total else 0
-        end = min(100.0, start + percent)
-        gradient_parts.append(f"{color} {start:.1f}% {end:.1f}%")
         memory_rows.append(
             {
                 "key": key,
@@ -408,7 +412,6 @@ def _dashboard_resources() -> dict:
                 "color": color,
             }
         )
-        start = end
 
     data_dir = load_config().data_dir
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -432,7 +435,10 @@ def _dashboard_resources() -> dict:
             "percent_text": f"{used_percent}%",
             "state": memory_state,
             "state_label": memory_label,
-            "gradient": "conic-gradient(" + ", ".join(gradient_parts) + ")",
+            "gradient": (
+                "conic-gradient(var(--sg-simple-dial-used) 0 "
+                f"{used_percent}%, var(--sg-simple-dial-empty) {used_percent}% 100%)"
+            ),
             "rows": memory_rows,
             "swap_used": _format_bytes(mem.get("SwapTotal", 0) - mem.get("SwapFree", 0)),
         },
@@ -449,8 +455,8 @@ def _dashboard_resources() -> dict:
             "state": disk_state,
             "state_label": disk_label,
             "gradient": (
-                "conic-gradient(#4f9bff 0 "
-                f"{disk_percent}%, #4ecb86 {disk_percent}% 100%)"
+                "conic-gradient(var(--sg-simple-dial-used) 0 "
+                f"{disk_percent}%, var(--sg-simple-dial-empty) {disk_percent}% 100%)"
             ),
         },
         "cpu": {
