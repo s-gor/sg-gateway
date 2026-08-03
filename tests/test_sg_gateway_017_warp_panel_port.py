@@ -81,7 +81,7 @@ def test_installer_creates_and_activates_warp_automatically_and_hides_links():
     assert "/commands/warp.install" in source
     assert "Создание и активация WARP" in source
     assert "Первый клиент sg-admin: создан" in source
-    assert "Профили: Clients → sg-admin" in source
+    assert "Первый VPN-клиент sg-admin будет создан автоматически" in source
     final = source.rsplit("INSTALL_SUCCESS=1", 1)[1]
     assert "subscription-base64" not in final
     assert "Ссылки первого клиента" not in source

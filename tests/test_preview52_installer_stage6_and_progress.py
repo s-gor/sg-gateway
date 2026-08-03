@@ -11,13 +11,40 @@ ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = (ROOT / "install.sh").read_text(encoding="utf-8")
 
 
+def _install_fake_awg(tmp_path: Path) -> Path:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    awg = bin_dir / "awg"
+    awg.write_text(
+        """#!/bin/sh
+case "$1" in
+  genkey)
+    printf '%s\n' 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
+    ;;
+  pubkey)
+    cat >/dev/null
+    printf '%s\n' 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB='
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    awg.chmod(0o755)
+    return bin_dir
+
+
 def _seed_env(tmp_path: Path, *, update: bool) -> dict[str, str]:
     data_dir = tmp_path / "data"
     log_dir = tmp_path / "log"
+    bin_dir = _install_fake_awg(tmp_path)
     env = os.environ.copy()
     env.update(
         {
             "PYTHONPATH": str(ROOT),
+            "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
             "SG_GATEWAY_ENV": "production",
             "SG_GATEWAY_HOST": "127.0.0.1",
             "SG_GATEWAY_PORT": "18080",
