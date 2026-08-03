@@ -99,6 +99,7 @@ MANAGED_PATHS=(
   etc/nginx/sites-enabled/sg-gateway
   etc/nginx/sites-enabled/default
   etc/letsencrypt/renewal-hooks/deploy/sg-gateway-nginx
+  etc/letsencrypt/renewal-hooks/deploy/reload-sg-gateway-nginx.sh
   etc/mihomo
   var/lib/mihomo
   etc/sing-box
@@ -1949,6 +1950,117 @@ PY
   rm -rf "$test_root"
 }
 
+
+preserved_https_domain() {
+  (( UPDATE_MODE == 1 )) || return 0
+
+  python3 - \
+    "$DATA_DIR/security/tls-state.json" \
+    /etc/nginx/sites-available/sg-gateway \
+    "$PANEL_PORT" <<'PYHTTPSSTATE'
+import json
+import re
+import sys
+from pathlib import Path
+
+state_path = Path(sys.argv[1])
+nginx_path = Path(sys.argv[2])
+panel_port = int(sys.argv[3])
+
+if not state_path.is_file():
+    raise SystemExit(0)
+
+try:
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+except (OSError, ValueError, json.JSONDecodeError) as exc:
+    print(f"HTTPS state is unreadable: {exc}", file=sys.stderr)
+    raise SystemExit(1)
+
+if not state.get("https_ready"):
+    raise SystemExit(0)
+
+domain = str(state.get("domain") or "").strip().lower()
+try:
+    public_port = int(
+        state.get("public_port")
+        or state.get("panel_port")
+        or 0
+    )
+except (TypeError, ValueError):
+    public_port = 0
+
+certificate_path = Path(
+    str(
+        state.get("certificate_path")
+        or f"/etc/letsencrypt/live/{domain}/fullchain.pem"
+    )
+)
+key_path = Path(
+    str(
+        state.get("key_path")
+        or f"/etc/letsencrypt/live/{domain}/privkey.pem"
+    )
+)
+
+problems = []
+if not domain:
+    problems.append("domain is empty")
+if public_port != panel_port:
+    problems.append(
+        f"saved public port {public_port} does not match panel port {panel_port}"
+    )
+if not certificate_path.is_file() or certificate_path.stat().st_size == 0:
+    problems.append(f"certificate is missing: {certificate_path}")
+if not key_path.is_file() or key_path.stat().st_size == 0:
+    problems.append(f"private key is missing: {key_path}")
+
+try:
+    nginx = nginx_path.read_text(encoding="utf-8")
+except OSError as exc:
+    problems.append(f"Nginx config is unreadable: {exc}")
+    nginx = ""
+
+if nginx:
+    listen_pattern = re.compile(
+        rf"(?m)^\s*listen\s+(?:\[::\]:)?{panel_port}\b[^;]*\bssl\b[^;]*;"
+    )
+    if not listen_pattern.search(nginx):
+        problems.append("Nginx has no HTTPS listener on the saved panel port")
+
+    names = []
+    for match in re.finditer(
+        r"(?m)^\s*server_name\s+([^;]+);",
+        nginx,
+    ):
+        names.extend(match.group(1).split())
+    if domain not in names:
+        problems.append("Nginx server_name does not match the saved domain")
+
+    cert_pattern = re.compile(
+        rf"(?m)^\s*ssl_certificate\s+"
+        rf"{re.escape(str(certificate_path))}\s*;"
+    )
+    key_pattern = re.compile(
+        rf"(?m)^\s*ssl_certificate_key\s+"
+        rf"{re.escape(str(key_path))}\s*;"
+    )
+    if not cert_pattern.search(nginx):
+        problems.append("Nginx does not use the saved certificate")
+    if not key_pattern.search(nginx):
+        problems.append("Nginx does not use the saved private key")
+
+if problems:
+    print(
+        "Working HTTPS cannot be preserved during update: "
+        + "; ".join(problems),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+print(domain)
+PYHTTPSSTATE
+}
+
 stage_systemd_units() {
   # Old layered installers left overrides here. They must not survive a full install.
   rm -rf /etc/systemd/system/sg-hostd.service.d
@@ -2015,7 +2127,12 @@ EOF
   install -m 0644 "$PREFIX/deploy/sg-gateway-singbox.service" /etc/systemd/system/sg-gateway-singbox.service
   install -m 0644 "$PREFIX/deploy/mihomo.service" /etc/systemd/system/mihomo.service
 
-  cat > /etc/nginx/sites-available/sg-gateway <<EOF
+  local https_domain=""
+  https_domain="$(preserved_https_domain)"
+  if [[ -n "$https_domain" ]]; then
+    echo "[SG-Gateway] Сохраняю рабочий HTTPS для $https_domain при обновлении."
+  else
+    cat > /etc/nginx/sites-available/sg-gateway <<EOF
 server {
     listen 80;
     listen [::]:80;
@@ -2049,6 +2166,7 @@ server {
     }
 }
 EOF
+  fi
   rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/sg-gateway
   ln -s /etc/nginx/sites-available/sg-gateway /etc/nginx/sites-enabled/sg-gateway
   nginx -t
@@ -2080,10 +2198,13 @@ http_wait_json() {
   local url="$1"
   local expected_service="$2"
   local attempts="${3:-60}"
+  local resolve="${4:-}"
   local body code attempt
+  local curl_options=(-sS --max-time 5)
+  [[ -n "$resolve" ]] && curl_options+=(--resolve "$resolve")
   for attempt in $(seq 1 "$attempts"); do
     body="$(mktemp)"
-    code="$(curl -sS --max-time 5 -o "$body" -w '%{http_code}' "$url" 2>>"$INSTALL_LOG" || true)"
+    code="$(curl "${curl_options[@]}" -o "$body" -w '%{http_code}' "$url" 2>>"$INSTALL_LOG" || true)"
     if [[ "$code" == "200" ]] && python3 - "$body" "$expected_service" <<'PY'
 import json, sys
 path, expected = sys.argv[1:]
@@ -2282,11 +2403,25 @@ restore_update_runtime_services() {
 }
 
 stage9_verify_nginx() {
+  local https_domain="" resolve=""
+
   restore_update_runtime_services
   nginx -t
   systemctl enable --now nginx.service
-  http_wait_json "http://127.0.0.1:${PANEL_PORT}/health" "sg-gateway-panel" 15
-  curl -fsS --max-time 8 "http://127.0.0.1:${PANEL_PORT}/login" >/dev/null
+
+  https_domain="$(preserved_https_domain)"
+  if [[ -n "$https_domain" ]]; then
+    resolve="${https_domain}:${PANEL_PORT}:127.0.0.1"
+    http_wait_json \
+      "https://${https_domain}:${PANEL_PORT}/health" \
+      "sg-gateway-panel" 15 "$resolve"
+    curl -fsS --max-time 8 --resolve "$resolve" \
+      "https://${https_domain}:${PANEL_PORT}/login" >/dev/null
+    echo "HTTPS update policy: domain, certificate and Nginx config preserved"
+  else
+    http_wait_json "http://127.0.0.1:${PANEL_PORT}/health" "sg-gateway-panel" 15
+    curl -fsS --max-time 8 "http://127.0.0.1:${PANEL_PORT}/login" >/dev/null
+  fi
   systemctl is-active --quiet sg-hostd.service
   systemctl is-active --quiet sg-gateway.service
   systemctl is-active --quiet nginx.service
@@ -2439,7 +2574,13 @@ main() {
   printf '[SG-Gateway] Публичный IP: %s\n' "$PUBLIC_ADDRESS"
   printf '[SG-Gateway] Версия:       %s\n' "$VERSION"
   printf '[SG-Gateway] Xray:         %s\n' "$(xray_installed_version)"
-  printf '[SG-Gateway] Панель:       http://%s:%s\n' "$PUBLIC_ADDRESS" "$PANEL_PORT"
+  local final_https_domain=""
+  final_https_domain="$(preserved_https_domain 2>/dev/null || true)"
+  if [[ -n "$final_https_domain" ]]; then
+    printf '[SG-Gateway] Панель:       https://%s:%s\n' "$final_https_domain" "$PANEL_PORT"
+  else
+    printf '[SG-Gateway] Панель:       http://%s:%s\n' "$PUBLIC_ADDRESS" "$PANEL_PORT"
+  fi
   printf '[SG-Gateway] Логин:        admin\n'
   printf '[SG-Gateway] Журнал:       %s\n' "$INSTALL_LOG"
   printf '[SG-Gateway] Backup:       %s\n' "$BACKUP_DIR"
