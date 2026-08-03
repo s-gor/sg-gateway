@@ -1951,7 +1951,7 @@ PY
 }
 
 
-preserved_https_domain() {
+saved_https_access() {
   (( UPDATE_MODE == 1 )) || return 0
 
   python3 - \
@@ -2128,7 +2128,7 @@ EOF
   install -m 0644 "$PREFIX/deploy/mihomo.service" /etc/systemd/system/mihomo.service
 
   local https_domain=""
-  https_domain="$(preserved_https_domain)"
+  https_domain="$(saved_https_access)"
   if [[ -n "$https_domain" ]]; then
     echo "[SG-Gateway] Сохраняю рабочий HTTPS для $https_domain при обновлении."
   else
@@ -2409,7 +2409,7 @@ stage9_verify_nginx() {
   nginx -t
   systemctl enable --now nginx.service
 
-  https_domain="$(preserved_https_domain)"
+  https_domain="$(saved_https_access)"
   if [[ -n "$https_domain" ]]; then
     resolve="${https_domain}:${PANEL_PORT}:127.0.0.1"
     http_wait_json \
@@ -2575,7 +2575,7 @@ main() {
   printf '[SG-Gateway] Версия:       %s\n' "$VERSION"
   printf '[SG-Gateway] Xray:         %s\n' "$(xray_installed_version)"
   local final_https_domain=""
-  final_https_domain="$(preserved_https_domain 2>/dev/null || true)"
+  final_https_domain="$(saved_https_access 2>/dev/null || true)"
   if [[ -n "$final_https_domain" ]]; then
     printf '[SG-Gateway] Панель:       https://%s:%s\n' "$final_https_domain" "$PANEL_PORT"
   else

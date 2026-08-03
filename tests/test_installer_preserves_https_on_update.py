@@ -11,7 +11,7 @@ def _section(start: str, end: str) -> str:
 
 def test_update_preserves_complete_https_state() -> None:
     helper = _section(
-        "preserved_https_domain() {",
+        "saved_https_access() {",
         "\nstage_systemd_units() {",
     )
 
@@ -32,7 +32,7 @@ def test_update_does_not_replace_working_https_with_http() -> None:
         "\nstage_firewall_and_network() {",
     )
 
-    assert 'https_domain="$(preserved_https_domain)"' in stage
+    assert 'https_domain="$(saved_https_access)"' in stage
     assert 'if [[ -n "$https_domain" ]]; then' in stage
     assert "Сохраняю рабочий HTTPS" in stage
     assert stage.index('if [[ -n "$https_domain" ]]; then') < stage.index(
