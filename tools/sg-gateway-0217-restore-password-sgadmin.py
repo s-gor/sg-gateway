@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(sys.argv[1] if len(sys.argv) > 1 else '.').resolve()
-CURRENT = '257d3e3a847c19a6e370548fd718bd6a06234d16'
+CURRENT = '8a8fd495077c0afbf638f26d2075d65a4b6dc5ef'
 OLD = 'a103af884400a4ffea41505d4fa8b07c81c1682d'
 
 
@@ -40,7 +40,7 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 def replace_function(text: str, name: str, body: str) -> str:
     pattern = re.compile(rf'(?ms)^def {re.escape(name)}\([^\n]*\).*?(?=^def |\Z)')
-    text, count = pattern.subn(body.rstrip() + '\n\n', text, count=1)
+    text, count = pattern.subn(lambda _match: body.rstrip() + '\n\n', text, count=1)
     if count != 1:
         raise RuntimeError(f'test function not found: {name}')
     return text
