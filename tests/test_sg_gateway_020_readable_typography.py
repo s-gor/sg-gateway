@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 from jinja2 import Environment
 
@@ -66,7 +67,10 @@ def test_standalone_login_and_recovery_load_readable_typography() -> None:
 
 
 def test_release_preserves_approved_typography_contract_in_020() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="utf-8").strip() == "0.1.0-021.7"
-    manifest = (ROOT / "release-manifest.json").read_text(encoding="utf-8")
-    assert '"global_readable_typography_v018": true' in manifest
-    assert '"client_detail_typography_preserved": true' in manifest
+    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    manifest = json.loads((ROOT / "release-manifest.json").read_text(encoding="utf-8"))
+    assert version.startswith("0.1.0-021.")
+    assert manifest["version"] == version
+    update = manifest["installer_update"]
+    assert update["global_readable_typography_v018"] is True
+    assert update["client_detail_typography_preserved"] is True

@@ -7,9 +7,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_repository_is_clean_021_baseline() -> None:
-    assert (ROOT / "VERSION").read_text(encoding="utf-8").strip() == "0.1.0-021.7"
+    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     manifest = json.loads((ROOT / "release-manifest.json").read_text(encoding="utf-8"))
-    assert manifest["version"] == "0.1.0-021.7"
+    assert version.startswith("0.1.0-021.")
+    assert manifest["version"] == version
     assert manifest["runtime"] == "native-systemd"
 
 
