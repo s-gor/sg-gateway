@@ -22,15 +22,14 @@ def test_single_visible_spinner_and_quiet_technical_output():
     assert "-- No entries --" not in INSTALLER
 
 
-def test_same_ec2_retry_identity_ip_country_and_noninteractive_contract():
+def test_same_ec2_retry_identity_ip_country_and_password_only_prompt():
     for token in (
         "detect_public_ip()",
         "checkip.amazonaws.com",
         "latest/meta-data/public-ipv4",
         "detect_country_code()",
         "collect_automatic_parameters",
-        "installer_port_preflight",
-        "generate_admin_password",
+        "read_password",
         "hostnamectl set-hostname",
         "SG_GATEWAY_CREATE_SG_ADMIN",
         "SG_GATEWAY_SERVER_NAME",
@@ -38,8 +37,9 @@ def test_same_ec2_retry_identity_ip_country_and_noninteractive_contract():
         "Повторный запуск выполняется на этом же EC2",
     ):
         assert token in INSTALLER
-    assert "Создать первого клиента sg-admin" not in INSTALLER
-    assert 'CREATE_SG_ADMIN="1"' not in INSTALLER
+    assert "installer_port_preflight" not in INSTALLER
+    assert 'read_yes_no "Создать первого клиента sg-admin' not in INSTALLER
+    assert 'CREATE_SG_ADMIN="1"' in INSTALLER
 
 
 def test_domain_is_optional_and_panel_uses_public_ip():
@@ -47,7 +47,7 @@ def test_domain_is_optional_and_panel_uses_public_ip():
     assert "Панель:       http://%s:%s" in INSTALLER
     assert "certbot" in INSTALLER
     assert "domain" not in " ".join(
-        line for line in INSTALLER.splitlines() if "collect_answers" in line
+        line for line in INSTALLER.splitlines() if "collect_automatic_parameters" in line
     ).lower()
 
 
@@ -75,8 +75,8 @@ def test_warp_is_managed_in_outbounds_without_old_create_modal():
     assert "WARP Outbound" in OUTBOUNDS
     create_form = OUTBOUNDS.split("outbounds_warp_create", 1)[1].split("</form>", 1)[0]
     assert "data-sg-confirm" not in create_form
-    assert "data-r096-tab=\"warp\"" not in ROUTING
-    assert "data-r096-panel=\"warp\"" not in ROUTING
+    assert 'data-r096-tab="warp"' not in ROUTING
+    assert 'data-r096-panel="warp"' not in ROUTING
     assert "url_for('outbounds')" in ROUTING
     assert "Direct" in ROUTING and "WARP" in ROUTING and "Block" in ROUTING
 

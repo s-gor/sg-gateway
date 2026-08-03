@@ -23,17 +23,24 @@ def test_release_marks_approved_scale_and_version() -> None:
     manifest = json.loads((ROOT / "release-manifest.json").read_text(encoding="utf-8"))
     update = manifest["installer_update"]
     assert update["client_list_row_typography_v020"] == "reverted-to-approved-018-scale"
-    assert update["noninteractive_install"] is True
     assert update["permanent_log_secret_redaction"] is True
 
 
-def test_fresh_install_is_noninteractive_and_creates_no_vpn_client() -> None:
+def test_only_password_is_interactive_and_sg_admin_is_automatic() -> None:
     assert "collect_automatic_parameters" in INSTALL
-    assert "collect_answers" not in INSTALL
-    assert "Создать первого клиента sg-admin" not in INSTALL
-    assert 'CREATE_SG_ADMIN="1"' not in INSTALL
-    assert "installer_port_preflight" in INSTALL
-    assert "generate_admin_password" in INSTALL
+    assert INSTALL.count("  read_password\n") == 1
+    assert 'read_yes_no "Создать первого клиента sg-admin' not in INSTALL
+    assert 'CREATE_SG_ADMIN="1"' in INSTALL
+    assert "installer_port_preflight" not in INSTALL
+    assert "Первый VPN-клиент sg-admin будет создан автоматически" in INSTALL
+    for forbidden in (
+        'read_tty "Имя сервера и hostname SSH"',
+        'read_tty "Публичный HTTP-порт панели"',
+        'read_tty "Reality target"',
+        'read_tty "Reality SNI"',
+        'read_tty "Порт VLESS Reality TCP"',
+    ):
+        assert forbidden not in INSTALL
 
 
 def test_installer_uses_sanitized_permanent_log() -> None:
@@ -85,5 +92,6 @@ def test_final_success_block_does_not_dump_credentials() -> None:
     assert "mieru://" not in final
     assert "BEGIN CERTIFICATE" not in final
     assert "BEGIN PRIVATE KEY" not in final
-    assert "print_initial_client_status" in final
-    assert "Пароль:       %s" in final
+    assert "Пароль:       %s" not in final
+    assert "print_sg_admin_status" in final
+    assert "Профили sg-admin: Reality TCP, XHTTP Reality, AmneziaWG, Mieru" in INSTALL

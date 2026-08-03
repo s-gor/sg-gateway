@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="0.1.0-021.7"
+VERSION="0.1.0-021"
 INSTALLER_BUILD="021-full-clean-ec2-rebuilt"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 PREFIX="/opt/sg-gateway"
@@ -487,17 +487,23 @@ read_tty() {
   printf -v "$target" '%s' "$value"
 }
 
-generate_admin_password() {
-  ADMIN_PASSWORD="$(python3 - <<'PYADMINPASSWORD'
-import secrets
-print(secrets.token_urlsafe(24))
-PYADMINPASSWORD
-)"
-  [[ ${#ADMIN_PASSWORD} -ge 24 ]] || {
-    echo "Не удалось создать сильный пароль панели." >&2
-    return 1
-  }
-  ADMIN_PASSWORD_HASH="$(python3 - "$ADMIN_PASSWORD" <<'PYADMINHASH'
+read_password() {
+  local first="" second=""
+  while true; do
+    read -r -s -p "[SG-Gateway] Пароль администратора (не менее 8 символов): " first < /dev/tty
+    printf "\n" > /dev/tty
+    read -r -s -p "[SG-Gateway] Повторите пароль: " second < /dev/tty
+    printf "\n" > /dev/tty
+    if (( ${#first} < 8 )); then
+      printf "%sПароль слишком короткий.%s\n" "$YELLOW" "$RESET" > /dev/tty
+      continue
+    fi
+    if [[ "$first" != "$second" ]]; then
+      printf "%sПароли не совпадают.%s\n" "$YELLOW" "$RESET" > /dev/tty
+      continue
+    fi
+    ADMIN_PASSWORD="$first"
+    ADMIN_PASSWORD_HASH="$(python3 - "$first" <<'PYADMINHASH'
 import base64, hashlib, os, sys
 password=sys.argv[1]
 salt=os.urandom(16)
@@ -506,26 +512,12 @@ digest=hashlib.pbkdf2_hmac('sha256',password.encode('utf-8'),salt,rounds)
 print(f"pbkdf2_sha256${rounds}${base64.urlsafe_b64encode(salt).decode()}${base64.urlsafe_b64encode(digest).decode()}")
 PYADMINHASH
 )"
+    return 0
+  done
 }
 
 valid_port() {
   [[ "$1" =~ ^[0-9]+$ ]] && (( 10#$1 >= 1 && 10#$1 <= 65535 ))
-}
-
-
-installer_port_preflight() {
-  python3 "$SOURCE_DIR/deploy/installer-port-preflight.py" \
-    --panel "$PANEL_PORT" \
-    --xray "$XRAY_PORT" \
-    --awg "$AWG_PORT" \
-    --mieru "$MIHOMO_PORT" \
-    --xhttp-reality "$XHTTP_REALITY_PORT" \
-    --xhttp-tls "$XHTTP_TLS_PORT" \
-    --hysteria2 "$HYSTERIA2_PORT" \
-    --anytls "$ANYTLS_PORT" \
-    --tuic "$TUIC_PORT" \
-    --hostd "$HOSTD_PORT" \
-    --backend "$BACKEND_PORT"
 }
 
 
@@ -723,7 +715,7 @@ load_resume_state() {
   valid_public_ipv4 "$PUBLIC_ADDRESS" || fail "SG-Gateway 013: не удалось определить публичный IPv4"
   valid_hostname "${SERVER_NAME:-}" || return 1
   [[ "${COUNTRY_CODE:-unknown}" =~ ^([a-z]{2}|unknown)$ ]] || return 1
-  [[ "${CREATE_SG_ADMIN:-0}" =~ ^[01]$ ]] || return 1
+  [[ "${CREATE_SG_ADMIN:-1}" =~ ^[01]$ ]] || return 1
   echo "[SG-Gateway] Найдены параметры предыдущей незавершённой установки. Повторно вопросы не задаю."
   return 0
 }
@@ -750,9 +742,9 @@ detect_existing_install() {
     local existing_clients="0"
     existing_clients="$(sqlite3 "$DATA_DIR/sg-gateway.sqlite" "SELECT COUNT(*) FROM clients;" 2>/dev/null || echo 0)"
     [[ "$existing_clients" =~ ^[0-9]+$ ]] || existing_clients="0"
-    (( existing_clients == 0 )) && CREATE_SG_ADMIN="0"
+    (( existing_clients == 0 )) && CREATE_SG_ADMIN="1"
   else
-    CREATE_SG_ADMIN="0"
+    CREATE_SG_ADMIN="1"
   fi
   SECRET_KEY="$(env_value "$app_file" SG_GATEWAY_SECRET_KEY)"
   ADMIN_PASSWORD="$(env_value "$app_file" SG_GATEWAY_ADMIN_PASSWORD || true)"
@@ -943,9 +935,8 @@ PY013RESTORE
 }
 
 collect_automatic_parameters() {
-  printf "
-%s[SG-Gateway]%s Автоматические параметры установки
-" "$CYAN" "$RESET"
+  printf "\n%s[SG-Gateway]%s Параметры установки\n" "$CYAN" "$RESET"
+  printf "[SG-Gateway] Технические параметры назначаются автоматически. Домен не требуется.\n\n"
 
   PUBLIC_ADDRESS="$(detect_public_ip || true)"
   valid_public_ipv4 "$PUBLIC_ADDRESS" || {
@@ -953,45 +944,35 @@ collect_automatic_parameters() {
     return 1
   }
   COUNTRY_CODE="$(detect_country_code "$PUBLIC_ADDRESS")"
+
   SERVER_NAME="sg-gateway"
   [[ "$COUNTRY_CODE" != "unknown" ]] && SERVER_NAME="sg-gateway-${COUNTRY_CODE}"
   SERVER_NAME="$(normalize_hostname "$SERVER_NAME")"
-  valid_hostname "$SERVER_NAME" || return 1
+  valid_hostname "$SERVER_NAME" || {
+    echo "Не удалось автоматически сформировать hostname." >&2
+    return 1
+  }
 
   PANEL_PORT="$DEFAULT_PANEL_PORT"
   XRAY_PORT="$DEFAULT_XRAY_PORT"
   AWG_PORT="$DEFAULT_AWG_PORT"
   REALITY_TARGET="$DEFAULT_REALITY_TARGET"
   REALITY_SNI="$DEFAULT_REALITY_SNI"
-  CREATE_SG_ADMIN="0"
-  generate_admin_password
-  SECRET_KEY="$(python3 - <<'PYSECRET'
-import secrets
-print(secrets.token_hex(32))
-PYSECRET
-)"
+  CREATE_SG_ADMIN="1"
 
-  printf '[SG-Gateway] Публичный IP:       %s
-' "$PUBLIC_ADDRESS"
-  printf '[SG-Gateway] Страна:             %s
-' "${COUNTRY_CODE^^}"
-  printf '[SG-Gateway] Hostname:           %s
-' "$SERVER_NAME"
-  printf '[SG-Gateway] Панель:             TCP %s
-' "$PANEL_PORT"
-  printf '[SG-Gateway] VLESS Reality TCP:  TCP %s
-' "$XRAY_PORT"
-  printf '[SG-Gateway] Reality target:     %s
-' "$REALITY_TARGET"
-  printf '[SG-Gateway] Reality SNI:        %s
-' "$REALITY_SNI"
-  printf '[SG-Gateway] AmneziaWG:          UDP %s
-' "$AWG_PORT"
-  printf '[SG-Gateway] VPN-клиенты автоматически не создаются.
-'
-  printf '[SG-Gateway] Пароль панели создан автоматически и будет показан в финале.
+  printf "[SG-Gateway] Публичный IP:       %s\n" "$PUBLIC_ADDRESS"
+  printf "[SG-Gateway] Страна:             %s\n" "${COUNTRY_CODE^^}"
+  printf "[SG-Gateway] Hostname:           %s\n" "$SERVER_NAME"
+  printf "[SG-Gateway] Панель:             TCP %s\n" "$PANEL_PORT"
+  printf "[SG-Gateway] VLESS Reality TCP:  TCP %s\n" "$XRAY_PORT"
+  printf "[SG-Gateway] Reality target:     %s\n" "$REALITY_TARGET"
+  printf "[SG-Gateway] Reality SNI:        %s\n" "$REALITY_SNI"
+  printf "[SG-Gateway] AmneziaWG:          UDP %s\n" "$AWG_PORT"
+  printf "[SG-Gateway] Первый VPN-клиент sg-admin будет создан автоматически.\n"
+  printf "[SG-Gateway] Профили sg-admin: Reality TCP, XHTTP Reality, AmneziaWG, Mieru.\n\n"
 
-'
+  read_password
+  SECRET_KEY="$(openssl rand -hex 32)"
 }
 
 create_backup() {
@@ -2358,9 +2339,11 @@ verify_client_identities_after_update() {
   echo "Clients identities: unchanged"
 }
 
-print_initial_client_status() {
-  printf '[SG-Gateway] VPN-клиенты:  не создавались автоматически\n'
-  printf '[SG-Gateway] Первый клиент создаётся владельцем в разделе Clients.\n'
+print_sg_admin_status() {
+  [[ "$CREATE_SG_ADMIN" == "1" ]] || return 0
+  printf '[SG-Gateway] Первый клиент sg-admin: создан\n'
+  printf '[SG-Gateway] Профили sg-admin: Reality TCP, XHTTP Reality, AmneziaWG, Mieru\n'
+  printf '[SG-Gateway] Создайте собственных пользователей в разделе Clients.\n'
 }
 
 main() {
@@ -2377,40 +2360,38 @@ main() {
   printf '[SG-Gateway] Технический журнал: %s\n' "$INSTALL_LOG"
   printf '[SG-Gateway] Повторный запуск выполняется на этом же EC2. Домен не обязателен.\n\n'
 
-  local fresh_install=0
-  if [[ ! -f "$PREFIX/VERSION" ]]; then
-    fresh_install=1
-    rm -f "$RESUME_FILE"
-    collect_automatic_parameters
-    save_resume_state
-    installer_port_preflight
-    printf '[SG-Gateway] Ранняя проверка портов завершена. Ввода не требуется.\n\n'
-  fi
-
   run_stage 1 "Подготовка Ubuntu" bootstrap_packages
+  # Fail before any server mutation if our own pinned installation media is
+  # missing or damaged. This is the key reproducibility guarantee of 021.
   verify_vendor_core_set
   if detect_existing_install; then
-    CREATE_SG_ADMIN="0"
     printf '[SG-Gateway] Обнаружена установленная полная панель %s. Выполняется безопасное обновление.\n\n' \
       "${EXISTING_VERSION:-неизвестной версии}"
     if (( SERVER_NAME_MIGRATION_REQUIRED == 1 )); then
-      printf '[SG-Gateway] Hostname автоматически нормализован: %s\n' "$SERVER_NAME"
+      SERVER_NAME="$(normalize_hostname "$SERVER_NAME")"
+      valid_hostname "$SERVER_NAME" || { echo "Недопустимое имя сервера." >&2; return 1; }
+      printf '[SG-Gateway] Hostname нормализован автоматически: %s\n' "$SERVER_NAME"
     fi
-    printf '[SG-Gateway] Параметры, пароль и клиенты сохраняются. Вопросов не будет.\n\n'
+    printf '[SG-Gateway] Все параметры приняты. Дальнейшее обновление не потребует ввода.\n\n'
   elif detect_minimal_013_install; then
-    CREATE_SG_ADMIN="0"
     printf '[SG-Gateway] Обнаружена рабочая база SG-Gateway 013.\n'
-    printf '[SG-Gateway] Восстанавливаю полный UI и сохраняю подтверждённые ключи.\n'
-    printf '[SG-Gateway] Логин и пароль SG-Gateway 013 сохраняются. Вопросов не будет.\n\n'
-  elif (( fresh_install == 0 )); then
-    collect_automatic_parameters
-    save_resume_state
+    printf '[SG-Gateway] Восстанавливаю полный активный UI и сохраняю подтверждённые Xray Reality/ML-KEM ключи.\n'
+    printf '[SG-Gateway] Панель будет доступна на TCP %s. Логин и пароль SG-Gateway 013 сохраняются.\n\n' "$PANEL_PORT"
+    printf '[SG-Gateway] Все параметры приняты. Дополнительных вопросов не будет.\n\n'
+  else
+    if ! load_resume_state; then
+      collect_automatic_parameters
+      save_resume_state
+    fi
+    printf '\n[SG-Gateway] Основная установка начинается. Дополнительных вопросов не будет.\n\n'
   fi
 
+  # AmneziaWG has one canonical SG-Gateway transport port.
   AWG_PORT="$DEFAULT_AWG_PORT"
-  CREATE_SG_ADMIN="0"
   if (( UPDATE_MODE == 0 )); then
-    installer_port_preflight
+    # An interrupted clean-install resume file must not disable the accepted
+    # first-client contract.
+    CREATE_SG_ADMIN="1"
   fi
 
   BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)-before-sg-gateway-021"
@@ -2460,14 +2441,10 @@ main() {
   printf '[SG-Gateway] Xray:         %s\n' "$(xray_installed_version)"
   printf '[SG-Gateway] Панель:       http://%s:%s\n' "$PUBLIC_ADDRESS" "$PANEL_PORT"
   printf '[SG-Gateway] Логин:        admin\n'
-  if (( UPDATE_MODE == 0 )); then
-    printf '[SG-Gateway] Пароль:       %s\n' "$ADMIN_PASSWORD"
-    printf '[SG-Gateway] Сохраните пароль: повторно установщик его не показывает.\n'
-  fi
   printf '[SG-Gateway] Журнал:       %s\n' "$INSTALL_LOG"
   printf '[SG-Gateway] Backup:       %s\n' "$BACKUP_DIR"
   printf '[SG-Gateway] SSH hostname станет виден после нового подключения: %s\n' "$SERVER_NAME"
-  print_initial_client_status
+  print_sg_admin_status
   printf '[SG-Gateway] WARP:         создан и активен\n'
 
 }
