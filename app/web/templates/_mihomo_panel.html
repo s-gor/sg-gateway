@@ -113,7 +113,8 @@
               <p>TCP · TLS</p>
             </div>
           </div>
-          <label class="sg-runtime-switch state-{{ anytls_state.state }}" data-runtime-switch>
+          <label class="sg-runtime-switch state-{{ anytls_state.state }}" data-runtime-switch
+                 data-runtime-on-note="Будет включён после создания клиента с этим профилем">
             <input type="checkbox" name="anytls_enabled"
                    {% if mihomo.settings.anytls_enabled %}checked{% endif %}
                    {% if not mihomo.settings.tls_ready %}disabled{% endif %}>
@@ -153,7 +154,8 @@
               <p>UDP/QUIC · TLS</p>
             </div>
           </div>
-          <label class="sg-runtime-switch state-{{ tuic_state.state }}" data-runtime-switch>
+          <label class="sg-runtime-switch state-{{ tuic_state.state }}" data-runtime-switch
+                 data-runtime-on-note="Будет включён после создания клиента с этим профилем">
             <input type="checkbox" name="tuic_enabled"
                    {% if mihomo.settings.tuic_enabled %}checked{% endif %}
                    {% if not mihomo.settings.tls_ready %}disabled{% endif %}>
@@ -234,12 +236,16 @@
     const label = control.querySelector('[data-runtime-label]');
     const note = control.querySelector('[data-runtime-note]');
     if (!input || !label || !note) return;
+    const onNote = control.dataset.runtimeOnNote || '';
+    if (onNote && input.checked && control.classList.contains('state-pending')) {
+      note.textContent = onNote;
+    }
     input.addEventListener('change', () => {
       control.classList.remove('state-active', 'state-off', 'state-error');
       control.classList.add('state-pending');
       label.textContent = 'Не применено';
       note.textContent = input.checked
-        ? 'после применения будет включён'
+        ? (onNote || 'после применения будет включён')
         : 'после применения будет выключен';
     });
   });
