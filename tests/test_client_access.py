@@ -12,7 +12,7 @@ def test_build_access_cards_for_recommended_client(tmp_path, monkeypatch):
 
     assert "VLESS XHTTP Reality" in titles
     assert "Mieru" not in titles
-    assert "Доступ SG Client" in titles
+    assert "Подписка устройства" in titles
     assert "AmneziaWG" not in titles
     assert all(
         f"/clients/{client_id}/devices/" in card.export_url

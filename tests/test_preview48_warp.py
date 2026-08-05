@@ -108,7 +108,7 @@ def test_routing_ui_assigns_warp_but_management_is_in_outbounds():
     outbounds = Path("app/web/templates/outbounds.html").read_text(encoding="utf-8")
     assert 'data-r096-tab="warp"' not in source
     assert 'data-r096-panel="warp"' not in source
-    assert "Заблокированные ресурсы через WARP" in source
+    assert "Ресурсы, заблокированные в РФ через WARP" in source
     assert "Весь интернет через WARP" in source
     assert "url_for('outbounds')" in source
     assert "WARP Outbound" in outbounds

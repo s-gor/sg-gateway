@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_client_detail_is_device_first_and_simple() -> None:
     template = (ROOT / "app/web/templates/client_detail.html").read_text(encoding="utf-8")
     assert "Основное устройство" in template
-    assert "Скопировать подписку" in template
+    assert "Скопировать ссылку" in template
     assert "Технические ссылки" not in template
     assert "dv16-technical-always-open" in template
     assert "ДОСТУП ID" not in template

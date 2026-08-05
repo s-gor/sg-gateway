@@ -78,7 +78,9 @@ def test_warp_is_managed_in_outbounds_without_old_create_modal():
     assert 'data-r096-tab="warp"' not in ROUTING
     assert 'data-r096-panel="warp"' not in ROUTING
     assert "url_for('outbounds')" in ROUTING
-    assert "Direct" in ROUTING and "WARP" in ROUTING and "Block" in ROUTING
+    assert "Через SG-Gateway" in ROUTING
+    assert "Через WARP" in ROUTING
+    assert "Заблокировать" in ROUTING
 
 
 def test_warp_backend_contract_is_native_and_fail_closed():

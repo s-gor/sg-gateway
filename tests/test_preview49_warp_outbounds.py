@@ -110,7 +110,7 @@ def test_warp_management_is_on_outbounds_and_routing_only_assigns_it():
 
     assert 'data-r096-tab="warp"' not in routing_source
     assert 'data-r096-panel="warp"' not in routing_source
-    assert "Заблокированные ресурсы через WARP" in routing_source
+    assert "Ресурсы, заблокированные в РФ через WARP" in routing_source
     assert "Весь интернет через WARP" in routing_source
     assert "url_for('outbounds')" in routing_source
     assert "Создать WARP" not in routing_source

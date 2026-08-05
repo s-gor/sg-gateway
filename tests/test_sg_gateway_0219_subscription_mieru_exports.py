@@ -42,8 +42,8 @@ def test_shared_subscription_excludes_mieru_and_uses_real_newlines() -> None:
     exports = source("app/clients/exports.py")
     start = exports.index("def build_subscription(")
     block = exports[start:]
-    assert 'decoded = "\n".join' in block
-    assert 'decoded = "\\n".join' not in block
+    assert r'decoded = "\n".join' in block
+    assert r'decoded = "\\n".join' not in block
     assert "build_mieru_link" not in block
     assert "mierus://" not in block
 
