@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from app.clients.exports import (
     build_anytls_link,
     build_awg_config,
+    build_mieru_json,
     build_mieru_link,
-    build_subscription,
+    build_subscription_url,
     build_tuic_link,
     build_xray_profile_link,
     protocol_ready,
@@ -35,6 +36,10 @@ class AccessCard:
     show_qr: bool = True
     secondary_url: str = ""
     secondary_label: str = ""
+    secondary_payload: str = ""
+    secondary_qr_url: str = ""
+    tertiary_url: str = ""
+    tertiary_label: str = ""
 
 
 def _deployment_map(client: Client, device: Device | None = None) -> dict:
@@ -162,20 +167,43 @@ def build_access_cards(
     if mihomo is not None:
         ready = protocol_ready(client, "mieru", device)
         status = _status(client, device, mihomo, ready=ready)
-        export_url, qr_url = _urls(client, device, "mieru")
+        link_url, link_qr_url = _urls(client, device, "mieru")
+        json_url, json_qr_url = _urls(client, device, "mieru-json")
         yaml_url, _ = _urls(client, device, "mihomo")
         cards.append(
             AccessCard(
                 kind="mihomo",
                 title="Mieru",
                 status=status,
-                description="Mieru-ссылка и дополнительный Mihomo YAML.",
+                description=(
+                    "Обычная Mieru-ссылка для SG Client и отдельный JSON "
+                    "для клиентов, которые импортируют Mieru только как конфигурацию."
+                ),
                 primary_action="Скачать Mieru-ссылку",
-                export_url=export_url,
-                qr_url=qr_url,
+                export_url=link_url,
+                qr_url=link_qr_url,
                 payload=build_mieru_link(client, device).body if status == "applied" else "",
-                secondary_url=yaml_url if protocol_ready(client, "mihomo", device) else "",
-                secondary_label="Mihomo YAML",
+                show_qr=True,
+                secondary_url=(
+                    json_url if protocol_ready(client, "mieru-json", device) else ""
+                ),
+                secondary_label="Скачать Mieru JSON",
+                secondary_payload=(
+                    build_mieru_json(client, device).body
+                    if status == "applied"
+                    and protocol_ready(client, "mieru-json", device)
+                    else ""
+                ),
+                secondary_qr_url=(
+                    json_qr_url
+                    if status == "applied"
+                    and protocol_ready(client, "mieru-json", device)
+                    else ""
+                ),
+                tertiary_url=(
+                    yaml_url if protocol_ready(client, "mihomo", device) else ""
+                ),
+                tertiary_label="Mihomo YAML",
             )
         )
 
@@ -218,21 +246,18 @@ def build_access_cards(
     sgclient = deployments.get("sgclient")
     if sgclient is not None:
         status = _status(client, device, sgclient)
-        subscription = build_subscription(client, device)
-        export_url, qr_url = _urls(client, device, "subscription")
+        subscription_url = build_subscription_url(client, device)
+        _, qr_url = _urls(client, device, "subscription")
         cards.append(
             AccessCard(
                 kind="subscription",
-                title="Доступ SG Client",
+                title="Подписка устройства",
                 status=status,
-                description=(
-                    "Персональная подписка этого устройства. Отключение другого "
-                    "устройства её не затрагивает."
-                ),
-                primary_action="Скачать подписку",
-                export_url=export_url,
+                description="Персональная URL-подписка для совместимых клиентов.",
+                primary_action="Скопировать ссылку",
+                export_url="",
                 qr_url=qr_url,
-                payload=subscription.body if status == "applied" else "",
+                payload=subscription_url if status == "applied" else "",
                 show_qr=True,
             )
         )

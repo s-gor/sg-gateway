@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import sqlite3
 from pathlib import Path
 
@@ -367,6 +368,33 @@ def _migrate_clients_to_devices(connection: sqlite3.Connection) -> None:
             )
 
 
+
+def _migrate_sgclient_subscription_tokens(connection: sqlite3.Connection) -> None:
+    # One stable public subscription token per SG Client device.
+    rows = connection.execute(
+        "SELECT id, config_json FROM device_credentials "
+        "WHERE engine = 'sgclient' ORDER BY id"
+    ).fetchall()
+    for row in rows:
+        try:
+            config = json.loads(row["config_json"] or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            config = {}
+        if not isinstance(config, dict):
+            config = {}
+        token = str(config.get("subscription_token") or "").strip()
+        if len(token) >= 24:
+            continue
+        config["subscription_token"] = secrets.token_urlsafe(32)
+        connection.execute(
+            "UPDATE device_credentials SET config_json = ? WHERE id = ?",
+            (
+                json.dumps(config, ensure_ascii=False, sort_keys=True),
+                int(row["id"]),
+            ),
+        )
+
+
 def init_db() -> None:
     with connect() as connection:
         connection.executescript(SCHEMA)
@@ -376,3 +404,4 @@ def init_db() -> None:
         _migrate_amneziawg_udp_585(connection)
         _migrate_xray_hysteria2_salamander(connection)
         _migrate_clients_to_devices(connection)
+        _migrate_sgclient_subscription_tokens(connection)

@@ -11,6 +11,7 @@ from app.clients.exports import (
     build_mihomo_yaml,
     build_mieru_link,
     build_subscription,
+    build_subscription_url,
     build_xray_link,
     is_export_ready,
     build_protocol_export,
@@ -20,6 +21,7 @@ from app.clients.qr import ClientQrError, build_qr_svg
 from app.clients.runtime import ClientWorkflowError, apply_clients_runtime
 from app.clients.repository import (
     count_clients,
+    device_access_tokens,
     create_client,
     create_device,
     delete_client,
@@ -27,11 +29,14 @@ from app.clients.repository import (
     get_client,
     get_device,
     get_primary_device,
+    get_subscription_access,
     list_clients,
     list_devices,
     restore_client_snapshot,
     set_client_enabled,
     set_device_enabled,
+    update_client,
+    update_device,
     snapshot_client,
 )
 from app.config import load_config
@@ -922,6 +927,56 @@ def create_app() -> Flask:
             flash(f"Откат HTTPS не выполнен: {exc}", "error")
         return redirect(url_for("security"))
 
+    @app.get("/sub/<token>")
+    def subscription_feed(token: str):
+        access = get_subscription_access(token)
+        if access is None:
+            abort(404)
+        client, device = access
+        if not protocol_ready(client, "subscription", device):
+            abort(404)
+        export = build_subscription(client, device)
+        if not export.body:
+            abort(404)
+        response = Response(export.body, mimetype=export.media_type)
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        # SG_GATEWAY_SUBSCRIPTION_PATCH_V1
+        import base64 as _subscription_base64
+        from urllib.parse import quote as _subscription_quote
+
+        device_title = "Основное устройство" if device.is_primary else device.name
+        profile_title = f"SG-Gateway · {client.name} · {device_title}"
+        encoded_title = _subscription_base64.b64encode(
+            profile_title.encode("utf-8")
+        ).decode("ascii")
+
+        ascii_client = "".join(
+            char
+            if char.isascii() and (char.isalnum() or char in "-_")
+            else "-"
+            for char in client.name
+        ).strip("-") or f"client-{client.id}"
+        ascii_device = "main" if device.is_primary else (
+            "".join(
+                char
+                if char.isascii() and (char.isalnum() or char in "-_")
+                else "-"
+                for char in device.name
+            ).strip("-")
+            or f"device-{device.id}"
+        )
+        fallback_name = f"SG-Gateway-{ascii_client}-{ascii_device}"
+        utf8_name = _subscription_quote(profile_title, safe="")
+
+        response.headers["Profile-Title"] = f"base64:{encoded_title}"
+        response.headers["Content-Disposition"] = (
+            f'attachment; filename="{fallback_name}"; '
+            f"filename*=UTF-8''{utf8_name}"
+        )
+        return response
+
     @app.get("/clients")
     def clients():
         return render_template(
@@ -985,17 +1040,91 @@ def create_app() -> Flask:
             abort(404)
         devices = list_devices(client_id)
         device_views = [
-            {"device": device, "access_cards": build_access_cards(client, device)}
+            {
+                "device": device,
+                "access_cards": build_access_cards(client, device),
+                "protocol_tokens": device_access_tokens(device.id),
+            }
             for device in devices
         ]
+        primary_view = next(
+            (view for view in device_views if view["device"].is_primary),
+            None,
+        )
         return render_template(
             "client_detail.html",
             active_page="clients",
             client=client,
             devices=devices,
             device_views=device_views,
+            primary_view=primary_view,
             xray_profiles=xray_profiles_overview(),
             tls=security_tls_overview(),
+        )
+
+    @app.post("/clients/<int:client_id>/edit")
+    def edit_client(client_id: int):
+        snapshot = snapshot_client(client_id)
+        if snapshot is None:
+            abort(404)
+        protocols = request.form.getlist("protocols")
+        try:
+            updated = update_client(
+                client_id,
+                request.form.get("name", ""),
+                request.form.get("expires_at") or None,
+                ",".join(protocols),
+            )
+        except (ValueError, RuntimeError) as exc:
+            flash(f"Клиент не изменён: {exc}", "error")
+            return redirect(url_for("client_detail", client_id=client_id))
+        if not updated:
+            abort(404)
+        try:
+            result = apply_clients_runtime()
+            flash(
+                str(result.get("message") or "Клиент изменён и применён."),
+                "success",
+            )
+        except ClientWorkflowError as exc:
+            flash(_rollback_client_change(snapshot, exc), "error")
+        return redirect(url_for("client_detail", client_id=client_id))
+
+    @app.post("/clients/<int:client_id>/devices/<int:device_id>/edit")
+    def edit_device(client_id: int, device_id: int):
+        if get_device(device_id, client_id) is None:
+            abort(404)
+        snapshot = snapshot_client(client_id)
+        if snapshot is None:
+            abort(404)
+        protocols = request.form.getlist("protocols")
+        try:
+            updated = update_device(
+                client_id,
+                device_id,
+                request.form.get("name", ""),
+                request.form.get("expires_at") or None,
+                ",".join(protocols),
+            )
+        except (ValueError, RuntimeError) as exc:
+            flash(f"Устройство не изменено: {exc}", "error")
+            return redirect(
+                url_for("client_detail", client_id=client_id)
+                + f"#device-{device_id}"
+            )
+        if not updated:
+            abort(404)
+        try:
+            result = apply_clients_runtime()
+            flash(
+                str(result.get("message") or "Устройство изменено и применено."),
+                "success",
+            )
+        except ClientWorkflowError as exc:
+            flash(_rollback_client_change(snapshot, exc), "error")
+        return redirect(
+            url_for("client_detail", client_id=client_id)
+            + f"#device-{device_id}"
         )
 
     def _build_export(client_id: int, kind: str):
@@ -1027,9 +1156,15 @@ def create_app() -> Flask:
 
     @app.get("/clients/<int:client_id>/qr/<kind>")
     def client_access_qr(client_id: int, kind: str):
+        client = get_client(client_id)
+        if client is None:
+            abort(404)
         export = _build_export(client_id, kind)
+        qr_value = build_subscription_url(client) if kind == "subscription" else export.body
+        if not qr_value:
+            abort(409)
         try:
-            svg = build_qr_svg(export.body)
+            svg = build_qr_svg(qr_value)
         except ClientQrError as exc:
             return Response(str(exc), status=409, mimetype="text/plain")
         return Response(svg, mimetype="image/svg+xml")
@@ -1133,10 +1268,11 @@ def create_app() -> Flask:
         if not protocol_ready(client, kind):
             abort(409)
         export = build_protocol_export(client, kind)
-        if not export.body:
+        qr_value = build_subscription_url(client) if kind == "subscription" else export.body
+        if not qr_value:
             abort(409)
         try:
-            svg = build_qr_svg(export.body)
+            svg = build_qr_svg(qr_value)
         except ClientQrError as exc:
             return Response(str(exc), status=409, mimetype="text/plain")
         return Response(svg, mimetype="image/svg+xml")
@@ -1247,10 +1383,11 @@ def create_app() -> Flask:
         if not protocol_ready(client, kind, device):
             abort(409)
         export = build_protocol_export(client, kind, device)
-        if not export.body:
+        qr_value = build_subscription_url(client, device) if kind == "subscription" else export.body
+        if not qr_value:
             abort(409)
         try:
-            svg = build_qr_svg(export.body)
+            svg = build_qr_svg(qr_value)
         except ClientQrError as exc:
             return Response(str(exc), status=409, mimetype="text/plain")
         return Response(svg, mimetype="image/svg+xml")

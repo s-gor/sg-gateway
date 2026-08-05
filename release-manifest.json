@@ -1,6 +1,6 @@
 {
   "name": "sg-gateway",
-  "version": "0.1.0-021.8",
+  "version": "0.1.0-021.9",
   "channel": "clean-rebuild-warp-salamander-awg585",
   "runtime": "native-systemd",
   "services": [
@@ -142,7 +142,12 @@
     "create_protocol_grid": "4x2-desktop-8-real-vpn-protocols",
     "sgclient_selectable_card": false,
     "sgclient_subscription": "automatic-hidden-service-value",
-    "sg_admin_explainer": "clients-page-only-while-sg-admin-exists"
+    "sg_admin_explainer": "clients-page-only-while-sg-admin-exists",
+    "mobile_sidebar": "accepted-responsive-v1",
+    "mobile_breakpoint_px": 760,
+    "mobile_menu_collapsible": true,
+    "mobile_full_width_navigation": true,
+    "desktop_layout_untouched": true
   },
   "installer_update": {
     "preserve_existing_mihomo_runtime": true,
@@ -250,7 +255,14 @@
   },
   "mieru_export": {
     "profile": "default",
-    "client_name_fragment": true
+    "client_name_fragment": true,
+    "ordinary_uri": true,
+    "ordinary_uri_qr": true,
+    "separate_json": true,
+    "separate_json_qr": true,
+    "json_media_type": "application/json; charset=utf-8",
+    "mihomo_yaml": true,
+    "shared_subscription_inclusion": false
   },
   "geofiles": {
     "active_path": "/usr/local/share/xray",
@@ -321,7 +333,11 @@
     "personal_subscription_per_device": true,
     "personal_subscription_qr": true,
     "simple_ui": true,
-    "sg_panel_transfer_status": "wait-for-real-sg-gateway-validation"
+    "sg_panel_transfer_status": "wait-for-real-sg-gateway-validation",
+    "public_subscription_url_per_device": true,
+    "subscription_profile_title_without_extension": true,
+    "mieru_dual_export_per_device": true,
+    "mieru_json_qr_per_device": true
   },
   "warp": {
     "automatic_on_full_install": true,
@@ -408,7 +424,7 @@
     "automatic_client_creation": false,
     "panel_credentials": "013 PBKDF2 password hash and session secret are preserved; no password prompt during migration"
   },
-  "build": "full-clean-ec2-retest-v020",
+  "build": "full-clean-ec2-0219-subscription-mieru-exports",
   "health_ui": {
     "unused_optional_mihomo": "idle-not-error"
   },

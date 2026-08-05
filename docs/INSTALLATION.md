@@ -17,7 +17,7 @@ curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/instal
 
 Bootstrap загружает текущий `main`, проверяет обязательные файлы и запускает нативный `install.sh`.
 
-## Схема чистой установки 021.8
+## Схема чистой установки 021.9
 
 Технические параметры назначаются автоматически:
 

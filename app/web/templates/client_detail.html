@@ -6,6 +6,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-client-detail-v10.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-devices-v46.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-client-qr-modal-v1.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='sg-subscription-verified-v1.css') }}?v={{ app_version }}">
 {% endblock %}
 
 {% block content %}
@@ -26,6 +27,7 @@
     </div>
     <div class="dv16-heading-actions">
       <a class="button" href="{{ url_for('clients') }}">К списку</a>
+      <button class="button" type="button" data-open-client-edit>Редактировать клиента</button>
       <button class="button primary" type="button" data-open-device-form>+ Добавить устройство</button>
       <form method="post" action="{{ url_for('apply_clients') }}">
         <input type="hidden" name="return_client_id" value="{{ client.id }}">
@@ -76,6 +78,7 @@
           </div>
         </div>
         <div class="dv16-device-controls">
+          {% if not device.is_primary %}<button class="button" type="button" data-open-device-edit="{{ device.id }}">Редактировать</button>{% endif %}
           <span class="dv16-status {{ 'success' if client.enabled and device.enabled else 'danger' }}">{{ 'Активно' if client.enabled and device.enabled else 'Отключено' }}</span>
           {% if device.enabled %}
           <form method="post" action="{{ url_for('disable_device', client_id=client.id, device_id=device.id) }}">
@@ -99,13 +102,18 @@
       </header>
 
       <section class="dv16-subscription state-{{ subscription.status if subscription else 'missing' }}">
-        <div>
+        <div class="dv16-subscription-summary">
           <strong>Подписка устройства</strong>
-          <span>{{ 'Все выбранные профили находятся в одной ссылке.' if subscription else 'Подписка ещё не создана.' }}</span>
+          {% if subscription and subscription.status == 'applied' and subscription.payload %}
+          <span>Ссылка для NekoBox и совместимых клиентов.</span>
+          <small>SUB: VLESS Reality TCP · Hysteria2 · AnyTLS · TUIC v5 — только выбранные и готовые.</small>
+          {% else %}
+          <span>Подписка ещё не создана.</span>
+          {% endif %}
         </div>
         <div class="dv16-subscription-actions">
           {% if subscription and subscription.status == 'applied' and subscription.payload %}
-          <button class="button primary dv16-copy" type="button" data-copy-value="{{ subscription.payload|e }}">Скопировать подписку</button>
+          <button class="button primary dv16-copy" type="button" data-copy-value="{{ subscription.payload|e }}">Скопировать ссылку</button>
           {% if subscription.qr_url %}
           <details class="dv16-qr">
             <summary class="button">QR</summary>
@@ -115,7 +123,6 @@
             </div>
           </details>
           {% endif %}
-          <a class="button" href="{{ subscription.export_url }}">Скачать</a>
           {% else %}
           <span class="dv16-not-ready">{{ state_labels.get(subscription.status, subscription.status) if subscription else 'Не создано' }}</span>
           {% endif %}
@@ -132,7 +139,7 @@
             </div>
             <div class="dv16-technical-actions">
               {% if card.payload and card.status == 'applied' %}
-              <button class="button dv16-copy" type="button" data-copy-value="{{ card.payload|e }}">Скопировать</button>
+              <button class="button dv16-copy" type="button" data-copy-value="{{ card.payload|e }}">{{ 'Скопировать ссылку' if card.kind == 'mihomo' else 'Скопировать' }}</button>
               {% endif %}
               {% if card.show_qr and card.qr_url and card.status == 'applied' %}
               <details class="dv16-qr">
@@ -143,8 +150,19 @@
                 </div>
               </details>
               {% endif %}
-              {% if card.export_url and card.status == 'applied' %}<a class="button" href="{{ card.export_url }}">Скачать</a>{% endif %}
+              {% if card.export_url and card.status == 'applied' %}<a class="button" href="{{ card.export_url }}">{{ 'Скачать ссылку' if card.kind == 'mihomo' else 'Скачать' }}</a>{% endif %}
+              {% if card.secondary_payload and card.status == 'applied' %}<button class="button dv16-copy" type="button" data-copy-value="{{ card.secondary_payload|e }}">Скопировать Mieru JSON</button>{% endif %}
+              {% if card.secondary_qr_url and card.status == 'applied' %}
+              <details class="dv16-qr">
+                <summary class="button">QR JSON</summary>
+                <div class="dv16-qr-popover">
+                  <button type="button" aria-label="Закрыть QR Mieru JSON" onclick="this.closest('details').removeAttribute('open')">×</button>
+                  <img src="{{ card.secondary_qr_url }}" alt="QR Mieru JSON">
+                </div>
+              </details>
+              {% endif %}
               {% if card.secondary_url and card.status == 'applied' %}<a class="button" href="{{ card.secondary_url }}">{{ card.secondary_label }}</a>{% endif %}
+              {% if card.tertiary_url and card.status == 'applied' %}<a class="button" href="{{ card.tertiary_url }}">{{ card.tertiary_label }}</a>{% endif %}
             </div>
           </article>
           {% else %}
@@ -178,7 +196,7 @@
     <section class="dv16-recommended">
       <div>
         <strong>Рекомендуемый набор уже выбран</strong>
-        <span>VLESS XHTTP Reality, Mieru и персональная подписка.</span>
+        <span>VLESS Reality TCP, Mieru для SG Client и персональная SUB.</span>
       </div>
     </section>
 
@@ -189,7 +207,7 @@
         {% for profile in xray_profiles.profiles %}
         {% set token = 'xray_' ~ profile.id %}
         <label class="dv16-protocol {{ 'is-locked' if not profile.ready else '' }}">
-          <input type="checkbox" name="protocols" value="{{ token }}" {% if profile.ready and profile.id == 'xhttp_reality' %}checked{% elif not profile.ready %}disabled{% endif %}>
+          <input type="checkbox" name="protocols" value="{{ token }}" {% if profile.ready and profile.id == 'reality_tcp' %}checked{% elif not profile.ready %}disabled{% endif %}>
           <span><strong>{{ profile.title }}</strong><small>{% if profile.ready %}Доступен{% elif profile.tls_required %}Нужен HTTPS{% else %}Сначала включите профиль в Connections{% endif %}</small></span>
         </label>
         {% endfor %}
@@ -224,6 +242,7 @@
     </footer>
   </form>
 </dialog>
+{% include "_client_edit_dialogs.html" %}
 {% endblock %}
 
 {% block scripts %}

@@ -55,7 +55,7 @@ class TemplateSpec:
 TEMPLATES = (
     TemplateSpec(
         "private-direct",
-        "Private / LAN → Direct",
+        "Private / LAN → Через SG-Gateway",
         "Локальные сети и приватные адреса не отправляются во внешний proxy.",
         "direct",
         (
@@ -74,7 +74,7 @@ TEMPLATES = (
     ),
     TemplateSpec(
         "ru-tld-direct",
-        "Российские доменные зоны → Direct",
+        "Российские доменные зоны → Через SG-Gateway",
         "Проверенный шаблон на основе geosite:tld-ru.",
         "direct",
         (
@@ -87,7 +87,7 @@ TEMPLATES = (
     ),
     TemplateSpec(
         "ru-sites-ip-direct",
-        "Российские сайты и IP → Direct",
+        "Российские сайты и IP → Через SG-Gateway",
         "Проверенный шаблон geosite:category-ru + geoip:ru.",
         "direct",
         (
@@ -110,7 +110,7 @@ TEMPLATES = (
         "xray",
         (
             RuleSpec(
-                "Заблокированные ресурсы",
+                "Ресурсы, заблокированные в РФ",
                 "xray",
                 geosite_any=(
                     "russia-blocked",
@@ -125,7 +125,7 @@ TEMPLATES = (
     ),
     TemplateSpec(
         "ads-block",
-        "Реклама и трекеры → Block",
+        "Реклама и трекеры → Заблокировать",
         "Блокирует рекламу только при наличии подходящей категории в текущем комплекте.",
         "block",
         (
@@ -466,7 +466,7 @@ def overview() -> dict:
         "engine_connected": True,
         "engine_message": (
             "Managed Routing подключён к рабочему config.json Xray. "
-            "Доступны реальные выходы Direct, WARP и Block; WARP включается отдельно."
+            "Доступны реальные выходы: Через SG-Gateway, Через WARP и Заблокировать; WARP включается отдельно."
         ),
     }
 
@@ -637,9 +637,9 @@ def root_rollback_latest() -> dict:
 
 # SG Client 096 Direct/Block model adapted for SG-Gateway Preview 41.
 SMART_PRESET_TITLES = {
-    "direct": "Обычный доступ · всё Direct",
+    "direct": "Обычный доступ · через SG-Gateway",
     "ads_block": "Блокировка рекламы и трекеров",
-    "blocked_warp": "Заблокированные ресурсы через WARP",
+    "blocked_warp": "Ресурсы, заблокированные в РФ через WARP",
     "all_warp": "Весь интернет через WARP",
     "custom": "Пользовательская схема",
 }
@@ -814,9 +814,9 @@ def _smart_build(state: dict) -> dict:
     rules: list[dict] = []
 
     custom_groups = (
-        ("Пользовательские правила Block", "block", state["custom_block_domains"], state["custom_block_ips"]),
-        ("Пользовательские правила Direct", "direct", state["custom_direct_domains"], state["custom_direct_ips"]),
-        ("Пользовательские правила WARP", "warp", state["custom_warp_domains"], state["custom_warp_ips"]),
+        ("Пользовательские правила: Заблокировать", "block", state["custom_block_domains"], state["custom_block_ips"]),
+        ("Пользовательские правила: Через SG-Gateway", "direct", state["custom_direct_domains"], state["custom_direct_ips"]),
+        ("Пользовательские правила: Через WARP", "warp", state["custom_warp_domains"], state["custom_warp_ips"]),
     )
     for title, action, domains, ips in custom_groups:
         if domains or ips:
@@ -850,7 +850,7 @@ def _smart_build(state: dict) -> dict:
     if state["blocked_action"] != "direct":
         category = _choose(SMART_BLOCKED_CATEGORIES, geosite)
         rules.append(_smart_rule(
-            "Заблокированные ресурсы",
+            "Ресурсы, заблокированные в РФ",
             state["blocked_action"],
             domains=[f"geosite:{category}"] if category else [],
             missing=[] if category else ["geosite:ru-blocked"],
@@ -918,7 +918,7 @@ def _smart_build(state: dict) -> dict:
     ready = not missing
     enabled_rules = [item["xray_rule"] for item in rules if item["enabled"] and item["xray_rule"]]
     note = (
-        "Схема совместима с активными GeoFiles и реальными выходами Direct/WARP/Block"
+        "Схема совместима с активными GeoFiles и реальными выходами SG-Gateway/WARP/Block"
         if ready
         else "В активных GeoFiles отсутствуют категории, необходимые выбранной схеме"
     )

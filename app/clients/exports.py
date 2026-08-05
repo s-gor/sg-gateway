@@ -5,6 +5,8 @@ import json
 from dataclasses import dataclass
 from urllib.parse import quote, urlencode
 
+from flask import has_request_context, request
+
 from app.clients.repository import (
     Client,
     Device,
@@ -12,6 +14,7 @@ from app.clients.repository import (
     list_client_deployments,
     list_device_credentials,
 )
+from app.config import load_config
 from app.connections.settings import get_connection_settings
 from app.mihomo.service import build_device_yaml
 
@@ -348,6 +351,42 @@ def build_mieru_link(client: Client, device: Device | None = None) -> ClientExpo
         body=body,
     )
 
+
+def build_mieru_json(client: Client, device: Device | None = None) -> ClientExport:
+    config = _deployment_config(client, "mihomo", device)
+    settings = get_connection_settings("mihomo")
+    mieru = config.get("mieru") if isinstance(config.get("mieru"), dict) else {}
+    host = str(settings.host or "")
+    port = int(settings.config.get("mieru_port", settings.port or 2099))
+    transport = str(settings.config.get("mieru_transport") or "TCP").upper()
+    multiplexing = str(
+        settings.config.get("mieru_multiplexing") or "MULTIPLEXING_MIDDLE"
+    )
+    handshake = str(
+        settings.config.get("mieru_handshake") or "HANDSHAKE_STANDARD"
+    )
+    document = {
+        "outbounds": [
+            {
+                "type": "mieru",
+                "tag": "mieru-proxy",
+                "server": host,
+                "server_port": port,
+                "username": str(mieru.get("username") or ""),
+                "password": str(mieru.get("password") or ""),
+                "multiplexing": multiplexing,
+                "handshake-mode": handshake,
+                "transport": transport,
+            }
+        ]
+    }
+    body = json.dumps(document, ensure_ascii=False, indent=2) + "\n"
+    return ClientExport(
+        filename=f"sg-gateway-{_slug(client, device)}-mieru.json",
+        media_type="application/json; charset=utf-8",
+        body=body,
+    )
+
 def build_mihomo_yaml(client: Client, device: Device | None = None) -> ClientExport:
     resolved = _resolve_device(client, device)
     if resolved is None:
@@ -411,6 +450,7 @@ def protocol_engine(kind: str) -> str:
         "xray-xhttp-tls": "xray",
         "hysteria2": "xray",
         "mieru": "mihomo",
+        "mieru-json": "mihomo",
         "mihomo": "mihomo",
         "anytls": "anytls",
         "tuic": "tuic",
@@ -431,6 +471,7 @@ def build_protocol_export(
         "xray-xhttp-tls": lambda item, access=None: build_xray_profile_link(item, "xhttp_tls", access),
         "hysteria2": lambda item, access=None: build_xray_profile_link(item, "hysteria2", access),
         "mieru": build_mieru_link,
+        "mieru-json": build_mieru_json,
         "mihomo": build_mihomo_yaml,
         "anytls": build_anytls_link,
         "tuic": build_tuic_link,
@@ -465,30 +506,80 @@ def protocol_ready(
         return bool(tls_overview().get("https_ready"))
     return True
 
-def build_subscription(client: Client, device: Device | None = None) -> ClientExport:
-    links: list[str] = []
-    if is_export_ready(client, "xray", device):
-        for profile_id in _selected_xray_profiles(client, device):
-            kind = {
-                "reality_tcp": "xray-reality-tcp",
-                "xhttp_reality": "xray-xhttp-reality",
-                "xhttp_tls": "xray-xhttp-tls",
-                "hysteria2": "hysteria2",
-            }.get(profile_id)
-            if kind and protocol_ready(client, kind, device):
-                link = build_protocol_export(client, kind, device).body
-                if link:
-                    links.append(link)
-    if is_export_ready(client, "mihomo", device):
-        link = build_mieru_link(client, device).body
-        if link:
-            links.append(link)
-    if is_export_ready(client, "anytls", device):
-        links.append(build_anytls_link(client, device).body)
-    if is_export_ready(client, "tuic", device):
-        links.append(build_tuic_link(client, device).body)
 
-    decoded = "\n".join(item for item in links if item)
+def _subscription_token(client: Client, device: Device | None = None) -> str:
+    config = _deployment_config(client, "sgclient", device)
+    return str(config.get("subscription_token") or "").strip()
+
+
+def _subscription_base_url() -> str:
+    tls = tls_overview()
+    public_url = str(tls.get("public_url") or "").strip()
+    if tls.get("https_ready") and public_url:
+        return public_url.rstrip("/")
+
+    config = load_config()
+    address = str(config.public_address or "").strip()
+    if address:
+        if address.startswith(("http://", "https://")):
+            return address.rstrip("/")
+        host = f"[{address}]" if ":" in address and not address.startswith("[") else address
+        suffix = "" if int(config.public_port) == 80 else f":{int(config.public_port)}"
+        return f"http://{host}{suffix}"
+
+    if has_request_context():
+        return request.host_url.rstrip("/")
+    return ""
+
+
+def build_subscription_url(client: Client, device: Device | None = None) -> str:
+    token = _subscription_token(client, device)
+    base = _subscription_base_url()
+    if not token or not base:
+        return ""
+    return f"{base}/sub/{quote(token, safe='')}"
+
+
+def build_subscription(
+    client: Client,
+    device: Device | None = None,
+) -> ClientExport:
+    # Default compatible v2rayN-style Base64 subscription.
+    #
+    # Included: VLESS Reality TCP, Hysteria2, AnyTLS and TUIC v5.
+    # XHTTP, Mieru and AmneziaWG remain available through their individual
+    # links, QR codes or configuration downloads.
+    links: list[str] = []
+
+    def append_link(value: str) -> None:
+        clean = str(value or "").strip()
+        if clean and clean not in links:
+            links.append(clean)
+
+    if is_export_ready(client, "xray", device):
+        selected = _selected_xray_profiles(client, device)
+        for profile_id, kind in (
+            ("reality_tcp", "xray-reality-tcp"),
+            ("hysteria2", "hysteria2"),
+        ):
+            if profile_id not in selected:
+                continue
+            if protocol_ready(client, kind, device):
+                append_link(build_protocol_export(client, kind, device).body)
+
+    if (
+        is_export_ready(client, "anytls", device)
+        and protocol_ready(client, "anytls", device)
+    ):
+        append_link(build_anytls_link(client, device).body)
+
+    if (
+        is_export_ready(client, "tuic", device)
+        and protocol_ready(client, "tuic", device)
+    ):
+        append_link(build_tuic_link(client, device).body)
+
+    decoded = "\n".join(links)
     if decoded:
         decoded += "\n"
     body = base64.b64encode(decoded.encode("utf-8")).decode("ascii")

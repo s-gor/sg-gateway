@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import json
 from dataclasses import dataclass
 
@@ -494,6 +495,288 @@ def create_device(
     return device_id
 
 
+
+def device_access_tokens(device_id: int) -> list[str]:
+    """Return the exact form tokens currently assigned to one device."""
+    result: list[str] = []
+    reverse_profiles = {value: key for key, value in XRAY_PROFILE_TOKENS.items()}
+    for credential in list_device_credentials(device_id):
+        if credential.engine == "xray":
+            try:
+                payload = json.loads(credential.config_json or "{}")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                payload = {}
+            profiles = payload.get("profiles") if isinstance(payload, dict) else None
+            if not isinstance(profiles, list):
+                profiles = list(DEFAULT_XRAY_PROFILES)
+            for profile in profiles:
+                token = reverse_profiles.get(str(profile))
+                if token and token not in result:
+                    result.append(token)
+            continue
+        if credential.engine in SUPPORTED_ENGINES and credential.engine not in result:
+            result.append(credential.engine)
+    return result
+
+
+def _client_name_exists_except(connection, clean_name: str, client_id: int) -> bool:
+    rows = connection.execute(
+        "SELECT id, name FROM clients WHERE id != ?", (client_id,)
+    ).fetchall()
+    wanted = clean_name.casefold()
+    return any(str(row["name"]).casefold() == wanted for row in rows)
+
+
+def _device_name_exists_except(
+    connection,
+    client_id: int,
+    clean_name: str,
+    device_id: int,
+) -> bool:
+    rows = connection.execute(
+        "SELECT id, name FROM devices WHERE client_id = ? AND id != ?",
+        (client_id, device_id),
+    ).fetchall()
+    wanted = clean_name.casefold()
+    return any(str(row["name"]).casefold() == wanted for row in rows)
+
+
+def _credential_label_payload(
+    raw: str | None,
+    *,
+    label: str,
+    engine: str,
+    client_id: int,
+    device_id: int,
+    xray_profiles: list[str] | None = None,
+) -> str | None:
+    try:
+        payload = json.loads(raw or "{}")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return raw
+    if not isinstance(payload, dict):
+        return raw
+    payload["client_name"] = label
+    if engine == "xray":
+        if xray_profiles is not None:
+            payload["profiles"] = xray_profiles or list(DEFAULT_XRAY_PROFILES)
+        payload["client_id"] = client_id
+        payload["device_id"] = device_id
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+
+def _sync_device_access(
+    connection,
+    *,
+    client_id: int,
+    device_id: int,
+    client_name: str,
+    device_name: str,
+    is_primary: bool,
+    access: str,
+) -> None:
+    engines, xray_profiles, raw_tokens = _parse_access(access)
+    error = _validate_access(engines, raw_tokens)
+    if error:
+        raise ValueError(error)
+
+    rows = connection.execute(
+        """
+        SELECT id, engine, status, engine_object_id, config_json
+        FROM device_credentials
+        WHERE device_id = ?
+        ORDER BY id
+        """,
+        (device_id,),
+    ).fetchall()
+    existing = {str(row["engine"]): row for row in rows}
+    wanted = set(engines)
+
+    for engine, row in existing.items():
+        if engine not in wanted:
+            connection.execute(
+                "DELETE FROM device_credentials WHERE id = ?", (int(row["id"]),)
+            )
+
+    label = client_name if is_primary else f"{client_name} · {device_name}"
+    for engine in engines:
+        row = existing.get(engine)
+        if row is not None:
+            config_json = _credential_label_payload(
+                row["config_json"],
+                label=label,
+                engine=engine,
+                client_id=client_id,
+                device_id=device_id,
+                xray_profiles=xray_profiles if engine == "xray" else None,
+            )
+            connection.execute(
+                "UPDATE device_credentials SET config_json = ? WHERE id = ?",
+                (config_json, int(row["id"])),
+            )
+            continue
+
+        object_id, config_json = build_engine_config(engine, device_id, label)
+        if engine == "xray":
+            payload = json.loads(config_json)
+            payload["profiles"] = xray_profiles or list(DEFAULT_XRAY_PROFILES)
+            payload["device_id"] = device_id
+            payload["client_id"] = client_id
+            config_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        connection.execute(
+            """
+            INSERT INTO device_credentials (
+                device_id, engine, status, engine_object_id, config_json
+            ) VALUES (?, ?, 'creating', ?, ?)
+            """,
+            (device_id, engine, object_id, config_json),
+        )
+
+
+def _refresh_client_labels(connection, client_id: int, client_name: str) -> None:
+    devices = connection.execute(
+        "SELECT id, name, is_primary FROM devices WHERE client_id = ? ORDER BY id",
+        (client_id,),
+    ).fetchall()
+    for device in devices:
+        device_id = int(device["id"])
+        label = (
+            client_name
+            if bool(device["is_primary"])
+            else f"{client_name} · {str(device['name'])}"
+        )
+        credentials = connection.execute(
+            "SELECT id, engine, config_json FROM device_credentials WHERE device_id = ?",
+            (device_id,),
+        ).fetchall()
+        for credential in credentials:
+            config_json = _credential_label_payload(
+                credential["config_json"],
+                label=label,
+                engine=str(credential["engine"]),
+                client_id=client_id,
+                device_id=device_id,
+            )
+            connection.execute(
+                "UPDATE device_credentials SET config_json = ? WHERE id = ?",
+                (config_json, int(credential["id"])),
+            )
+
+
+def update_client(
+    client_id: int,
+    name: str,
+    expires_at: str | None,
+    access: str,
+) -> bool:
+    """Edit a client and its primary access without rotating unchanged secrets."""
+    init_db()
+    clean_name = _clean_client_name(name)
+    if clean_name is None:
+        raise ValueError("Недопустимое имя клиента")
+
+    with connect() as connection:
+        client = connection.execute(
+            "SELECT id, name FROM clients WHERE id = ?", (client_id,)
+        ).fetchone()
+        if client is None:
+            return False
+        if _client_name_exists_except(connection, clean_name, client_id):
+            raise ValueError("Клиент с таким именем уже существует")
+        primary = connection.execute(
+            """
+            SELECT id, name, is_primary
+            FROM devices
+            WHERE client_id = ?
+            ORDER BY is_primary DESC, id
+            LIMIT 1
+            """,
+            (client_id,),
+        ).fetchone()
+        if primary is None:
+            raise ValueError("У клиента отсутствует основной доступ")
+
+        primary_id = int(primary["id"])
+        connection.execute(
+            "UPDATE clients SET name = ?, expires_at = ? WHERE id = ?",
+            (clean_name, expires_at or None, client_id),
+        )
+        connection.execute(
+            "UPDATE devices SET expires_at = ? WHERE id = ?",
+            (expires_at or None, primary_id),
+        )
+        _sync_device_access(
+            connection,
+            client_id=client_id,
+            device_id=primary_id,
+            client_name=clean_name,
+            device_name=str(primary["name"]),
+            is_primary=True,
+            access=access,
+        )
+        _refresh_client_labels(connection, client_id, clean_name)
+
+    log_operation(
+        "client.update",
+        f"client:{client_id}",
+        f"Клиент обновлён: {clean_name}; неизменённые реквизиты сохранены",
+    )
+    return True
+
+
+def update_device(
+    client_id: int,
+    device_id: int,
+    name: str,
+    expires_at: str | None,
+    access: str,
+) -> bool:
+    """Edit one additional device while preserving unchanged credentials."""
+    init_db()
+    clean_name = _clean_device_name(name)
+    if clean_name is None or clean_name.casefold() == PRIMARY_DEVICE_NAME.casefold():
+        raise ValueError("Недопустимое имя устройства")
+
+    with connect() as connection:
+        client = connection.execute(
+            "SELECT id, name FROM clients WHERE id = ?", (client_id,)
+        ).fetchone()
+        device = connection.execute(
+            """
+            SELECT id, name, is_primary
+            FROM devices
+            WHERE id = ? AND client_id = ?
+            """,
+            (device_id, client_id),
+        ).fetchone()
+        if client is None or device is None:
+            return False
+        if bool(device["is_primary"]):
+            raise ValueError("Основной доступ редактируется вместе с клиентом")
+        if _device_name_exists_except(connection, client_id, clean_name, device_id):
+            raise ValueError("Устройство с таким именем уже существует")
+
+        connection.execute(
+            "UPDATE devices SET name = ?, expires_at = ? WHERE id = ?",
+            (clean_name, expires_at or None, device_id),
+        )
+        _sync_device_access(
+            connection,
+            client_id=client_id,
+            device_id=device_id,
+            client_name=str(client["name"]),
+            device_name=clean_name,
+            is_primary=False,
+            access=access,
+        )
+
+    log_operation(
+        "device.update",
+        f"device:{device_id}",
+        f"Устройство обновлено: {clean_name}; неизменённые реквизиты сохранены",
+    )
+    return True
+
 def set_client_enabled(client_id: int, enabled: bool) -> bool:
     init_db()
     with connect() as connection:
@@ -673,3 +956,38 @@ def restore_client_snapshot(snapshot: ClientSnapshot) -> bool:
                 )
     log_operation("client.rollback", f"client:{snapshot.id}", "Клиент и его доступы восстановлены после ошибки runtime")
     return True
+
+
+def get_subscription_access(token: str) -> tuple[Client, Device] | None:
+    clean = str(token or "").strip()
+    if len(clean) < 24 or len(clean) > 256:
+        return None
+
+    init_db()
+    found = None
+    with connect() as connection:
+        rows = connection.execute(
+            "SELECT dc.config_json, d.id AS device_id, d.client_id AS client_id "
+            "FROM device_credentials dc "
+            "JOIN devices d ON d.id = dc.device_id "
+            "WHERE dc.engine = 'sgclient' ORDER BY dc.id"
+        ).fetchall()
+        for row in rows:
+            try:
+                config = json.loads(row["config_json"] or "{}")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+            if not isinstance(config, dict):
+                continue
+            stored = str(config.get("subscription_token") or "").strip()
+            if stored and hmac.compare_digest(stored, clean):
+                found = (int(row["client_id"]), int(row["device_id"]))
+                break
+
+    if found is None:
+        return None
+    client = get_client(found[0])
+    device = get_device(found[1], found[0])
+    if client is None or device is None:
+        return None
+    return client, device

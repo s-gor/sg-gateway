@@ -54,6 +54,7 @@ def build_engine_config(
         payload = {
             "client_name": access_name,
             "format": "base64-links-v2",
+            "subscription_token": secrets.token_urlsafe(32),
             "sources": ["xray", "mihomo", "anytls", "tuic"],
         }
         return (

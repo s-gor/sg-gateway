@@ -18,6 +18,7 @@ PUBLIC_ENDPOINTS = {
     "static",
     "recovery",
     "download_diagnostics",
+    "subscription_feed",
 }
 
 

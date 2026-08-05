@@ -8,7 +8,7 @@
 {% set smart = shown.get('smart', {}) %}
 {% set preset = smart.get('preset', 'direct') %}
 {% set rules = shown.get('rules', []) %}
-{% set selected_title = shown.get('title', 'Обычный доступ · всё Direct') %}
+{% set selected_title = shown.get('title', 'Обычный доступ · через SG-Gateway') %}
 {% set selected_message = shown.get('message', 'Выберите базовую схему и выполните проверку.') %}
 
 <section class="r096-page">
@@ -57,11 +57,11 @@
         <div class="r096-user-body">
           <p>Для доменов можно использовать <code>full:</code>, <code>domain:</code>, <code>regexp:</code>, <code>keyword:</code> и <code>geosite:</code>. Без префикса используется <code>domain:</code>.</p>
           <div class="r096-rule-tabs">
-            <button type="button" data-r096-rule-tab="direct" class="active">Direct</button>
-            <button type="button" data-r096-rule-tab="warp">WARP</button>
-            <button type="button" data-r096-rule-tab="block">Block</button>
+            <button type="button" data-r096-rule-tab="direct" class="active">Через SG-Gateway</button>
+            <button type="button" data-r096-rule-tab="warp">Через WARP</button>
+            <button type="button" data-r096-rule-tab="block">Заблокировать</button>
           </div>
-          {% for action, label in [('direct','Direct'),('warp','WARP'),('block','Block')] %}
+          {% for action, label in [('direct','Через SG-Gateway'),('warp','Через WARP'),('block','Заблокировать')] %}
           <div class="r096-rule-editor" data-r096-rule-panel="{{ action }}" {% if action != 'direct' %}hidden{% endif %}>
             <label><span>Домены</span><textarea name="custom_{{ action }}_domains" rows="6">{{ smart.get('custom_' ~ action ~ '_domains', []) | join('\n') }}</textarea></label>
             <label><span>IP и подсети</span><textarea name="custom_{{ action }}_ips" rows="6">{{ smart.get('custom_' ~ action ~ '_ips', []) | join('\n') }}</textarea></label>
@@ -75,9 +75,9 @@
         <p>Выберите основу маршрутизации. Любое ручное изменение ниже переключает схему в пользовательский режим.</p>
         <div class="r096-preset-grid">
           {% for value, label in [
-            ('direct','Обычный доступ · всё Direct'),
+            ('direct','Обычный доступ · через SG-Gateway'),
             ('ads_block','Блокировка рекламы и трекеров'),
-            ('blocked_warp','Заблокированные ресурсы через WARP'),
+            ('blocked_warp','Ресурсы, заблокированные в РФ через WARP'),
             ('all_warp','Весь интернет через WARP'),
             ('custom','Пользовательская схема')
           ] %}
@@ -94,9 +94,9 @@
 
         {% macro action_group(name, value, allow_warp=True, allow_block=True) %}
         <div class="r096-segments" data-action-group="{{ name }}">
-          <label><input type="radio" name="{{ name }}" value="direct" {% if value == 'direct' %}checked{% endif %}><span>Direct</span></label>
-          {% if allow_warp %}<label class="{% if not warp.enabled %}disabled{% endif %}" {% if not warp.enabled %}title="Сначала включите WARP"{% endif %}><input type="radio" name="{{ name }}" value="warp" {% if value == 'warp' %}checked{% endif %} {% if not warp.enabled %}disabled{% endif %}><span>WARP</span></label>{% endif %}
-          {% if allow_block %}<label><input type="radio" name="{{ name }}" value="block" {% if value == 'block' %}checked{% endif %}><span>Block</span></label>{% endif %}
+          <label><input type="radio" name="{{ name }}" value="direct" {% if value == 'direct' %}checked{% endif %}><span>Через SG-Gateway</span></label>
+          {% if allow_warp %}<label class="{% if not warp.enabled %}disabled{% endif %}" {% if not warp.enabled %}title="Сначала включите WARP"{% endif %}><input type="radio" name="{{ name }}" value="warp" {% if value == 'warp' %}checked{% endif %} {% if not warp.enabled %}disabled{% endif %}><span>Через WARP</span></label>{% endif %}
+          {% if allow_block %}<label><input type="radio" name="{{ name }}" value="block" {% if value == 'block' %}checked{% endif %}><span>Заблокировать</span></label>{% endif %}
         </div>
         {% endmacro %}
 
@@ -105,7 +105,7 @@
           {{ action_group('local_action', smart.get('local_action', 'direct'), False, True) }}
         </div>
 
-        <section class="r096-russia-block">
+        <section class="r096-russia-block" hidden aria-hidden="true">
           <div><strong>Российская маршрутизация</strong><small>Выберите только один набор категорий.</small></div>
           <div class="r096-segments r096-russia-scope">
             {% set scope = smart.get('russia_scope', 'none') %}
@@ -120,7 +120,7 @@
         </section>
 
         <div class="r096-rule-row">
-          <div><strong>Заблокированные ресурсы</strong><small>Категория выбирается из фактически установленных GeoFiles</small></div>
+          <div><strong>Ресурсы, заблокированные в РФ</strong><small>Категория выбирается из фактически установленных GeoFiles</small></div>
           {{ action_group('blocked_action', smart.get('blocked_action', 'direct')) }}
         </div>
 
@@ -137,7 +137,7 @@
 
       <article class="r096-warning-card">
         <strong>Серверная маршрутизация</strong>
-        <span>SG-Gateway использует только реальные действия <code>Direct</code>, <code>WARP</code> и <code>Block</code>. WARP создаётся и проверяется на странице Outbounds. Здесь он только назначается правилам. При его отключении правила WARP сначала нужно заменить.</span>
+        <span>Весь трафик уже пришёл на SG-Gateway через защищённое VPN-подключение. Здесь выбирается только выход в интернет: <strong>Через SG-Gateway</strong> — сайт увидит IP сервера; <strong>Через WARP</strong> — трафик дополнительно пойдёт через Cloudflare WARP; <strong>Заблокировать</strong> — соединение будет остановлено. Настоящий BYPASS выполняется на клиенте до отправки трафика в VPN.</span>
       </article>
 
       <article class="r096-card r096-rules-preview">
@@ -150,8 +150,8 @@
           {% for rule in rules %}
           <div class="{{ '' if rule.enabled else 'disabled' }}">
             <b>{{ '%02d' | format(loop.index * 10) }}</b>
-            <span><strong>{{ rule.title }}</strong><small>{% if rule.missing %}Не найдено: {{ rule.missing | join(', ') }}{% elif rule.selected_geosite %}geosite:{{ rule.selected_geosite }}{% elif rule.selected_geoip %}geoip:{{ rule.selected_geoip }}{% elif rule.get('implicit_default') %}Direct по умолчанию · без отдельного catch-all правила{% elif rule.xray_rule and rule.xray_rule.get('network') %}tcp,udp · финальное правило{% else %}Пользовательские значения{% endif %}</small></span>
-            <em class="route-{{ rule.action }}">{{ rule.action | capitalize }}</em>
+            <span><strong>{{ rule.title }}</strong><small>{% if rule.missing %}Не найдено: {{ rule.missing | join(', ') }}{% elif rule.selected_geosite %}geosite:{{ rule.selected_geosite }}{% elif rule.selected_geoip %}geoip:{{ rule.selected_geoip }}{% elif rule.get('implicit_default') %}Через SG-Gateway по умолчанию · без отдельного catch-all правила{% elif rule.xray_rule and rule.xray_rule.get('network') %}tcp,udp · финальное правило{% else %}Пользовательские значения{% endif %}</small></span>
+            <em class="route-{{ rule.action }}">{{ {'direct':'Через SG-Gateway','warp':'Через WARP','block':'Заблокировать'}.get(rule.action, rule.action) }}</em>
           </div>
           {% endfor %}
         </div>
@@ -177,7 +177,7 @@
         <div>
           <h2>Cloudflare WARP</h2>
           <p>{{ warp.status_label }}{% if warp.last_test and warp.last_test.ip %} · IP {{ warp.last_test.ip }}{% endif %}</p>
-          <small>Третий реальный выход для выбранных правил. Direct остаётся безопасным маршрутом по умолчанию.</small>
+          <small>Третий реальный выход для выбранных правил. Через SG-Gateway остаётся обычным серверным выходом по умолчанию.</small>
         </div>
         <a class="r096-secondary-button" href="{{ url_for('outbounds') }}#warp">Открыть Outbounds</a>
       </article>
