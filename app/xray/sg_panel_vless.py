@@ -56,10 +56,12 @@ def reality_settings(
     }
 
 
+# SG_GATEWAY_PLACEHOLDER_80_443_V1
 def reality_tcp_inbound(
     *,
     clients: list[dict[str, Any]],
     port: int,
+    listen: str = "0.0.0.0",
     dest: str,
     server_name: str,
     private_key: str,
@@ -67,7 +69,7 @@ def reality_tcp_inbound(
 ) -> dict[str, Any]:
     return {
         "tag": "sg-vless-reality-tcp",
-        "listen": "0.0.0.0",
+        "listen": str(listen),
         "port": int(port),
         "protocol": "vless",
         "settings": {"clients": clients, "decryption": "none"},

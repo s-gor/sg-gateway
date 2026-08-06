@@ -17,6 +17,7 @@ PUBLIC_ENDPOINTS = {
     "health",
     "static",
     "recovery",
+    "recovery_restore_backup_route",
     "download_diagnostics",
     "subscription_feed",
 }

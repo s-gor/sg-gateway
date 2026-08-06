@@ -17,5 +17,5 @@ def test_always_open_spacing_and_manifest_contract() -> None:
     manifest = json.loads((ROOT / "release-manifest.json").read_text(encoding="utf-8"))
     assert "Clients Always Open Hotfix 3" in css
     assert ".dv16-technical-always-open .dv16-technical-list{margin-top:0}" in css
-    assert manifest["clients_ui"]["technical_profiles"] == "always-open-without-toggle"
+    assert manifest["clients_ui"]["technical_profiles"] == "collapsed-by-default-independent-device-cards"
     assert manifest["installer_update"]["clients_always_open_hotfix3"] is True

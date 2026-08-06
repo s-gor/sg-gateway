@@ -2,13 +2,13 @@
 
 body.page-system .sv1-memory-legend .sv1-legend-row.sg-mem-row-with-track {
   display: grid !important;
-  grid-template-columns: auto minmax(0, 1fr) auto auto !important;
+  grid-template-columns: minmax(0, 1fr) auto auto !important;
   gap: 6px 12px !important;
   align-items: center !important;
 }
 
 body.page-system .sv1-memory-legend .sv1-legend-row.sg-mem-row-with-track > .sg-memory-row-track {
-  grid-column: 2 / 5;
+  grid-column: 1 / 4;
   display: block;
   width: 100%;
   height: 8px;
@@ -34,4 +34,8 @@ html[data-theme="dark"] body.page-system .sv1-memory-legend .sv1-legend-row.sg-m
 html[data-theme="graphite"] body.page-system .sv1-memory-legend .sv1-legend-row.sg-mem-row-with-track > .sg-memory-row-track,
 body.page-system:not([data-theme]) .sv1-memory-legend .sv1-legend-row.sg-mem-row-with-track > .sg-memory-row-track {
   background: rgba(105, 124, 147, .18);
+}
+
+body.page-system .sv1-memory-legend .sv1-legend-dot {
+  display: none !important;
 }

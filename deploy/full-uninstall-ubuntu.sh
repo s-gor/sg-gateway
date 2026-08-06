@@ -5,7 +5,7 @@ PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
 LOG_DIR="/var/log/sg-gateway"
-UNINSTALL_LOG="/var/log/sg-gateway-full-uninstall-021.log"
+UNINSTALL_LOG="/var/log/sg-gateway-full-uninstall-02110.log"
 
 PANEL_PORT="63443"
 XRAY_PORT="443"
@@ -62,7 +62,7 @@ if [[ ! "$TLS_DOMAIN" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]
   TLS_DOMAIN=""
 fi
 
-printf '\n%sSG-Gateway 021 · ПОЛНОЕ УДАЛЕНИЕ С EC2%s\n' "$CYAN" "$RESET"
+printf '\n%sSG-Gateway 0.1.0-021.10 · ПОЛНОЕ УДАЛЕНИЕ%s\n' "$CYAN" "$RESET"
 printf 'Будут удалены приложение, база, настройки, backups, SG-службы и установленные SG runtime.\n'
 printf 'Системные пакеты Ubuntu (nginx, certbot, ufw, Python и т.п.) останутся установленными.\n'
 if [[ -n "$TLS_DOMAIN" ]]; then
@@ -132,10 +132,43 @@ remove_service_and_web_config(){
     /etc/nginx/sites-available/sg-gateway \
     /etc/nginx/sites-enabled/sg-gateway-acme \
     /etc/nginx/sites-available/sg-gateway-acme \
+    /etc/nginx/stream-conf.d/sg-gateway-443.conf \
     /etc/letsencrypt/renewal-hooks/deploy/sg-gateway-nginx \
     /etc/letsencrypt/renewal-hooks/deploy/reload-sg-gateway-nginx.sh
-  rm -rf /var/www/sg-gateway-acme
-  if command -v nginx >/dev/null 2>&1 && nginx -t >/dev/null 2>&1; then
+  rm -rf /var/www/sg-gateway-acme /var/www/sg-gateway-placeholder
+
+  # Remove the exact SG-Gateway stream include. If SG-Gateway created its
+  # own stream block, remove the whole block; inside a shared stream block,
+  # remove only our include line.
+  if [[ -f /etc/nginx/nginx.conf ]] && command -v python3 >/dev/null 2>&1; then
+    python3 - /etc/nginx/nginx.conf <<'PYNGINXCLEAN'
+from pathlib import Path
+import re, sys
+path = Path(sys.argv[1])
+body = path.read_text(encoding="utf-8")
+# Current direct include and the historical wildcard marker block.
+body = re.sub(
+    r"(?ms)\n*# SG_GATEWAY_PLACEHOLDER_80_443_V3\s*\nstream\s*\{\s*"
+    r"include\s+/etc/nginx/stream-conf\.d/(?:sg-gateway-443\.conf|\*\.conf);\s*\}\s*",
+    "\n",
+    body,
+    count=1,
+)
+body = re.sub(
+    r"(?m)^\s*include\s+/etc/nginx/stream-conf\.d/sg-gateway-443\.conf;\s*\n?",
+    "",
+    body,
+)
+body = re.sub(
+    r"(?m)^\s*# SG_GATEWAY_PLACEHOLDER_80_443_V3\s*\n?",
+    "",
+    body,
+)
+path.write_text(body.rstrip() + "\n", encoding="utf-8", newline="\n")
+PYNGINXCLEAN
+  fi
+  if command -v nginx >/dev/null 2>&1; then
+    nginx -t
     systemctl reload nginx.service >/dev/null 2>&1 || true
   fi
 }
@@ -167,6 +200,7 @@ remove_application_and_state(){
   rm -f \
     /etc/sysctl.d/99-sg-gateway.conf \
     /root/sg-gateway-021-installer-resume.env \
+    /root/sg-gateway-02110-installer-resume.env \
     /root/sg-gateway-preview48-installer-resume.env \
     /root/sg-gateway-preview50-installer-resume.env \
     /root/sg-gateway-preview51-installer-resume.env \
@@ -174,7 +208,8 @@ remove_application_and_state(){
     /root/sg-gateway-preview53-installer-resume.env \
     /root/sg-gateway-019-installer-resume.env \
     /root/sg-gateway-020-installer-resume.env \
-    /var/log/sg-gateway-installer-021.log
+    /var/log/sg-gateway-installer-021.log \
+    /var/log/sg-gateway-installer-02110.log
   rm -f /tmp/sg-gateway-installer-output.* /tmp/sg-gateway-installer-log.* >/dev/null 2>&1 || true
 }
 
@@ -229,6 +264,8 @@ remove_account_and_verify(){
     /etc/systemd/system/sg-gateway.service \
     /etc/systemd/system/sg-hostd.service \
     /etc/systemd/system/xray.service \
+    /etc/nginx/stream-conf.d/sg-gateway-443.conf \
+    /var/www/sg-gateway-placeholder \
     /usr/local/bin/xray /usr/local/bin/mihomo /usr/local/bin/sing-box /usr/local/bin/wgcf-cli \
     /usr/bin/awg /usr/bin/awg-quick; do
     if [[ -e "$path" || -L "$path" ]]; then
@@ -236,6 +273,14 @@ remove_account_and_verify(){
       bad=1
     fi
   done
+  if [[ -f /etc/nginx/nginx.conf ]] && grep -Eq '^\s*include\s+/etc/nginx/stream-conf\.d/sg-gateway-443\.conf;\s*$' /etc/nginx/nginx.conf; then
+    echo "Остаток после удаления: include sg-gateway-443.conf в nginx.conf" >&2
+    bad=1
+  fi
+  if [[ -e /root/sg-gateway-02110-installer-resume.env ]]; then
+    echo "Остаток после удаления: /root/sg-gateway-02110-installer-resume.env" >&2
+    bad=1
+  fi
   (( bad == 0 )) || return 1
 }
 

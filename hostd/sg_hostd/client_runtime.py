@@ -943,9 +943,11 @@ def _render_xray_config(rows) -> str:
 
     if "reality_tcp" in enabled_profiles:
         profile = by_id["reality_tcp"]
+        # SG_GATEWAY_PLACEHOLDER_80_443_V1
         inbound = reality_tcp_inbound(
             clients=grouped["reality_tcp"],
-            port=profile.port,
+            port=int(runtime.get("SG_GATEWAY_REALITY_INTERNAL_PORT") or 7443),
+            listen="127.0.0.1",
             dest=target,
             server_name=server_name,
             private_key=private_key,

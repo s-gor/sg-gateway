@@ -7,6 +7,12 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-devices-v46.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-client-qr-modal-v1.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-subscription-verified-v1.css') }}?v={{ app_version }}">
+  <!-- SG_DEVICE_COLLAPSE_V1_CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='sg-device-collapse-v1.css') }}?v={{ app_version }}">
+  <!-- /SG_DEVICE_COLLAPSE_V1_CSS -->
+  <!-- SG_DEVICE_COLLAPSE_V1_JS -->
+  <script src="{{ url_for('static', filename='sg-device-collapse-v1.js') }}?v={{ app_version }}" defer></script>
+  <!-- /SG_DEVICE_COLLAPSE_V1_JS -->
 {% endblock %}
 
 {% block content %}

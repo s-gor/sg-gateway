@@ -592,6 +592,7 @@ def create_app() -> Flask:
             health=health_summary(),
             health_checks=collect_health_checks(),
             backups=list_backups()[:5],
+            requested_restore=request.args.get("restore", ""),
         )
 
     @app.get("/system")
@@ -1637,12 +1638,11 @@ def create_app() -> Flask:
         flash(f"Резервная копия создана: {backup.name}", "success")
         return redirect(url_for("maintenance"))
 
-    @app.post("/maintenance/backups/<name>/restore")
-    def restore_backup_route(name: str):
+    def _restore_backup_response(name: str, destination_endpoint: str):
         restored = restore_backup_transaction(name)
         if not restored.ok or restored.backup is None:
             flash(restored.message, "error")
-            return redirect(url_for("maintenance"))
+            return redirect(url_for(destination_endpoint))
 
         runtime = run_hostd_command("xray.restore.apply", timeout=180)
         if runtime.status != "ok":
@@ -1663,14 +1663,24 @@ def create_app() -> Flask:
                 + recovery_note,
                 "error",
             )
-            return redirect(url_for("maintenance"))
+            return redirect(url_for(destination_endpoint))
 
         confirm_restore_runtime(restored.backup.name)
         flash(
             f"Резервная копия восстановлена и Xray проверен: {restored.backup.name}",
             "success",
         )
-        return redirect(url_for("maintenance"))
+        return redirect(url_for(destination_endpoint))
+
+    @app.post("/maintenance/backups/<name>/restore")
+    def restore_backup_route(name: str):
+        return _restore_backup_response(name, "maintenance")
+
+    @app.post("/recovery/backups/<name>/restore")
+    def recovery_restore_backup_route(name: str):
+        if not is_authenticated():
+            return redirect(url_for("login", next=url_for("recovery", restore=name)))
+        return _restore_backup_response(name, "recovery")
 
     @app.get("/maintenance/backups/<name>/download")
     def download_backup_route(name: str):

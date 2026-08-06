@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="0.1.0-021"
-INSTALLER_BUILD="021-full-clean-ec2-rebuilt"
+VERSION="0.1.0-021.10"
+INSTALLER_BUILD="02110-full-clean-candidate"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
 LOG_DIR="/var/log/sg-gateway"
-INSTALL_LOG="/var/log/sg-gateway-installer-021.log"
+INSTALL_LOG="/var/log/sg-gateway-installer-02110.log"
 BACKUP_ROOT="/root/sg-gateway-backups"
-RESUME_FILE="/root/sg-gateway-021-installer-resume.env"
+RESUME_FILE="/root/sg-gateway-02110-installer-resume.env"
 MIHOMO_VERSION="v1.19.29"
 SING_BOX_VERSION="1.13.14"
 WGCF_CLI_VERSION="v0.3.6"
@@ -46,6 +46,8 @@ ANYTLS_PORT="9443"
 TUIC_PORT="10443"
 HOSTD_PORT="8090"
 BACKEND_PORT="18080"
+REALITY_INTERNAL_PORT="7443"
+PLACEHOLDER_TLS_INTERNAL_PORT="7444"
 
 GREEN=$'\033[1;32m'
 RED=$'\033[1;31m'
@@ -66,7 +68,7 @@ ADMIN_PASSWORD_HASH=""
 PUBLIC_ADDRESS=""
 SERVER_NAME=""
 COUNTRY_CODE="unknown"
-CREATE_SG_ADMIN="0"
+CREATE_SG_ADMIN="1"
 SECRET_KEY=""
 BACKUP_DIR=""
 MUTATION_STARTED=0
@@ -95,6 +97,12 @@ MANAGED_PATHS=(
   etc/systemd/system/sg-gateway-awg.service
   etc/systemd/system/sg-gateway-singbox.service
   etc/systemd/system/mihomo.service
+  etc/nginx/nginx.conf
+  etc/nginx/stream-conf.d/sg-gateway-443.conf
+  etc/nginx/sites-available/sg-gateway-acme
+  etc/nginx/sites-enabled/sg-gateway-acme
+  var/www/sg-gateway-placeholder
+  var/www/sg-gateway-acme
   etc/nginx/sites-available/sg-gateway
   etc/nginx/sites-enabled/sg-gateway
   etc/nginx/sites-enabled/default
@@ -221,19 +229,23 @@ try:
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
 except OSError:
     lines = []
-start = -1
+failed = -1
+traceback = -1
 for index, line in enumerate(lines):
     if line.startswith("Traceback (most recent call last):"):
-        start = index
-if start >= 0:
-    selected = lines[start:]
-    for index, line in enumerate(selected):
-        if line.startswith("FAILED COMMAND"):
-            selected = selected[:index]
-            break
-    selected = selected[-24:]
+        traceback = index
+    if line.startswith("FAILED COMMAND"):
+        failed = index
+
+if failed >= 0:
+    # Diagnostics are appended after FAILED COMMAND. Show the actual command
+    # failure and the lines immediately before it, not a service-journal tail.
+    start = traceback if 0 <= traceback < failed else max(0, failed - 24)
+    selected = lines[start : failed + 1]
+elif traceback >= 0:
+    selected = lines[traceback : traceback + 24]
 else:
-    selected = lines[-12:]
+    selected = lines[-18:]
 print("\n".join(selected))
 PYERROR
 )"
@@ -397,7 +409,31 @@ run_quiet() {
   printf "\r\033[K%s[SG-Gateway] [OK]%s %s (%s сек.)\n" "$GREEN" "$RESET" "$label" "$elapsed"
 }
 
-run_live() { run_quiet "$@"; }
+run_live() {
+  local label="$1"
+  shift
+  CURRENT_LABEL="$label"
+  local started=$SECONDS rc=0 raw_output=""
+  raw_output="$(mktemp /tmp/sg-gateway-installer-output.XXXXXX)"
+  chmod 0600 "$raw_output"
+  printf "%s[SG-Gateway] [..]%s %s\n" "$GREEN" "$RESET" "$label"
+  set +e
+  (
+    trap - ERR INT TERM
+    "$@"
+  ) > >(tee "$raw_output") 2>&1
+  rc=$?
+  set -e
+  sanitize_installer_stream < "$raw_output" >> "$INSTALL_LOG"
+  rm -f "$raw_output"
+  local elapsed=$((SECONDS - started))
+  if (( rc != 0 )); then
+    printf "%s[SG-Gateway] [ОШИБКА]%s %s (%s сек.)\n" "$RED" "$RESET" "$label" "$elapsed"
+    printf "FAILED COMMAND (rc=%s): %s\n" "$rc" "$label" >> "$INSTALL_LOG"
+    return "$rc"
+  fi
+  printf "%s[SG-Gateway] [OK]%s %s (%s сек.)\n" "$GREEN" "$RESET" "$label" "$elapsed"
+}
 run_hidden() { run_quiet "$@"; }
 
 run_stage() {
@@ -406,7 +442,11 @@ run_stage() {
   local function_name="$3"
   CURRENT_STAGE="$number"
   CURRENT_LABEL="Этап ${number}/${TOTAL_STAGES} · ${label}"
-  run_quiet "$CURRENT_LABEL" "$function_name"
+  if [[ "$number" == "1" ]]; then
+    run_live "$CURRENT_LABEL" "$function_name"
+  else
+    run_quiet "$CURRENT_LABEL" "$function_name"
+  fi
 }
 
 wait_for_apt() {
@@ -441,6 +481,9 @@ PYLOCK
     fi
     sleep 3
     waited=$((waited + 3))
+    if (( waited > 0 && waited % 30 == 0 )); then
+      echo "APT/dpkg всё ещё занят; ожидание: ${waited} сек."
+    fi
     if (( waited >= max_wait )); then
       echo "APT/dpkg не освободился за ${max_wait} секунд." >&2
       return 1
@@ -812,7 +855,7 @@ detect_minimal_013_install() {
   MIGRATION_VLESS_ENCRYPTION="$(env_value "$xray_file" SG_VLESS_ENCRYPTION || true)"
   MIGRATION_VLESS_DECRYPTION="$(env_value "$xray_file" SG_VLESS_DECRYPTION || true)"
 
-  valid_port "$XRAY_PORT" || XRAY_PORT="$DEFAULT_XRAY_PORT"
+  XRAY_PORT="$DEFAULT_XRAY_PORT"
   [[ -n "$REALITY_TARGET" ]] || REALITY_TARGET="$DEFAULT_REALITY_TARGET"
   [[ -n "$REALITY_SNI" ]] || REALITY_SNI="$DEFAULT_REALITY_SNI"
   if ! valid_public_ipv4 "$PUBLIC_ADDRESS"; then
@@ -936,8 +979,8 @@ PY013RESTORE
 }
 
 collect_automatic_parameters() {
-  printf "\n%s[SG-Gateway]%s Параметры установки\n" "$CYAN" "$RESET"
-  printf "[SG-Gateway] Технические параметры назначаются автоматически. Домен не требуется.\n\n"
+  printf "\n%s[SG-Gateway]%s Автоматические параметры установки\n" "$CYAN" "$RESET"
+  printf "[SG-Gateway] Домен не обязателен. После установки панель откроется по публичному IP.\n\n"
 
   PUBLIC_ADDRESS="$(detect_public_ip || true)"
   valid_public_ipv4 "$PUBLIC_ADDRESS" || {
@@ -945,14 +988,12 @@ collect_automatic_parameters() {
     return 1
   }
   COUNTRY_CODE="$(detect_country_code "$PUBLIC_ADDRESS")"
+  [[ "$COUNTRY_CODE" =~ ^([a-z]{2}|unknown)$ ]] || COUNTRY_CODE="unknown"
 
   SERVER_NAME="sg-gateway"
   [[ "$COUNTRY_CODE" != "unknown" ]] && SERVER_NAME="sg-gateway-${COUNTRY_CODE}"
   SERVER_NAME="$(normalize_hostname "$SERVER_NAME")"
-  valid_hostname "$SERVER_NAME" || {
-    echo "Не удалось автоматически сформировать hostname." >&2
-    return 1
-  }
+  valid_hostname "$SERVER_NAME" || SERVER_NAME="sg-gateway"
 
   PANEL_PORT="$DEFAULT_PANEL_PORT"
   XRAY_PORT="$DEFAULT_XRAY_PORT"
@@ -961,16 +1002,14 @@ collect_automatic_parameters() {
   REALITY_SNI="$DEFAULT_REALITY_SNI"
   CREATE_SG_ADMIN="1"
 
-  printf "[SG-Gateway] Публичный IP:       %s\n" "$PUBLIC_ADDRESS"
-  printf "[SG-Gateway] Страна:             %s\n" "${COUNTRY_CODE^^}"
-  printf "[SG-Gateway] Hostname:           %s\n" "$SERVER_NAME"
-  printf "[SG-Gateway] Панель:             TCP %s\n" "$PANEL_PORT"
-  printf "[SG-Gateway] VLESS Reality TCP:  TCP %s\n" "$XRAY_PORT"
-  printf "[SG-Gateway] Reality target:     %s\n" "$REALITY_TARGET"
-  printf "[SG-Gateway] Reality SNI:        %s\n" "$REALITY_SNI"
-  printf "[SG-Gateway] AmneziaWG:          UDP %s\n" "$AWG_PORT"
+  printf "[SG-Gateway] Публичный IP: %s\n" "$PUBLIC_ADDRESS"
+  printf "[SG-Gateway] Страна сервера: %s\n" "${COUNTRY_CODE^^}"
+  printf "[SG-Gateway] Имя сервера: %s\n" "$SERVER_NAME"
+  printf "[SG-Gateway] Панель: TCP %s\n" "$PANEL_PORT"
+  printf "[SG-Gateway] VLESS Reality TCP: публичный %s -> 127.0.0.1:%s\n" \
+    "$XRAY_PORT" "$REALITY_INTERNAL_PORT"
+  printf "[SG-Gateway] AmneziaWG: UDP %s\n" "$AWG_PORT"
   printf "[SG-Gateway] Первый VPN-клиент sg-admin будет создан автоматически.\n"
-  printf "[SG-Gateway] Профили sg-admin: Reality TCP, XHTTP Reality, AmneziaWG, Mieru.\n\n"
 
   read_password
   SECRET_KEY="$(openssl rand -hex 32)"
@@ -1608,7 +1647,8 @@ stage_configuration_and_database() {
   # under /var/lib/sg-gateway; sg-hostd applies them as root.
   install -d -m 0755 -o root -g root /etc/mihomo /etc/sing-box /usr/local/etc/xray /etc/amnezia/amneziawg
   install -d -m 0750 -o root -g root /var/lib/mihomo /var/lib/sing-box /var/log/sing-box
-  install -d -m 0755 /var/www/sg-gateway-acme
+  install -d -m 0755 /var/www/sg-gateway-acme /var/www/sg-gateway-placeholder
+  install -m 0644 "$PREFIX/assets/placeholder/index.html" /var/www/sg-gateway-placeholder/index.html
   rm -f /etc/mihomo/config.yaml.new
   if (( UPDATE_MODE == 0 )); then
     rm -rf /etc/mihomo/tls
@@ -1652,6 +1692,7 @@ SG_GATEWAY_COUNTRY_CODE=${COUNTRY_CODE}
 SG_GATEWAY_CREATE_SG_ADMIN=${CREATE_SG_ADMIN}
 SG_GATEWAY_PANEL_PORT=${PANEL_PORT}
 SG_GATEWAY_XRAY_PORT=${XRAY_PORT}
+SG_GATEWAY_REALITY_INTERNAL_PORT=${REALITY_INTERNAL_PORT}
 SG_GATEWAY_AWG_PORT=${AWG_PORT}
 SG_GATEWAY_MIHOMO_PORT=${MIHOMO_PORT}
 SG_GATEWAY_REALITY_TARGET=${REALITY_TARGET}
@@ -1950,7 +1991,6 @@ PY
   rm -rf "$test_root"
 }
 
-
 saved_https_access() {
   (( UPDATE_MODE == 1 )) || return 0
 
@@ -1967,97 +2007,37 @@ state_path = Path(sys.argv[1])
 nginx_path = Path(sys.argv[2])
 panel_port = int(sys.argv[3])
 
-if not state_path.is_file():
+if not state_path.is_file() or not nginx_path.is_file():
     raise SystemExit(0)
-
 try:
     state = json.loads(state_path.read_text(encoding="utf-8"))
-except (OSError, ValueError, json.JSONDecodeError) as exc:
-    print(f"HTTPS state is unreadable: {exc}", file=sys.stderr)
-    raise SystemExit(1)
+except (OSError, ValueError, json.JSONDecodeError):
+    raise SystemExit(0)
 
 if not state.get("https_ready"):
     raise SystemExit(0)
-
 domain = str(state.get("domain") or "").strip().lower()
+certificate_path = str(state.get("certificate_path") or "").strip()
+key_path = str(state.get("key_path") or "").strip()
 try:
-    public_port = int(
-        state.get("public_port")
-        or state.get("panel_port")
-        or 0
-    )
+    public_port = int(state.get("public_port") or state.get("panel_port") or 0)
 except (TypeError, ValueError):
     public_port = 0
-
-certificate_path = Path(
-    str(
-        state.get("certificate_path")
-        or f"/etc/letsencrypt/live/{domain}/fullchain.pem"
-    )
-)
-key_path = Path(
-    str(
-        state.get("key_path")
-        or f"/etc/letsencrypt/live/{domain}/privkey.pem"
-    )
-)
-
-problems = []
-if not domain:
-    problems.append("domain is empty")
 if public_port != panel_port:
-    problems.append(
-        f"saved public port {public_port} does not match panel port {panel_port}"
-    )
-if not certificate_path.is_file() or certificate_path.stat().st_size == 0:
-    problems.append(f"certificate is missing: {certificate_path}")
-if not key_path.is_file() or key_path.stat().st_size == 0:
-    problems.append(f"private key is missing: {key_path}")
+    raise SystemExit(0)
+if not domain or not Path(certificate_path).is_file() or not Path(key_path).is_file():
+    raise SystemExit(0)
 
-try:
-    nginx = nginx_path.read_text(encoding="utf-8")
-except OSError as exc:
-    problems.append(f"Nginx config is unreadable: {exc}")
-    nginx = ""
-
-if nginx:
-    listen_pattern = re.compile(
-        rf"(?m)^\s*listen\s+(?:\[::\]:)?{panel_port}\b[^;]*\bssl\b[^;]*;"
-    )
-    if not listen_pattern.search(nginx):
-        problems.append("Nginx has no HTTPS listener on the saved panel port")
-
-    names = []
-    for match in re.finditer(
-        r"(?m)^\s*server_name\s+([^;]+);",
-        nginx,
-    ):
-        names.extend(match.group(1).split())
-    if domain not in names:
-        problems.append("Nginx server_name does not match the saved domain")
-
-    cert_pattern = re.compile(
-        rf"(?m)^\s*ssl_certificate\s+"
-        rf"{re.escape(str(certificate_path))}\s*;"
-    )
-    key_pattern = re.compile(
-        rf"(?m)^\s*ssl_certificate_key\s+"
-        rf"{re.escape(str(key_path))}\s*;"
-    )
-    if not cert_pattern.search(nginx):
-        problems.append("Nginx does not use the saved certificate")
-    if not key_pattern.search(nginx):
-        problems.append("Nginx does not use the saved private key")
-
-if problems:
-    print(
-        "Working HTTPS cannot be preserved during update: "
-        + "; ".join(problems),
-        file=sys.stderr,
-    )
-    raise SystemExit(1)
-
-print(domain)
+body = nginx_path.read_text(encoding="utf-8")
+listen_pattern = re.compile(rf"(?m)^\\s*listen\\s+(?:\\[::\\]:)?{panel_port}\\s+ssl(?:\\s+[^;]+)?;")
+checks = (
+    listen_pattern.search(body),
+    re.search(rf"(?m)^\\s*server_name\\s+{re.escape(domain)}(?:\\s+[^;]+)?;", body),
+    re.search(rf"(?m)^\\s*ssl_certificate\\s+{re.escape(certificate_path)};", body),
+    re.search(rf"(?m)^\\s*ssl_certificate_key\\s+{re.escape(key_path)};", body),
+)
+if all(checks):
+    print(domain)
 PYHTTPSSTATE
 }
 
@@ -2090,7 +2070,7 @@ ProtectHome=true
 ProtectSystem=strict
 RuntimeDirectory=sg-gateway
 RuntimeDirectoryMode=0755
-ReadWritePaths=-/run/sg-gateway -${DATA_DIR} -${LOG_DIR} -${CONFIG_DIR} -/etc/mihomo -/var/lib/mihomo -/etc/sing-box -/var/lib/sing-box -/var/log/sing-box -/usr/local/etc/xray -/usr/local/share/xray -/etc/amnezia -/etc/sysctl.d -/etc/nginx -/etc/letsencrypt -/var/www/sg-gateway-acme -/etc/systemd/system/sg-gateway.service.d
+ReadWritePaths=-/run/sg-gateway -${DATA_DIR} -${LOG_DIR} -${CONFIG_DIR} -/etc/mihomo -/var/lib/mihomo -/etc/sing-box -/var/lib/sing-box -/var/log/sing-box -/usr/local/etc/xray -/usr/local/share/xray -/etc/amnezia -/etc/sysctl.d -/etc/nginx -/etc/letsencrypt -/var/www/sg-gateway-acme -/var/www/sg-gateway-placeholder -/etc/systemd/system/sg-gateway.service.d
 
 [Install]
 WantedBy=multi-user.target
@@ -2127,20 +2107,96 @@ EOF
   install -m 0644 "$PREFIX/deploy/sg-gateway-singbox.service" /etc/systemd/system/sg-gateway-singbox.service
   install -m 0644 "$PREFIX/deploy/mihomo.service" /etc/systemd/system/mihomo.service
 
+  install -d -m 0755 /etc/nginx/stream-conf.d /etc/nginx/sites-available /etc/nginx/sites-enabled
   local https_domain=""
   https_domain="$(saved_https_access)"
   if [[ -n "$https_domain" ]]; then
-    echo "[SG-Gateway] Сохраняю рабочий HTTPS для $https_domain при обновлении."
+    echo "Сохраняю рабочий HTTPS для $https_domain до финальной проверки."
   else
-    cat > /etc/nginx/sites-available/sg-gateway <<EOF
+  python3 - /etc/nginx/nginx.conf <<'PYNGINXMAIN'
+from pathlib import Path
+import re
+import sys
+
+path = Path(sys.argv[1])
+body = path.read_text(encoding="utf-8")
+direct = "    include /etc/nginx/stream-conf.d/sg-gateway-443.conf;"
+include_pattern = re.compile(
+    r"(?m)^\s*include\s+/etc/nginx/stream-conf\.d/(?:\*\.conf|sg-gateway-443\.conf);\s*$"
+)
+
+# The accepted live nginx.conf already includes sg-gateway-443.conf directly.
+# Adding a wildcard too would load the same file twice and duplicate port 443.
+existing = include_pattern.findall(body)
+if len(existing) > 1:
+    kept = False
+    lines = []
+    for line in body.splitlines():
+        if include_pattern.fullmatch(line):
+            if kept:
+                continue
+            line = direct
+            kept = True
+        lines.append(line)
+    body = "\n".join(lines) + ("\n" if body.endswith("\n") else "")
+elif not existing:
+    if "stream {" in body:
+        pos = body.index("stream {") + len("stream {")
+        body = body[:pos] + "\n" + direct + body[pos:]
+    else:
+        body = body.rstrip() + "\n\n# SG_GATEWAY_PLACEHOLDER_80_443_V3\nstream {\n" + direct + "\n}\n"
+
+path.write_text(body, encoding="utf-8", newline="\n")
+PYNGINXMAIN
+
+  cat > /etc/nginx/stream-conf.d/sg-gateway-443.conf <<EOF
+# SG_GATEWAY_PLACEHOLDER_80_443_V3
+# Before a certificate exists, unknown SNI remains on the Reality listener.
+map \$ssl_preread_server_name \$sg_gateway_443_backend {
+    hostnames;
+    ${REALITY_SNI} 127.0.0.1:${REALITY_INTERNAL_PORT};
+    default 127.0.0.1:${REALITY_INTERNAL_PORT};
+}
+
 server {
-    listen 80;
-    listen [::]:80;
+    listen 443;
+    listen [::]:443;
+    proxy_pass \$sg_gateway_443_backend;
+    ssl_preread on;
+    proxy_connect_timeout 10s;
+    proxy_timeout 1h;
+}
+EOF
+
+  cat > /etc/nginx/sites-available/sg-gateway <<EOF
+# SG_GATEWAY_PLACEHOLDER_80_443_V3
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
     server_name _;
+
+    root /var/www/sg-gateway-placeholder;
+    index index.html;
 
     location ^~ /.well-known/acme-challenge/ {
         root /var/www/sg-gateway-acme;
         default_type text/plain;
+    }
+
+    location = / {
+        try_files /index.html =404;
+        add_header Cache-Control "no-cache" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    }
+
+    location = /index.html {
+        try_files /index.html =404;
+        add_header Cache-Control "no-cache" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     }
 
     location / {
@@ -2166,11 +2222,13 @@ server {
     }
 }
 EOF
-  fi
-  rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/sg-gateway
+  rm -f /etc/nginx/sites-enabled/default \
+    /etc/nginx/sites-enabled/sg-gateway \
+    /etc/nginx/sites-enabled/sg-gateway-acme
   ln -s /etc/nginx/sites-available/sg-gateway /etc/nginx/sites-enabled/sg-gateway
   nginx -t
   systemctl reload nginx.service
+  fi
   systemctl daemon-reload
   [[ "$(systemctl show -p User --value sg-hostd.service)" == "root" ]]
   [[ -z "$(systemctl show -p DropInPaths --value sg-hostd.service)" ]]
@@ -2198,13 +2256,10 @@ http_wait_json() {
   local url="$1"
   local expected_service="$2"
   local attempts="${3:-60}"
-  local resolve="${4:-}"
   local body code attempt
-  local curl_options=(-sS --max-time 5)
-  [[ -n "$resolve" ]] && curl_options+=(--resolve "$resolve")
   for attempt in $(seq 1 "$attempts"); do
     body="$(mktemp)"
-    code="$(curl "${curl_options[@]}" -o "$body" -w '%{http_code}' "$url" 2>>"$INSTALL_LOG" || true)"
+    code="$(curl -sS --max-time 5 -o "$body" -w '%{http_code}' "$url" 2>>"$INSTALL_LOG" || true)"
     if [[ "$code" == "200" ]] && python3 - "$body" "$expected_service" <<'PY'
 import json, sys
 path, expected = sys.argv[1:]
@@ -2403,31 +2458,43 @@ restore_update_runtime_services() {
 }
 
 stage9_verify_nginx() {
-  local https_domain="" resolve=""
-
   restore_update_runtime_services
-  nginx -t
-  systemctl enable --now nginx.service
-
+  local https_domain=""
   https_domain="$(saved_https_access)"
   if [[ -n "$https_domain" ]]; then
-    resolve="${https_domain}:${PANEL_PORT}:127.0.0.1"
-    http_wait_json \
-      "https://${https_domain}:${PANEL_PORT}/health" \
-      "sg-gateway-panel" 15 "$resolve"
-    curl -fsS --max-time 8 --resolve "$resolve" \
-      "https://${https_domain}:${PANEL_PORT}/login" >/dev/null
-    echo "HTTPS update policy: domain, certificate and Nginx config preserved"
+    /bin/bash "$PREFIX/deploy/configure-panel-access.sh" --mode refresh
+    curl --noproxy '*' -kfsS --max-time 15       --resolve "${https_domain}:${PANEL_PORT}:127.0.0.1"       "https://${https_domain}:${PANEL_PORT}/health"       | python3 -c 'import json,sys; value=json.load(sys.stdin); assert value.get("service")=="sg-gateway-panel"'
+    echo "HTTPS domain, certificate and Nginx config preserved: $https_domain"
   else
+    nginx -t
+    systemctl enable --now nginx.service
     http_wait_json "http://127.0.0.1:${PANEL_PORT}/health" "sg-gateway-panel" 15
     curl -fsS --max-time 8 "http://127.0.0.1:${PANEL_PORT}/login" >/dev/null
   fi
   systemctl is-active --quiet sg-hostd.service
   systemctl is-active --quiet sg-gateway.service
   systemctl is-active --quiet nginx.service
+  cmp -s /var/www/sg-gateway-placeholder/index.html "$PREFIX/assets/placeholder/index.html"
+  curl --noproxy '*' -fsS --max-time 8 http://127.0.0.1/ -o /tmp/sg-gateway-placeholder-check.html
+  cmp -s /tmp/sg-gateway-placeholder-check.html /var/www/sg-gateway-placeholder/index.html
+  rm -f /tmp/sg-gateway-placeholder-check.html
+  nginx -T 2>&1 | grep -Fq 'include /etc/nginx/stream-conf.d/sg-gateway-443.conf;'
+  grep -Fq "${REALITY_SNI} 127.0.0.1:${REALITY_INTERNAL_PORT};" /etc/nginx/stream-conf.d/sg-gateway-443.conf
+  ss -lntp 2>/dev/null | grep -Eq '(^|[[:space:]])[^[:space:]]*:443[[:space:]].*nginx'
   if [[ -s /usr/local/etc/xray/config.json ]]; then
     set_xray_config_permissions
     systemctl is-active --quiet xray.service
+    python3 - /usr/local/etc/xray/config.json "$REALITY_INTERNAL_PORT" <<'PYXRAYLISTENER'
+import json, sys
+path, expected = sys.argv[1], int(sys.argv[2])
+config = json.load(open(path, encoding="utf-8"))
+inbound = next((item for item in config.get("inbounds", []) if item.get("tag") == "sg-vless-reality-tcp"), None)
+assert inbound is not None, "Reality TCP inbound is missing"
+assert inbound.get("listen") == "127.0.0.1", inbound.get("listen")
+assert int(inbound.get("port", 0)) == expected, inbound.get("port")
+print(f"Reality TCP internal listener: 127.0.0.1:{expected}")
+PYXRAYLISTENER
+    ss -lntp 2>/dev/null | grep -Eq "127\.0\.0\.1:${REALITY_INTERNAL_PORT}[[:space:]].*xray"
   fi
   if [[ -f /etc/mihomo/config.yaml ]]; then
     /usr/local/bin/mihomo -t -f /etc/mihomo/config.yaml >/dev/null
@@ -2475,10 +2542,10 @@ verify_client_identities_after_update() {
 }
 
 print_sg_admin_status() {
+  printf '[SG-Gateway] Профили sg-admin: Reality TCP, XHTTP Reality, AmneziaWG, Mieru\n'
   [[ "$CREATE_SG_ADMIN" == "1" ]] || return 0
   printf '[SG-Gateway] Первый клиент sg-admin: создан\n'
-  printf '[SG-Gateway] Профили sg-admin: Reality TCP, XHTTP Reality, AmneziaWG, Mieru\n'
-  printf '[SG-Gateway] Создайте собственных пользователей в разделе Clients.\n'
+  printf '[SG-Gateway] Профили: Clients → sg-admin\n'
 }
 
 main() {
@@ -2490,8 +2557,8 @@ main() {
   umask 022
   prepare_log
   export DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
-  printf '\n%s[SG-Gateway]%s Запускаю полный мастер SG-Gateway 021\n' "$CYAN" "$RESET"
-  printf '%s[SG-Gateway] [OK]%s Мастер установки SG-Gateway 021 запущен (0 сек.)\n' "$GREEN" "$RESET"
+  printf '\n%s[SG-Gateway]%s Запускаю полный мастер SG-Gateway 0.1.0-021.10\n' "$CYAN" "$RESET"
+  printf '%s[SG-Gateway] [OK]%s Мастер установки SG-Gateway 0.1.0-021.10 запущен (0 сек.)\n' "$GREEN" "$RESET"
   printf '[SG-Gateway] Технический журнал: %s\n' "$INSTALL_LOG"
   printf '[SG-Gateway] Повторный запуск выполняется на этом же EC2. Домен не обязателен.\n\n'
 
@@ -2503,9 +2570,12 @@ main() {
     printf '[SG-Gateway] Обнаружена установленная полная панель %s. Выполняется безопасное обновление.\n\n' \
       "${EXISTING_VERSION:-неизвестной версии}"
     if (( SERVER_NAME_MIGRATION_REQUIRED == 1 )); then
+      SERVER_NAME="sg-gateway"
+      [[ "$COUNTRY_CODE" != "unknown" ]] && SERVER_NAME="sg-gateway-${COUNTRY_CODE}"
       SERVER_NAME="$(normalize_hostname "$SERVER_NAME")"
-      valid_hostname "$SERVER_NAME" || { echo "Недопустимое имя сервера." >&2; return 1; }
-      printf '[SG-Gateway] Hostname нормализован автоматически: %s\n' "$SERVER_NAME"
+      valid_hostname "$SERVER_NAME" || SERVER_NAME="sg-gateway"
+      printf '[SG-Gateway] Имя сервера автоматически нормализовано: %s
+' "$SERVER_NAME"
     fi
     printf '[SG-Gateway] Все параметры приняты. Дальнейшее обновление не потребует ввода.\n\n'
   elif detect_minimal_013_install; then
@@ -2514,6 +2584,10 @@ main() {
     printf '[SG-Gateway] Панель будет доступна на TCP %s. Логин и пароль SG-Gateway 013 сохраняются.\n\n' "$PANEL_PORT"
     printf '[SG-Gateway] Все параметры приняты. Дополнительных вопросов не будет.\n\n'
   else
+    if [[ -f "$RESUME_FILE" ]]; then
+      printf '[SG-Gateway] Повторный запуск выполняется на этом же EC2; использую сохранённые автоматические параметры.
+'
+    fi
     if ! load_resume_state; then
       collect_automatic_parameters
       save_resume_state
@@ -2523,11 +2597,6 @@ main() {
 
   # AmneziaWG has one canonical SG-Gateway transport port.
   AWG_PORT="$DEFAULT_AWG_PORT"
-  if (( UPDATE_MODE == 0 )); then
-    # An interrupted clean-install resume file must not disable the accepted
-    # first-client contract.
-    CREATE_SG_ADMIN="1"
-  fi
 
   BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)-before-sg-gateway-021"
   MUTATION_STARTED=1
@@ -2575,12 +2644,15 @@ main() {
   printf '[SG-Gateway] Версия:       %s\n' "$VERSION"
   printf '[SG-Gateway] Xray:         %s\n' "$(xray_installed_version)"
   local final_https_domain=""
-  final_https_domain="$(saved_https_access 2>/dev/null || true)"
+  final_https_domain="$(saved_https_access)"
   if [[ -n "$final_https_domain" ]]; then
     printf '[SG-Gateway] Панель:       https://%s:%s\n' "$final_https_domain" "$PANEL_PORT"
+    printf '[SG-Gateway] Заглушка:     http://%s/ и https://%s/\n' "$final_https_domain" "$final_https_domain"
   else
     printf '[SG-Gateway] Панель:       http://%s:%s\n' "$PUBLIC_ADDRESS" "$PANEL_PORT"
+    printf '[SG-Gateway] Заглушка:     http://%s/\n' "$PUBLIC_ADDRESS"
   fi
+  printf '[SG-Gateway] Reality TCP:  %s:%s -> 127.0.0.1:%s\n' "$PUBLIC_ADDRESS" "$XRAY_PORT" "$REALITY_INTERNAL_PORT"
   printf '[SG-Gateway] Логин:        admin\n'
   printf '[SG-Gateway] Журнал:       %s\n' "$INSTALL_LOG"
   printf '[SG-Gateway] Backup:       %s\n' "$BACKUP_DIR"
