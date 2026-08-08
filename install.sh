@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 VERSION="0.1.0-021.10"
-INSTALLER_BUILD="02110-full-clean-candidate"
+INSTALLER_BUILD="02110-full-clean-safety-fix2"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
@@ -274,18 +274,41 @@ show_service_diagnostics() {
   } 2>&1 | sanitize_installer_stream >> "$INSTALL_LOG"
 }
 
+rollback_remove_managed_paths() {
+  # SG_GATEWAY_02110_INSTALLER_SAFETY_FIX2
+  # nginx.conf belongs to the Ubuntu Nginx package. Never blindly delete it
+  # during rollback. If it existed before the install, managed-paths.tar will
+  # overwrite it with the saved copy. If Nginx was installed by this attempt,
+  # nginx-after-packages.tar will overwrite it with the healthy package
+  # baseline. If apt itself fails before that snapshot exists, preserving the
+  # package-created nginx.conf is still strictly safer than deleting it.
+  local root="${1:-/}" relative target
+  root="${root%/}"
+  for relative in "${MANAGED_PATHS[@]}"; do
+    [[ "$relative" == "etc/nginx/nginx.conf" ]] && continue
+    target="${root}/${relative}"
+    rm -rf "$target"
+  done
+}
+
 restore_backup() {
   [[ -n "$BACKUP_DIR" && -d "$BACKUP_DIR" ]] || return 0
   printf "\n%s[SG-Gateway] [ОТКАТ]%s Восстанавливаю предыдущую установку SG-Gateway.\n" "$YELLOW" "$RESET"
 
   systemctl stop sg-gateway.service sg-hostd.service xray.service mihomo.service \
     sg-gateway-awg.service sg-gateway-singbox.service nginx.service >/dev/null 2>&1 || true
-  for relative in "${MANAGED_PATHS[@]}"; do
-    rm -rf "/$relative"
-  done
+  rollback_remove_managed_paths /
 
   if [[ -f "$BACKUP_DIR/managed-paths.tar" ]]; then
     tar -C / -xpf "$BACKUP_DIR/managed-paths.tar"
+  fi
+
+  # SG_GATEWAY_02110_INSTALLER_SAFETY_FIX1
+  # If apt installed/repaired Nginx during this attempt, restore the exact
+  # package/user Nginx tree captured before SG-Gateway touched it.  This avoids
+  # the old failure mode where rollback removed nginx.conf but left the package.
+  if [[ -f "$BACKUP_DIR/nginx-after-packages.tar" ]]; then
+    tar -C / -xpf "$BACKUP_DIR/nginx-after-packages.tar"
   fi
   systemctl daemon-reload || true
 
@@ -1064,12 +1087,38 @@ stage_backup_and_prepare() {
   chmod 0755 "$PREFIX/deploy/configure-panel-access.sh"
 }
 
+snapshot_nginx_package_baseline() {
+  # SG_GATEWAY_02110_INSTALLER_SAFETY_FIX1
+  # Capture the package-owned Nginx tree *after* apt has made it healthy and
+  # *before* SG-Gateway edits it.  A later rollback can therefore restore a
+  # valid Nginx installation even when Nginx did not exist before this run.
+  [[ -n "$BACKUP_DIR" && -d /etc/nginx ]] || return 0
+  local temp="$BACKUP_DIR/nginx-after-packages.tar.tmp"
+  rm -f "$temp" "$BACKUP_DIR/nginx-after-packages.tar"
+  tar -C / -cpf "$temp" etc/nginx
+  mv -f "$temp" "$BACKUP_DIR/nginx-after-packages.tar"
+}
+
 stage_system_packages() {
   export DEBIAN_FRONTEND=noninteractive
   apt_get install -y \
     software-properties-common sqlite3 nftables iproute2 procps ufw \
     nginx certbot python3-certbot-nginx libnginx-mod-stream \
     build-essential dkms pkg-config zstd unzip "linux-headers-$(uname -r)"
+
+  # Old 021.10 rollback could leave the nginx package installed while deleting
+  # /etc/nginx/nginx.conf.  Heal that exact state automatically before any SG
+  # configuration is written, so a retry does not require manual repair.
+  if command -v nginx >/dev/null 2>&1 && [[ ! -f /etc/nginx/nginx.conf ]]; then
+    echo "[SG-Gateway] Обнаружен Nginx без nginx.conf; восстанавливаю пакетную конфигурацию."
+    apt_get -o Dpkg::Options::=--force-confmiss install --reinstall -y nginx-common nginx
+  fi
+  [[ -f /etc/nginx/nginx.conf ]] || {
+    echo "Nginx установлен, но /etc/nginx/nginx.conf отсутствует" >&2
+    return 1
+  }
+
+  snapshot_nginx_package_baseline
   systemctl enable --now nginx.service
 }
 
@@ -2240,7 +2289,9 @@ EOF
 }
 
 stage_firewall_and_network() {
-  if ufw status 2>/dev/null | grep -q '^Status: active'; then
+  local ufw_state=""
+  ufw_state="$(ufw status 2>/dev/null || true)"
+  if grep -q '^Status: active' <<<"$ufw_state"; then
     local rule
     for rule in \
       "${PANEL_PORT}/tcp" "80/tcp" "${XRAY_PORT}/tcp" \
@@ -2478,9 +2529,17 @@ stage9_verify_nginx() {
   curl --noproxy '*' -fsS --max-time 8 http://127.0.0.1/ -o /tmp/sg-gateway-placeholder-check.html
   cmp -s /tmp/sg-gateway-placeholder-check.html /var/www/sg-gateway-placeholder/index.html
   rm -f /tmp/sg-gateway-placeholder-check.html
-  nginx -T 2>&1 | grep -Fq 'include /etc/nginx/stream-conf.d/sg-gateway-443.conf;'
+
+  # SG_GATEWAY_02110_INSTALLER_SAFETY_FIX1
+  # Never put a producer in front of grep -q while pipefail is enabled.
+  # grep -q may close the pipe after the first match, giving nginx/ss SIGPIPE
+  # (141) and turning a successful verification into a failed installation.
+  local nginx_dump="" socket_dump=""
+  nginx_dump="$(nginx -T 2>&1)"
+  grep -Fq 'include /etc/nginx/stream-conf.d/sg-gateway-443.conf;' <<<"$nginx_dump"
   grep -Fq "${REALITY_SNI} 127.0.0.1:${REALITY_INTERNAL_PORT};" /etc/nginx/stream-conf.d/sg-gateway-443.conf
-  ss -lntp 2>/dev/null | grep -Eq '(^|[[:space:]])[^[:space:]]*:443[[:space:]].*nginx'
+  socket_dump="$(ss -lntp 2>/dev/null)"
+  grep -Eq '(^|[[:space:]])[^[:space:]]*:443[[:space:]].*nginx' <<<"$socket_dump"
   if [[ -s /usr/local/etc/xray/config.json ]]; then
     set_xray_config_permissions
     systemctl is-active --quiet xray.service
@@ -2494,7 +2553,8 @@ assert inbound.get("listen") == "127.0.0.1", inbound.get("listen")
 assert int(inbound.get("port", 0)) == expected, inbound.get("port")
 print(f"Reality TCP internal listener: 127.0.0.1:{expected}")
 PYXRAYLISTENER
-    ss -lntp 2>/dev/null | grep -Eq "127\.0\.0\.1:${REALITY_INTERNAL_PORT}[[:space:]].*xray"
+    socket_dump="$(ss -lntp 2>/dev/null)"
+    grep -Eq "127\.0\.0\.1:${REALITY_INTERNAL_PORT}[[:space:]].*xray" <<<"$socket_dump"
   fi
   if [[ -f /etc/mihomo/config.yaml ]]; then
     /usr/local/bin/mihomo -t -f /etc/mihomo/config.yaml >/dev/null

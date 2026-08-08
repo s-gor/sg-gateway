@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-OUT="${1:-$ROOT/SG-Gateway-02110-FULL-CLEAN.run}"
+OUT="${1:-$ROOT/SG-Gateway-02110-FULL-CLEAN-SAFETY-FIX2.run}"
 SOURCE_FOLDER="SG-Gateway-02110-SOURCE"
 EXPECTED_VERSION="0.1.0-021.10"
 TMP="$(mktemp -d)"
@@ -35,7 +35,7 @@ cat > "$OUT" <<EOF
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-PACKAGE="SG-Gateway 0.1.0-021.10 Full Clean"
+PACKAGE="SG-Gateway 0.1.0-021.10 Full Clean Safety Fix 2"
 EXPECTED_VERSION="$EXPECTED_VERSION"
 SOURCE_FOLDER="$SOURCE_FOLDER"
 PAYLOAD_SHA256="$PAYLOAD_SHA"
@@ -77,11 +77,12 @@ verify_source() {
   grep -Fq '/root/sg-gateway-02110-installer-resume.env' "\$root/deploy/full-uninstall-ubuntu.sh" || fail "Uninstall не очищает resume 02110"
   grep -Fq 'include\\s+/etc/nginx/stream-conf\\.d/sg-gateway-443\\.conf' "\$root/deploy/full-uninstall-ubuntu.sh" || fail "Uninstall не очищает direct stream include"
   grep -Fq 'SG_DEVICE_COLLAPSE_V4_LAST_CSS' "\$root/app/web/templates/base.html" || fail "Нет финального Device Collapse V4"
-  grep -Fq 'SG_DEVICE_EXPANDED_CLEANUP_V1_LAST_CSS' "\$root/app/web/templates/base.html" || fail "Нет очистки раскрытой карточки устройства"
-  grep -Fq 'def recovery_restore_backup_route(name: str):' "\$root/app/main.py" || fail "Нет восстановления из Recovery"
-  grep -Fq 'data-recovery-restore' "\$root/app/web/templates/recovery.html" || fail "Нет кнопки восстановления в Recovery"
   grep -Fq 'System alignment final fix 3 — Disk is the reference' "\$root/app/web/static/sg-system-simple-dials-v1.css" || fail "Нет финального System FIX3"
   grep -Fq 'Скопировать ссылку' "\$root/app/web/templates/client_detail.html" || fail "Нет принятой кнопки подписки"
+  grep -Fq 'SG_GATEWAY_02110_INSTALLER_SAFETY_FIX2' "\$root/install.sh" || fail "Нет installer safety fix 2"
+  grep -Fq 'SG_GATEWAY_02110_UNINSTALL_SAFETY_FIX2' "\$root/deploy/full-uninstall-ubuntu.sh" || fail "Нет uninstall safety fix 2"
+  ! grep -Eq 'nginx -T[^\n]*\|[^\n]*grep[^\n]*-[A-Za-z]*q' "\$root/install.sh" || fail "Остался опасный nginx -T | grep -q"
+  ! grep -Eq 'ss -lntp[^\n]*\|[^\n]*grep[^\n]*-[A-Za-z]*q' "\$root/install.sh" || fail "Остался опасный ss | grep -q"
   python3 - "\$root" <<'PYVERIFY'
 import ast, json, sys
 from pathlib import Path

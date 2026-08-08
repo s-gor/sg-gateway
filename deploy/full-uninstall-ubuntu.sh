@@ -167,10 +167,26 @@ body = re.sub(
 path.write_text(body.rstrip() + "\n", encoding="utf-8", newline="\n")
 PYNGINXCLEAN
   fi
-  if command -v nginx >/dev/null 2>&1; then
+  remove_service_and_web_config_finalize_nginx
+}
+
+check_nginx_after_sg_cleanup() {
+  # SG_GATEWAY_02110_UNINSTALL_SAFETY_FIX2
+  # A failed/partial older install can leave the nginx binary/package present
+  # while /etc/nginx/nginx.conf is missing. Uninstall must not call nginx -t in
+  # that state and must continue removing SG-Gateway. The optional path exists
+  # only to make this exact guard regression-testable without touching /etc.
+  local nginx_conf="${1:-/etc/nginx/nginx.conf}"
+  if command -v nginx >/dev/null 2>&1 && [[ -f "$nginx_conf" ]]; then
     nginx -t
     systemctl reload nginx.service >/dev/null 2>&1 || true
+  elif command -v nginx >/dev/null 2>&1; then
+    echo "[SG-Gateway] Nginx установлен без ${nginx_conf}; nginx -t пропущен."
   fi
+}
+
+remove_service_and_web_config_finalize_nginx() {
+  check_nginx_after_sg_cleanup /etc/nginx/nginx.conf
 }
 
 remove_sg_certificate(){
@@ -183,7 +199,11 @@ remove_sg_certificate(){
     rm -f "/etc/letsencrypt/renewal/${TLS_DOMAIN}.conf"
     rm -rf "/etc/letsencrypt/live/${TLS_DOMAIN}" "/etc/letsencrypt/archive/${TLS_DOMAIN}"
   fi
-  if [[ -d /etc/letsencrypt/renewal ]] && ! find /etc/letsencrypt/renewal -maxdepth 1 -type f -name '*.conf' -print -quit | grep -q .; then
+  local remaining_cert=""
+  if [[ -d /etc/letsencrypt/renewal ]]; then
+    remaining_cert="$(find /etc/letsencrypt/renewal -maxdepth 1 -type f -name '*.conf' -print -quit 2>/dev/null || true)"
+  fi
+  if [[ -d /etc/letsencrypt/renewal && -z "$remaining_cert" ]]; then
     systemctl disable --now certbot.timer >/dev/null 2>&1 || true
   fi
 }
@@ -239,7 +259,11 @@ remove_engine_runtimes(){
 }
 
 cleanup_firewall(){
-  if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active'; then
+  local ufw_state=""
+  if command -v ufw >/dev/null 2>&1; then
+    ufw_state="$(ufw status 2>/dev/null || true)"
+  fi
+  if grep -q '^Status: active' <<<"$ufw_state"; then
     local rule
     for rule in \
       "${PANEL_PORT}/tcp" "80/tcp" "${XRAY_PORT}/tcp" \
