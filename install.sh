@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 VERSION="0.1.0-021.10"
-INSTALLER_BUILD="02110-full-clean-safety-fix2"
+INSTALLER_BUILD="02110-full-clean-safety-fix3"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
@@ -2303,6 +2303,33 @@ stage_firewall_and_network() {
   fi
 }
 
+systemctl_with_retry() {
+  # SG_GATEWAY_02110_SYSTEMD_TRANSIENT_RETRY_FIX3
+  # Package operations can briefly disconnect systemctl from PID 1 / D-Bus.
+  # Retry only the systemctl operation; a real service failure still propagates
+  # after the bounded attempts and triggers the normal transactional rollback.
+  local max_attempts="${SG_GATEWAY_SYSTEMCTL_RETRY_ATTEMPTS:-5}"
+  local retry_delay="${SG_GATEWAY_SYSTEMCTL_RETRY_DELAY:-2}"
+  local attempt=1 rc=1
+  while (( attempt <= max_attempts )); do
+    if systemctl "$@"; then
+      return 0
+    else
+      rc=$?
+    fi
+    printf '[SG-Gateway] systemctl attempt %s/%s failed (rc=%s): systemctl' \
+      "$attempt" "$max_attempts" "$rc" >> "$INSTALL_LOG"
+    printf ' %q' "$@" >> "$INSTALL_LOG"
+    printf '\\n' >> "$INSTALL_LOG"
+    if (( attempt < max_attempts )); then
+      systemctl daemon-reload >>"$INSTALL_LOG" 2>&1 || true
+      sleep "$retry_delay"
+    fi
+    attempt=$((attempt + 1))
+  done
+  return "$rc"
+}
+
 http_wait_json() {
   local url="$1"
   local expected_service="$2"
@@ -2341,7 +2368,7 @@ PY
 
 stage9_start_hostd() {
   verify_xray_version
-  systemctl enable --now sg-hostd.service
+  systemctl_with_retry enable --now sg-hostd.service
   http_wait_json "http://127.0.0.1:${HOSTD_PORT}/health" "sg-hostd" 20
 }
 
@@ -2376,8 +2403,8 @@ stage9_apply_runtime() {
       cat "$current_test_log"
       rm -f "$current_test_log"
       set_xray_config_permissions
-      systemctl enable xray.service
-      systemctl restart xray.service
+      systemctl_with_retry enable xray.service
+      systemctl_with_retry restart xray.service
       systemctl is-active --quiet xray.service
       echo "Xray update policy: existing tested runtime preserved and restarted"
       return 0
@@ -2468,13 +2495,13 @@ PYWARPAUTO
   # before the final restart and health checks.
   if [[ -s /usr/local/etc/xray/config.json ]]; then
     set_xray_config_permissions
-    systemctl restart xray.service
+    systemctl_with_retry restart xray.service
     systemctl is-active --quiet xray.service
   fi
 }
 
 stage9_start_panel() {
-  systemctl enable --now sg-gateway.service
+  systemctl_with_retry enable --now sg-gateway.service
   http_wait_json "http://127.0.0.1:${BACKEND_PORT}/health" "sg-gateway-panel" 20
   curl -fsS --max-time 8 "http://127.0.0.1:${BACKEND_PORT}/login" >/dev/null
 }
@@ -2498,10 +2525,10 @@ restore_update_runtime_services() {
   local service
   for service in mihomo.service sg-gateway-awg.service sg-gateway-singbox.service; do
     if service_was_enabled_before_update "$service"; then
-      systemctl enable "$service"
+      systemctl_with_retry enable "$service"
     fi
     if service_was_active_before_update "$service"; then
-      systemctl restart "$service"
+      systemctl_with_retry restart "$service"
       systemctl is-active --quiet "$service"
       echo "Update runtime restored: $service"
     fi
@@ -2518,7 +2545,7 @@ stage9_verify_nginx() {
     echo "HTTPS domain, certificate and Nginx config preserved: $https_domain"
   else
     nginx -t
-    systemctl enable --now nginx.service
+    systemctl_with_retry enable --now nginx.service
     http_wait_json "http://127.0.0.1:${PANEL_PORT}/health" "sg-gateway-panel" 15
     curl -fsS --max-time 8 "http://127.0.0.1:${PANEL_PORT}/login" >/dev/null
   fi

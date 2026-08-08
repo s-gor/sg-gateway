@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-OUT="${1:-$ROOT/SG-Gateway-02110-FULL-CLEAN-SAFETY-FIX2.run}"
+OUT="${1:-$ROOT/SG-Gateway-02110-FULL-CLEAN-SAFETY-FIX3.run}"
 SOURCE_FOLDER="SG-Gateway-02110-SOURCE"
 EXPECTED_VERSION="0.1.0-021.10"
 TMP="$(mktemp -d)"
@@ -35,7 +35,7 @@ cat > "$OUT" <<EOF
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-PACKAGE="SG-Gateway 0.1.0-021.10 Full Clean Safety Fix 2"
+PACKAGE="SG-Gateway 0.1.0-021.10 Full Clean Safety Fix 3"
 EXPECTED_VERSION="$EXPECTED_VERSION"
 SOURCE_FOLDER="$SOURCE_FOLDER"
 PAYLOAD_SHA256="$PAYLOAD_SHA"
@@ -77,9 +77,13 @@ verify_source() {
   grep -Fq '/root/sg-gateway-02110-installer-resume.env' "\$root/deploy/full-uninstall-ubuntu.sh" || fail "Uninstall не очищает resume 02110"
   grep -Fq 'include\\s+/etc/nginx/stream-conf\\.d/sg-gateway-443\\.conf' "\$root/deploy/full-uninstall-ubuntu.sh" || fail "Uninstall не очищает direct stream include"
   grep -Fq 'SG_DEVICE_COLLAPSE_V4_LAST_CSS' "\$root/app/web/templates/base.html" || fail "Нет финального Device Collapse V4"
+  grep -Fq 'SG_DEVICE_EXPANDED_CLEANUP_V1_LAST_CSS' "\$root/app/web/templates/base.html" || fail "Нет очистки раскрытой карточки устройства"
+  grep -Fq 'def recovery_restore_backup_route(name: str):' "\$root/app/main.py" || fail "Нет восстановления из Recovery"
+  grep -Fq 'data-recovery-restore' "\$root/app/web/templates/recovery.html" || fail "Нет кнопки восстановления в Recovery"
   grep -Fq 'System alignment final fix 3 — Disk is the reference' "\$root/app/web/static/sg-system-simple-dials-v1.css" || fail "Нет финального System FIX3"
   grep -Fq 'Скопировать ссылку' "\$root/app/web/templates/client_detail.html" || fail "Нет принятой кнопки подписки"
   grep -Fq 'SG_GATEWAY_02110_INSTALLER_SAFETY_FIX2' "\$root/install.sh" || fail "Нет installer safety fix 2"
+  grep -Fq 'SG_GATEWAY_02110_SYSTEMD_TRANSIENT_RETRY_FIX3' "\$root/install.sh" || fail "Нет systemd transient retry fix 3"
   grep -Fq 'SG_GATEWAY_02110_UNINSTALL_SAFETY_FIX2' "\$root/deploy/full-uninstall-ubuntu.sh" || fail "Нет uninstall safety fix 2"
   ! grep -Eq 'nginx -T[^\n]*\|[^\n]*grep[^\n]*-[A-Za-z]*q' "\$root/install.sh" || fail "Остался опасный nginx -T | grep -q"
   ! grep -Eq 'ss -lntp[^\n]*\|[^\n]*grep[^\n]*-[A-Za-z]*q' "\$root/install.sh" || fail "Остался опасный ss | grep -q"
@@ -87,6 +91,37 @@ verify_source() {
 import ast, json, sys
 from pathlib import Path
 root=Path(sys.argv[1])
+
+# The source manifest must cover every file that can enter the payload.
+# This prevents a valid-but-incomplete manifest from silently dropping
+# acceptance assets such as Recovery/Device cleanup CSS.
+def ignored(path):
+    rel=path.relative_to(root)
+    parts=rel.parts
+    if rel.as_posix() == 'SOURCE-SHA256SUMS':
+        return True
+    if any(part in {'.git','.venv','venv','.pytest_cache','.ruff_cache','__pycache__'} for part in parts):
+        return True
+    if path.suffix in {'.pyc','.pyo'}:
+        return True
+    name=path.name
+    if name.startswith('SG-Gateway-02110-FULL-CLEAN-') and (name.endswith('.run') or name.endswith('-TRANSFER.zip') or name.endswith('-SHA256.txt')):
+        return True
+    return False
+actual={p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file() and not ignored(p)}
+listed=set()
+for line in (root/'SOURCE-SHA256SUMS').read_text(encoding='utf-8').splitlines():
+    if line.strip():
+        digest, rel=line.split('  ',1)
+        assert len(digest)==64 and rel, line
+        listed.add(rel)
+missing=sorted(actual-listed)
+extra=sorted(listed-actual)
+assert not missing, 'SOURCE-SHA256SUMS missing files: ' + ', '.join(missing)
+assert not extra, 'SOURCE-SHA256SUMS lists absent files: ' + ', '.join(extra)
+for required in ('app/web/static/sg-device-expanded-cleanup-v1.css','app/web/static/sg-recovery-restore-v1.css'):
+    assert required in listed, required
+
 for base in (root/'app',root/'hostd',root/'engines'):
     if base.exists():
         for path in base.rglob('*.py'):
