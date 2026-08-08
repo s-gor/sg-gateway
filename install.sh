@@ -2495,7 +2495,9 @@ PYWARPAUTO
   # before the final restart and health checks.
   if [[ -s /usr/local/etc/xray/config.json ]]; then
     set_xray_config_permissions
-    systemctl_with_retry restart xray.service
+    if ! systemctl restart xray.service; then
+      systemctl_with_retry restart xray.service
+    fi
     systemctl is-active --quiet xray.service
   fi
 }
