@@ -74,12 +74,63 @@ def test_nginx_upload_contract_is_durable() -> None:
 def test_domain_endpoint_policy_covers_all_exports() -> None:
     exports = text("app/clients/exports.py")
     mihomo = text("app/mihomo/service.py")
-    assert "def _working_tls_domain()" in exports
-    assert "def _public_export_host(" in exports
-    assert "endpoint_host = _public_export_host(awg_settings.host)" in exports
-    assert "host = _public_export_host(" in exports
-    assert "tls_domain = _working_tls_domain()" in exports
-    assert "active_domain = domain if domain and _tls_ready(domain) else \"\"" in mihomo
+
+    def block(source: str, name: str, next_name: str) -> str:
+        return source[source.index(f"def {name}("):source.index(f"def {next_name}(")]
+
+    helper = block(exports, "_public_export_host", "_format_endpoint")
+    assert "domain = _working_tls_domain()" in helper
+    assert "if domain:" in helper
+    assert "return domain" in helper
+    assert helper.index("return domain") < helper.index("for value in fallbacks")
+
+    awg = block(exports, "build_awg_config", "_xray_profile")
+    xray = block(exports, "build_xray_profile_link", "build_xray_link")
+    mieru_uri = block(exports, "build_mieru_link", "build_mieru_json")
+    mieru_json = block(exports, "build_mieru_json", "build_mihomo_yaml")
+    anytls = block(exports, "build_anytls_link", "build_tuic_link")
+    tuic = block(exports, "build_tuic_link", "protocol_engine")
+    subscription_url = block(exports, "_subscription_base_url", "build_subscription_url")
+
+    assert "endpoint_host = _public_export_host(awg_settings.host)" in awg
+    assert "host = _public_export_host(" in xray
+    assert "host = _public_export_host(settings.host)" in mieru_uri
+    assert "host = _public_export_host(settings.host)" in mieru_json
+    assert 'host = _public_export_host(config.get("host", ""))' in anytls
+    assert 'host = _public_export_host(config.get("host", ""))' in tuic
+
+    # TLS protocols must use the same live HTTPS domain for SNI as for endpoint selection.
+    assert "tls_domain = _working_tls_domain()" in anytls
+    assert "tls_domain = _working_tls_domain()" in tuic
+    assert 'domain = _working_tls_domain() or str(state.get("tls_domain") or "")' in xray
+
+    # Subscription URL is domain-first too; IP is only the explicit no-HTTPS fallback.
+    assert 'public_url = str(tls.get("public_url") or "").strip()' in subscription_url
+    assert 'if tls.get("https_ready") and public_url:' in subscription_url
+    assert 'return public_url.rstrip("/")' in subscription_url
+    assert subscription_url.index("return public_url.rstrip") < subscription_url.index("config = load_config()")
+
+    # Mihomo YAML has its own runtime builder; it must prefer a verified TLS domain.
+    yaml_block = block(mihomo, "build_device_yaml", "_yaml_string") if "def _yaml_string(" in mihomo[mihomo.index("def build_device_yaml("):] else mihomo[mihomo.index("def build_device_yaml("):]
+    assert 'active_domain = domain if domain and _tls_ready(domain) else ""' in yaml_block
+    assert 'host = active_domain or settings["host"]' in yaml_block
+    assert "mieru_host = host" in yaml_block
+    assert 'f"    server: {_yaml_string(mieru_host)}"' in yaml_block
+    assert 'f"    server: {_yaml_string(host)}"' in yaml_block
+
+    # QR/subscription content are generated from these builders, so a ready HTTPS domain
+    # must never be replaced by a saved public IP in any public client export.
+    assert '"amneziawg": build_awg_config' in exports
+    assert '"xray-reality-tcp": lambda item, access=None: build_xray_profile_link' in exports
+    assert '"xray-xhttp-reality": lambda item, access=None: build_xray_profile_link' in exports
+    assert '"xray-xhttp-tls": lambda item, access=None: build_xray_profile_link' in exports
+    assert '"hysteria2": lambda item, access=None: build_xray_profile_link' in exports
+    assert '"mieru": build_mieru_link' in exports
+    assert '"mieru-json": build_mieru_json' in exports
+    assert '"mihomo": build_mihomo_yaml' in exports
+    assert '"anytls": build_anytls_link' in exports
+    assert '"tuic": build_tuic_link' in exports
+    assert '"subscription": build_subscription' in exports
 
 
 def test_no_traffic_feature_code_is_present() -> None:
