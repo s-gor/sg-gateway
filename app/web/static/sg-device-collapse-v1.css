@@ -1,5 +1,13 @@
 /* SG-Gateway 0.1.0-021.9 — collapsed device cards, clean single-surface V3 */
 
+/* SG_GATEWAY_02112_CLIENTS_NO_JUMP_FIX4
+   Initial-paint guard: the server renders device cards before deferred JS
+   installs the collapse state. Keep the body hidden until JS marks the card
+   ready; normal sg-device-collapsed rules then take over. */
+body .dv16-device:not([data-sg-collapse-ready="1"]) > :not(.dv16-device-head) {
+  display: none !important;
+}
+
 body .dv16-device-head,
 body .dv16-device-title {
   cursor: pointer;
