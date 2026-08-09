@@ -1,5 +1,7 @@
 # SG-Gateway 0.1.0-021.12 — Full Backup / Full Restore / Recovery
 
+- FIX8: dedicated Update no longer aborts after downloading GitHub main with `source: unbound variable`; candidate Python validation now receives `SOURCE_DIR` correctly.
+
 - README и `docs/INSTALLATION.md` окончательно синхронизированы с двумя отдельными командами Clean Install / Update.
 - На главную README вынесен блок быстрых команд: Clean Install, Update и Full Uninstall.
 - Удалены оставшиеся устаревшие указания «для обновления используется та же команда».

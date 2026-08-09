@@ -411,7 +411,8 @@ prepare_source() {
     fail "hostd/requirements.txt changed. Safe panel-only Update is blocked; a dedicated dependency migration is required."
   fi
 
-  "$PREFIX/.venv/bin/python" -B - "$source" <<'PYCHECK'
+  # SG_GATEWAY_02112_UPDATE_SOURCE_DIR_FIX8
+  "$PREFIX/.venv/bin/python" -B - "$SOURCE_DIR" <<'PYCHECK'
 import compileall
 import sys
 from pathlib import Path
