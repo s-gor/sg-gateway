@@ -12,7 +12,7 @@
 *.service text eol=lf
 *.env text eol=lf
 
-*.ps1 text eol=crlf
+*.ps1 text eol=lf
 *.cmd text eol=crlf
 
 *.dat binary

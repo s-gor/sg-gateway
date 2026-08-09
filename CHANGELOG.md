@@ -1,5 +1,7 @@
 # SG-Gateway 0.1.0-021.12 — Full Backup / Full Restore / Recovery
 
+- R5-R3 PS1 archive EOL: `SOURCE-SHA256SUMS` hashes canonical LF Git blobs; four tracked `scripts/*.ps1` files previously had `eol=crlf`, so `git archive` exported different bytes and FULL CLEAN reported exactly four checksum mismatches. PS1 export is now fixed to LF; runtime code is unchanged.
+
 - FINAL cumulative cleanup R5: active installer/uninstall identity aligned to 021.12; Light Update preserves local `/opt/sg-gateway/assets` and self-heals FIX9-R2 loss from Safety Backup without re-downloading the heavy asset tree; FULL CLEAN builds canonical committed Git HEAD; source SHA-256 is CI/build-run verified; FINAL AWG2 metadata points to `0.1.0-022.01`.
 
 - FINAL AWG2 freeze: `0.1.0-021.12` закрыта как feature-frozen AWG2 baseline; requirements синхронизированы с 021.12, добавлен freeze-manifest. AWG3 перенесён в новую линию `0.1.0-022.01`.
