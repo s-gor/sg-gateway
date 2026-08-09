@@ -13,6 +13,9 @@
 ![WARP](https://img.shields.io/badge/WARP-supported-F38020?logo=cloudflare&logoColor=white)
 ![systemd](https://img.shields.io/badge/deploy-systemd-16A085)
 ![HTTPS](https://img.shields.io/badge/HTTPS-Let%27s_Encrypt-003A70?logo=letsencrypt&logoColor=white)
+![Status](https://img.shields.io/badge/status-FINAL--AWG2-16A34A)
+
+> **021.12 FINAL AWG2.** Эта линия feature-frozen: новые функции и AWG3 в `0.1.0-021.12` больше не добавляются. Только критические bug/security fixes. AWG3 начинается с `0.1.0-022.01`. Подробный freeze: [`SG-GATEWAY-02112-FINAL-AWG2.md`](SG-GATEWAY-02112-FINAL-AWG2.md).
 
 SG-Gateway устанавливается на **один самостоятельный Ubuntu-сервер** и превращает его в готовый VPN-шлюз с удобным веб-интерфейсом.
 
