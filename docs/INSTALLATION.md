@@ -58,6 +58,28 @@ Bootstrap загружает текущий `main`, проверяет обяз�
 
 ## Обновление
 
-Используется та же команда. При обновлении существующие пароль, параметры, клиенты и реквизиты устройств сохраняются. Перед изменением создаётся резервная копия управляемых файлов и состояния служб.
+Для уже установленного SG-Gateway используется отдельная команда:
 
-Раньше установщик мог заменить уже настроенную HTTPS-конфигурацию Nginx стандартным HTTP-шаблоном. Теперь обновление сохраняет домен, сертификат Let’s Encrypt, HTTPS-конфигурацию Nginx и renewal hook. После обновления панель проверяется по сохранённому HTTPS-адресу. Если рабочую конфигурацию сохранить и проверить нельзя, выполняется откат к резервной копии.
+```bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update-from-github.sh | sudo bash
+```
+
+Clean Install и Update — разные операции. `install-from-github.sh` предназначен для чистого сервера и при обнаружении уже установленного SG-Gateway останавливается до изменения системы.
+
+Update не запускает полный installer, не выполняет `apt-get` и не переустанавливает Nginx, Certbot, Xray, AmneziaWG, Mihomo, sing-box или WARP helper.
+
+Перед переключением кода создаётся safety backup, включая `/opt/sg-gateway`, `/etc/sg-gateway`, `/var/lib/sg-gateway`, полный `/etc/letsencrypt`, SG-конфигурацию Nginx и состояние служб. После обновления проверяются Clients/credentials, HTTPS, Nginx и ранее работающие runtime-службы. При ошибке выполняется автоматический rollback.
+
+## Полное удаление
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/full-uninstall-ubuntu.sh | sudo bash
+```
+
+Подтверждение:
+
+```text
+DELETE SG-GATEWAY
+```
+
+Удаляются приложение, данные и управляемые SG-Gateway службы и конфигурации. Общие пакеты Ubuntu намеренно сохраняются.

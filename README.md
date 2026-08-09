@@ -22,6 +22,40 @@ SG-Gateway устанавливается на **один самостоятел
 
 Установили панель, создали клиентов и устройства, получили ссылки, QR-коды и подписки — пользуетесь.
 
+## Быстрые команды
+
+### Clean Install — только новый сервер
+
+Для чистой Ubuntu:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | sudo bash
+```
+
+Если SG-Gateway уже установлен, Clean Install останавливается до изменений и предлагает отдельную команду Update.
+
+### Update — существующий SG-Gateway
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update-from-github.sh | sudo bash
+```
+
+Update не запускает полный installer и не переустанавливает Nginx, Certbot, Xray, AmneziaWG, Mihomo, sing-box или WARP helper. Перед переключением кода создаётся safety backup, а после обновления проверяются HTTPS, Clients, Nginx и runtime.
+
+### Full Uninstall — полное удаление SG-Gateway
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/full-uninstall-ubuntu.sh | sudo bash
+```
+
+Подтверждение:
+
+```text
+DELETE SG-GATEWAY
+```
+
+Удаляются приложение, данные и управляемые SG-Gateway службы и конфигурации. Общие пакеты Ubuntu намеренно сохраняются.
+
 ### System — состояние сервера
 
 ![System — ресурсы и состояние](docs/screenshots/0218-system-overview.png)
@@ -395,17 +429,17 @@ Mieru JSON использует фактический адрес и порт с
 
 ### Обновление
 
-Для чистой установки и обновления используется одна команда:
+В версии 021.8 для чистой установки и обновления действительно использовалась одна команда. **Начиная с 021.12 эта схема больше не применяется:** Clean Install и Update разделены.
+
+Актуальная команда Update:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update-from-github.sh | sudo bash
 ```
 
-На новом сервере она запускает чистую установку. Если SG-Gateway уже установлен, команда автоматически переходит в режим обновления и не задаёт повторных вопросов.
+Clean Install предназначен только для нового сервера. На уже установленном SG-Gateway он останавливается до изменений.
 
-Раньше обновление сохраняло клиентов и базу, но могло заменить рабочую HTTPS-конфигурацию Nginx обычным HTTP-шаблоном. После этого HTTPS приходилось включать заново.
-
-Теперь при обновлении сохраняются пароль администратора, клиенты, устройства, UUID, ключи, настройки подключений, домен, сертификат Let’s Encrypt, конфигурация Nginx и renewal hook. После обновления панель проверяется по сохранённому HTTPS-адресу. Если рабочую конфигурацию сохранить и проверить нельзя, установщик выполняет откат к резервной копии.
+В 021.12 Update сохраняет рабочее состояние сервера и не переустанавливает Nginx, Certbot и VPN cores. Перед переключением кода создаётся safety backup, а при неуспешной финальной проверке выполняется rollback.
 
 Также удалены предварительные проверки портов, которые могли ошибочно остановить установку до запуска реальных служб.
 
@@ -632,13 +666,17 @@ curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/instal
 
 ## Обновление
 
-Для обновления используется та же команда:
+Для уже установленного SG-Gateway используется **отдельная команда Update**:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update-from-github.sh | sudo bash
 ```
 
-Updater сохраняет управляемые данные и резервную копию текущего состояния перед обновлением.
+Clean Install для обновления существующего сервера больше не используется.
+
+Update не запускает полный `install.sh`, не выполняет повторную установку системных пакетов и не переустанавливает Nginx, Certbot, Xray, AmneziaWG, Mihomo, sing-box или WARP helper.
+
+Перед изменениями создаётся safety backup, включая полный `/etc/letsencrypt`. После переключения кода SG-Gateway проверяет Clients/credentials, HTTPS, Nginx и состояние runtime-служб. Если финальная проверка не проходит, выполняется автоматический rollback.
 
 ## Полное удаление
 
