@@ -1,6 +1,6 @@
 {
-  "build": "full-clean-ec2-02110-accepted",
-  "channel": "main-02110",
+  "build": "full-clean-ec2-02112-full-backup-domain-endpoint",
+  "channel": "main-02112",
   "client_access_model": {
     "hysteria_auth_per_device": true,
     "independent_enable_disable": true,
@@ -66,7 +66,6 @@
     ],
     "device_collapse_final_style": "sg-device-collapse-v4.css-loaded-last",
     "device_collapse_logic": "sg-device-collapse-v1.js",
-    "device_expanded_cleanup": "sg-device-expanded-cleanup-v1.css-loaded-after-v4",
     "device_metadata_blocks": false,
     "duplicate_bottom_add_device_removed": true,
     "empty_state_action": "header-add-client-button-only",
@@ -296,10 +295,39 @@
     "public_sni_router_port": 443,
     "reality_internal_listener": "127.0.0.1:7443"
   },
+  "portable_full_backup": {
+    "automatic_safety_backup_before_restore": true,
+    "certificate_files_verified_before_success": true,
+    "client_runtime_required_before_success": true,
+    "destination_public_ip_preserved": true,
+    "format": "sg-gateway-full-backup-v1",
+    "includes_clients_and_runtime": true,
+    "includes_https_certificates": true,
+    "includes_private_keys": true,
+    "local_https_refresh_after_restore": true,
+    "max_upload_mib": 1024,
+    "nested_https_backup_history_excluded": true,
+    "restore_live_terminal": true,
+    "single_file": true,
+    "sqlite_panel_user_validation": true,
+    "xray_full_access_after_restore": "0777-recursive",
+    "xray_required_active_before_success": true
+  },
+  "public_endpoint_policy": {
+    "applies_to": [
+      "xray",
+      "amneziawg",
+      "mieru",
+      "mihomo-yaml",
+      "anytls",
+      "tuic",
+      "subscription"
+    ],
+    "https_domain_preferred_when_ready": true,
+    "ip_fallback_when_https_not_ready": true
+  },
   "rollback": {
     "atomic_application": true,
-    "maintenance_restore_entry_preserved": true,
-    "recovery_restore_entry": true,
     "requires_backup": true,
     "restores_service_state": true
   },
@@ -391,7 +419,7 @@
     ],
     "xray_status_cards_theme_fixed": true
   },
-  "version": "0.1.0-021.10",
+  "version": "0.1.0-021.12",
   "vless_sg_panel_port": {
     "client_contract": {
       "fingerprint_normalized": true,

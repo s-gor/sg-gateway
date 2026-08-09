@@ -55,28 +55,20 @@ def _xray_service_user() -> str:
 
 
 def set_xray_config_permissions(path: Path | None = None) -> None:
+    # SG_GATEWAY_02111_XRAY_FULL_ACCESS_POLICY
     target = path or xray_config_path()
     if not target.exists():
         return
-    service_user = _xray_service_user()
-    if service_user == "root":
-        # In production the privileged host helper runs as root and keeps the
-        # live Xray config root-owned.  Unit tests and other offline validation
-        # may run unprivileged; root-owned files are not required there because
-        # a root Xray service can read the resulting 0600 file regardless of
-        # its owner.
-        if os.geteuid() == 0:
+    if os.geteuid() == 0:
+        try:
             os.chown(target, 0, 0)
-        os.chmod(target, 0o600)
-        return
+        except OSError:
+            pass
+    os.chmod(target, 0o777)
     try:
-        service_gid = pwd.getpwnam(service_user).pw_gid
-    except KeyError as exc:
-        raise RoutingRuntimeError(
-            f"Не найден пользователь xray.service: {service_user}"
-        ) from exc
-    os.chown(target, 0, service_gid)
-    os.chmod(target, 0o640)
+        os.chmod(target.parent, 0o777)
+    except OSError:
+        pass
 
 
 def atomic_write_json(path: Path, payload: dict, mode: int = 0o600) -> None:

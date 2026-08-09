@@ -85,10 +85,21 @@ def run_core_update(engine: str) -> int:
     _dump(update_core(engine))
     return 0
 
+def run_full_backup_restore() -> int:
+    from sg_hostd.full_backup_runtime import restore_uploaded_full_backup
+
+    print("[Full Restore] Фоновая транзакция запущена", flush=True)
+    result = restore_uploaded_full_backup()
+    _dump(result)
+    return 0
+
+
 def main() -> int:
     if len(sys.argv) != 3:
         return 2
     try:
+        if sys.argv[1] == "full_backup_restore":
+            return run_full_backup_restore()
         if sys.argv[1] == "xray_apply":
             return run_xray()
         if sys.argv[1] == "xray_update_stable":

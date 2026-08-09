@@ -15,6 +15,7 @@ from sg_hostd.operation_jobs import (
     start_xray_update_job,
     start_panel_update_job,
     start_core_update_job,
+    start_full_backup_restore_job,
 )
 
 from sg_hostd.client_runtime import (
@@ -27,6 +28,7 @@ from sg_hostd.client_runtime import (
 from sg_hostd.privileged_runtime import execute_privileged_action
 
 from sg_hostd.mihomo_runtime import execute_mihomo_action
+from sg_hostd.full_backup_runtime import create_full_backup_archive, restore_uploaded_full_backup
 
 
 @dataclass(frozen=True)
@@ -683,6 +685,48 @@ def _system_diagnostics() -> HostCommandResult:
     )
 
 
+def _full_backup_create() -> HostCommandResult:
+    try:
+        payload = create_full_backup_archive()
+    except Exception as exc:
+        return HostCommandResult(
+            command="backup.full.create", status="error",
+            message=f"Не удалось создать полный backup: {exc}", payload={},
+        )
+    return HostCommandResult(
+        command="backup.full.create", status="ok",
+        message=f"Полный backup создан: {payload.get('name', '')}", payload=payload,
+    )
+
+
+def _full_backup_restore_start() -> HostCommandResult:
+    try:
+        payload = start_full_backup_restore_job()
+    except Exception as exc:
+        return HostCommandResult(
+            command="backup.full.restore.start", status="error",
+            message=f"Не удалось запустить Full Restore: {exc}", payload={},
+        )
+    return HostCommandResult(
+        command="backup.full.restore.start", status="ok",
+        message="Full Restore запущен в фоновом терминале", payload=payload,
+    )
+
+
+def _full_backup_restore() -> HostCommandResult:
+    try:
+        payload = restore_uploaded_full_backup()
+    except Exception as exc:
+        return HostCommandResult(
+            command="backup.full.restore", status="error",
+            message=f"Полный restore отменён: {exc}", payload={},
+        )
+    return HostCommandResult(
+        command="backup.full.restore", status="ok",
+        message="Полный backup восстановлен; службы будут перезапущены", payload=payload,
+    )
+
+
 _COMMANDS: dict[str, Callable[[], HostCommandResult]] = {
     "tls.issue.start": _tls_issue_start,
     "xray.apply": _xray_apply,
@@ -722,4 +766,7 @@ _COMMANDS: dict[str, Callable[[], HostCommandResult]] = {
     "xray.salamander.status": _xray_salamander_status,
     "nftables.status": _nftables_status,
     "system.diagnostics": _system_diagnostics,
+    "backup.full.create": _full_backup_create,
+    "backup.full.restore.start": _full_backup_restore_start,
+    "backup.full.restore": _full_backup_restore,
 }

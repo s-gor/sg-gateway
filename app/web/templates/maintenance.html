@@ -6,6 +6,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-maintenance-v2.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-maintenance-updates-v31.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='sg-maintenance-updates-v32.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='sg-full-backup-v1.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -285,6 +286,93 @@
       </div>
     </article>
   </section>
+
+  <article class="mtv2-panel sg-ljd-card-large sg-full-backup-card">
+    <header class="mtv2-panel-head sg-full-backup-head">
+      <div>
+        <div class="mtv2-card-kicker">FULL SERVER BACKUP</div>
+        <h2>Полный backup SG-Gateway</h2>
+        <p>Один переносимый файл для полного переезда сервера — вместе с клиентами, ключами, настройками и HTTPS.</p>
+      </div>
+      <form method="post" action="{{ url_for('create_full_backup_route') }}">
+        <button class="button primary sg-full-create" type="submit">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14"/></svg>
+          <span>Создать полный backup</span>
+        </button>
+      </form>
+    </header>
+
+    <div class="sg-full-backup-grid">
+      <section class="sg-full-backup-note sg-ljd-nested" aria-labelledby="sg-full-backup-contents">
+        <div class="sg-full-section-title">
+          <span class="sg-full-section-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5zM4 7.5 12 12l8-4.5M12 12v9"/></svg></span>
+          <div>
+            <strong id="sg-full-backup-contents">Что сохраняется</strong>
+            <small>Полное состояние SG-Gateway, которое нужно перенести на новый сервер.</small>
+          </div>
+        </div>
+        <div class="sg-full-backup-components" aria-label="Состав полного backup">
+          <em>Клиенты</em><em>Ключи</em><em>Xray</em><em>AmneziaWG</em><em>Mihomo / sing-box</em><em>Routing</em><em>WARP</em><em>GeoFiles</em><em>Nginx</em><em>HTTPS</em>
+        </div>
+        <div class="sg-full-backup-detail">
+          SQLite, runtime-конфиги и весь Let's Encrypt: сертификаты, private key и renewal-state.
+        </div>
+        <div class="sg-full-backup-warning">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3.5 19h17zM12 9v4m0 3h.01"/></svg>
+          <span><strong>Секретный файл.</strong> Внутри есть приватные ключи — храните `.sgbackup` как пароль.</span>
+        </div>
+      </section>
+
+      <section class="sg-full-restore-box sg-ljd-nested" aria-labelledby="sg-full-restore-title">
+        <div class="sg-full-section-title">
+          <span class="sg-full-section-icon restore" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21V9m0 0 4 4m-4-4-4 4M5 5h14"/></svg></span>
+          <div>
+            <strong id="sg-full-restore-title">Восстановить на новом сервере</strong>
+            <small>Новый публичный IP сохраняется — старый адрес из backup не подменит его.</small>
+          </div>
+        </div>
+        <form class="sg-full-upload" method="post" action="{{ url_for('restore_full_backup_route') }}" enctype="multipart/form-data"
+              data-sg-full-upload
+              data-sg-confirm="Восстановить полный сервер из выбранного файла? Перед изменением будет автоматически создан страховочный полный backup текущего состояния."
+              data-sg-confirm-title="Полное восстановление SG-Gateway" data-sg-confirm-button="Восстановить" data-sg-confirm-tone="danger">
+          <input class="sg-full-file-input" id="sg-full-backup-file" type="file" name="backup" accept=".sgbackup" required data-sg-full-file>
+          <label class="sg-full-file-picker" for="sg-full-backup-file">
+            <span class="sg-full-file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4m0 0 4 4m-4-4-4 4M5 15v4h14v-4"/></svg></span>
+            <span class="sg-full-file-copy">
+              <strong data-sg-full-file-name>Выберите .sgbackup</strong>
+              <small data-sg-full-file-meta>Нажмите, чтобы выбрать файл · максимум 512 MiB</small>
+            </span>
+            <span class="sg-full-file-action">Выбрать файл</span>
+          </label>
+          <div class="sg-full-restore-actions">
+            <span class="sg-full-restore-note">Перед восстановлением автоматически создаётся страховочный Full Backup.</span>
+            <button class="button mtv2-restore sg-full-restore-button" type="submit" disabled data-sg-full-restore-button>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7M4 4v6h6"/></svg>
+              <span>Восстановить сервер</span>
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    {% if full_backups %}
+      {% set full_backup = full_backups[0] %}
+      <div class="sg-full-backup-latest sg-ljd-nested">
+        <div class="sg-full-latest-main">
+          <span class="sg-full-latest-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5zM14 3v5h5M8 13h8M8 17h5"/></svg></span>
+          <div>
+            <span class="sg-full-latest-label">ПОСЛЕДНИЙ ПОЛНЫЙ BACKUP</span>
+            <strong>{{ full_backup.created_at }}</strong>
+            <small>{{ full_backup.name }} · <span data-bytes="{{ full_backup.size_bytes }}">{{ full_backup.size_bytes }} B</span></small>
+          </div>
+        </div>
+        <a class="button sg-full-download" href="{{ url_for('download_full_backup_route', name=full_backup.name) }}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14"/></svg>
+          <span>Скачать .sgbackup</span>
+        </a>
+      </div>
+    {% endif %}
+  </article>
 
   <article class="mtv2-panel mtv2-backup-panel sg-ljd-card-large">
     <header class="mtv2-panel-head">
@@ -568,6 +656,35 @@
 
     document.querySelectorAll("[data-bytes]").forEach(element => {
       element.textContent = formatBytes(element.dataset.bytes);
+    });
+
+    document.querySelectorAll("[data-sg-full-upload]").forEach(form => {
+      const input = form.querySelector("[data-sg-full-file]");
+      const fileName = form.querySelector("[data-sg-full-file-name]");
+      const fileMeta = form.querySelector("[data-sg-full-file-meta]");
+      const restoreButton = form.querySelector("[data-sg-full-restore-button]");
+      if (!input || !fileName || !fileMeta || !restoreButton) return;
+
+      const reset = () => {
+        fileName.textContent = "Выберите .sgbackup";
+        fileMeta.textContent = "Нажмите, чтобы выбрать файл · максимум 512 MiB";
+        restoreButton.disabled = true;
+        form.classList.remove("has-file");
+      };
+
+      input.addEventListener("change", () => {
+        const file = input.files && input.files[0];
+        if (!file) {
+          reset();
+          return;
+        }
+        fileName.textContent = file.name;
+        fileMeta.textContent = `${formatBytes(file.size)} · готов к восстановлению`;
+        restoreButton.disabled = false;
+        form.classList.add("has-file");
+      });
+
+      reset();
     });
   })();
   </script>

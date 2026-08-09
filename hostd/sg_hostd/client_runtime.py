@@ -201,10 +201,14 @@ def _atomic_write(path: Path, body: str, mode: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".new")
     temporary.write_text(body, encoding="utf-8", newline="\n")
-    # SG_GATEWAY_XRAY_CONFIG_PERMISSION_FIX
+    # SG_GATEWAY_02111_XRAY_FULL_ACCESS_POLICY
     if path == XRAY_CONFIG:
         os.chown(temporary, 0, _xray_service_group_gid())
-        os.chmod(temporary, 0o640)
+        os.chmod(temporary, 0o777)
+        try:
+            os.chmod(path.parent, 0o777)
+        except OSError:
+            pass
     else:
         os.chown(temporary, 0, 0)
         os.chmod(temporary, mode)
@@ -754,9 +758,12 @@ def _apply_awg() -> EngineResult:
 
 
 def _set_xray_config_permissions() -> None:
+    # SG_GATEWAY_02111_XRAY_FULL_ACCESS_POLICY
     gid = _xray_service_group_gid()
     os.chown(XRAY_CONFIG, 0, gid)
-    os.chmod(XRAY_CONFIG, 0o600 if gid == 0 else 0o640)
+    os.chmod(XRAY_CONFIG, 0o777)
+    if XRAY_CONFIG.parent.is_dir():
+        os.chmod(XRAY_CONFIG.parent, 0o777)
 
 
 def _sync_xray_tls_material(domain: str) -> tuple[str, str]:
@@ -771,7 +778,7 @@ def _sync_xray_tls_material(domain: str) -> tuple[str, str]:
     gid = _xray_service_group_gid()
     XRAY_TLS_DIR.mkdir(parents=True, exist_ok=True)
     os.chown(XRAY_TLS_DIR, 0, gid)
-    os.chmod(XRAY_TLS_DIR, 0o700 if gid == 0 else 0o750)
+    os.chmod(XRAY_TLS_DIR, 0o777)
 
     for source, target in (
         (source_cert, XRAY_TLS_CERT),
@@ -783,7 +790,7 @@ def _sync_xray_tls_material(domain: str) -> tuple[str, str]:
             target_handle.flush()
             os.fsync(target_handle.fileno())
         os.chown(temporary, 0, gid)
-        os.chmod(temporary, 0o600 if gid == 0 else 0o640)
+        os.chmod(temporary, 0o777)
         os.replace(temporary, target)
 
     return str(XRAY_TLS_CERT), str(XRAY_TLS_KEY)

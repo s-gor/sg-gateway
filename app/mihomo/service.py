@@ -1497,8 +1497,11 @@ def build_device_yaml(device_id: int, access_name: str) -> str:
         raise MihomoError("Для клиента не подготовлен Mihomo-доступ")
 
     settings = applied_settings()
-    host = settings["domain"] or settings["host"]
-    mieru_host = settings.get("server_ip") or settings["host"]
+    domain = str(settings.get("domain") or "").strip()
+    active_domain = domain if domain and _tls_ready(domain) else ""
+    host = active_domain or settings["host"]
+    mieru_host = host
+    # SG_GATEWAY_02110_DOMAIN_EXPORT_FIX1
     safe_name = access_name.replace('"', "").strip() or f"Access {device_id}"
     proxies: list[str] = []
     names: list[str] = []

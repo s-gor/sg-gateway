@@ -71,6 +71,38 @@ def _slug(client: Client, device: Device | None) -> str:
     return f"{client.id}" if device is None else f"{client.id}-device-{device.id}"
 
 
+# SG_GATEWAY_02110_DOMAIN_EXPORT_FIX1
+def _working_tls_domain() -> str:
+    # Use the domain only after SG-Gateway considers HTTPS ready.
+    try:
+        state = tls_overview()
+    except Exception:
+        return ""
+    domain = str(state.get("domain") or "").strip().lower().rstrip(".")
+    return domain if state.get("https_ready") and domain else ""
+
+
+def _public_export_host(*fallbacks: object) -> str:
+    # One public endpoint policy for QR, links and downloaded configs.
+    domain = _working_tls_domain()
+    if domain:
+        return domain
+    for value in fallbacks:
+        host = str(value or "").strip().rstrip(".")
+        if host:
+            return host
+    return ""
+
+
+def _format_endpoint(host: str, port: int) -> str:
+    value = str(host or "").strip()
+    if not value:
+        return ""
+    if ":" in value and not value.startswith("["):
+        value = f"[{value}]"
+    return f"{value}:{int(port)}"
+
+
 def is_export_ready(
     client: Client,
     engine: str,
@@ -102,6 +134,15 @@ def _selected_xray_profiles(
 def build_awg_config(client: Client, device: Device | None = None) -> ClientExport:
     config = _deployment_config(client, "amneziawg", device)
     label = _label(client, device)
+    endpoint = str(config.get("endpoint") or "")
+    try:
+        awg_settings = get_connection_settings("amneziawg")
+        endpoint_host = _public_export_host(awg_settings.host)
+        endpoint_port = int(awg_settings.port or 585)
+        if endpoint_host:
+            endpoint = _format_endpoint(endpoint_host, endpoint_port)
+    except Exception:
+        pass
     body = f"""# SG-Gateway AmneziaWG
 # Access: {label}
 
@@ -121,7 +162,7 @@ H4 = {config.get("h4", "")}
 
 [Peer]
 PublicKey = {config.get("server_public_key", "")}
-Endpoint = {config.get("endpoint", "")}
+Endpoint = {endpoint}
 AllowedIPs = {config.get("allowed_ips", "0.0.0.0/0, ::/0")}
 PersistentKeepalive = {config.get("persistent_keepalive", 25)}
 """
@@ -214,11 +255,10 @@ def build_xray_profile_link(
         and usable(current_config.get("short_id"))
     )
     server_config = current_config if current_ready else config
-    host = str(
-        (current_host if current_ready else "")
-        or config.get("host")
-        or state.get("host")
-        or ""
+    host = _public_export_host(
+        (current_host if current_ready else ""),
+        config.get("host"),
+        state.get("host"),
     )
     user_id = str(config.get("uuid") or "")
     fingerprint = str(server_config.get("fingerprint") or "firefox")
@@ -261,7 +301,7 @@ def build_xray_profile_link(
                 ),
             )
     elif profile_id == "xhttp_tls":
-        domain = str(state.get("tls_domain") or "")
+        domain = _working_tls_domain() or str(state.get("tls_domain") or "")
         if not vless_encryption or "PLACEHOLDER" in vless_encryption.upper():
             body = ""
         else:
@@ -285,7 +325,7 @@ def build_xray_profile_link(
             query = urlencode(query_values)
             body = f"vless://{user_id}@{host}:{profile.port}?{query}#{safe_name}"
     elif profile_id == "hysteria2":
-        domain = str(state.get("tls_domain") or "")
+        domain = _working_tls_domain() or str(state.get("tls_domain") or "")
         auth = str(config.get("hysteria_auth") or user_id)
         query_values = {
             "sni": domain,
@@ -330,7 +370,7 @@ def build_mieru_link(client: Client, device: Device | None = None) -> ClientExpo
     mieru = config.get("mieru") if isinstance(config.get("mieru"), dict) else {}
     username = quote(str(mieru.get("username") or ""), safe="")
     password = quote(str(mieru.get("password") or ""), safe="")
-    host = str(settings.host or "")
+    host = _public_export_host(settings.host)
     port = int(settings.config.get("mieru_port", settings.port or 2099))
     transport = str(settings.config.get("mieru_transport", "TCP")).upper()
     multiplexing = str(settings.config.get("mieru_multiplexing", "MULTIPLEXING_LOW"))
@@ -356,7 +396,7 @@ def build_mieru_json(client: Client, device: Device | None = None) -> ClientExpo
     config = _deployment_config(client, "mihomo", device)
     settings = get_connection_settings("mihomo")
     mieru = config.get("mieru") if isinstance(config.get("mieru"), dict) else {}
-    host = str(settings.host or "")
+    host = _public_export_host(settings.host)
     port = int(settings.config.get("mieru_port", settings.port or 2099))
     transport = str(settings.config.get("mieru_transport") or "TCP").upper()
     multiplexing = str(
@@ -400,18 +440,20 @@ def build_mihomo_yaml(client: Client, device: Device | None = None) -> ClientExp
 
 def build_anytls_link(client: Client, device: Device | None = None) -> ClientExport:
     config = _deployment_config(client, "anytls", device)
+    host = _public_export_host(config.get("host", ""))
+    tls_domain = _working_tls_domain() or str(config.get("server_name") or "")
     safe_name = quote(f"{_label(client, device)} · AnyTLS", safe="")
     query = urlencode(
         {
             "security": "tls",
-            "sni": config.get("server_name", ""),
+            "sni": tls_domain,
             "fp": config.get("fingerprint", "firefox"),
             "type": "tcp",
         }
     )
     body = (
         f"anytls://{quote(str(config.get('password') or ''), safe='')}"
-        f"@{config.get('host', '')}:{config.get('port', 9443)}?{query}#{safe_name}"
+        f"@{host}:{config.get('port', 9443)}?{query}#{safe_name}"
     )
     return ClientExport(
         filename=f"sg-gateway-{_slug(client, device)}-anytls.txt",
@@ -421,19 +463,21 @@ def build_anytls_link(client: Client, device: Device | None = None) -> ClientExp
 
 def build_tuic_link(client: Client, device: Device | None = None) -> ClientExport:
     config = _deployment_config(client, "tuic", device)
+    host = _public_export_host(config.get("host", ""))
+    tls_domain = _working_tls_domain() or str(config.get("server_name") or "")
     safe_name = quote(f"{_label(client, device)} · TUIC v5", safe="")
     query = urlencode(
         {
             "congestion_control": config.get("congestion_control", "bbr"),
             "udp_relay_mode": config.get("udp_relay_mode", "native"),
             "alpn": config.get("alpn", "h3"),
-            "sni": config.get("server_name", ""),
+            "sni": tls_domain,
         }
     )
     body = (
         f"tuic://{config.get('uuid', '')}:"
         f"{quote(str(config.get('password') or ''), safe='')}"
-        f"@{config.get('host', '')}:{config.get('port', 10443)}?{query}#{safe_name}"
+        f"@{host}:{config.get('port', 10443)}?{query}#{safe_name}"
     )
     return ClientExport(
         filename=f"sg-gateway-{_slug(client, device)}-tuic-v5.txt",

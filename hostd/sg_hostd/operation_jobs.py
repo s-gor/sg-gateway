@@ -230,6 +230,16 @@ def run_tls_maintenance(action: str) -> dict[str, Any]:
     }
 
 
+def start_full_backup_restore_job() -> dict[str, Any]:
+    return _start(
+        "full_backup_restore",
+        "Полное восстановление SG-Gateway",
+        "/maintenance?tab=backups",
+        "/maintenance?tab=backups",
+        {"restart_expected": True},
+    )
+
+
 def start_xray_apply_job() -> dict[str, Any]:
     return _start(
         "xray_apply",

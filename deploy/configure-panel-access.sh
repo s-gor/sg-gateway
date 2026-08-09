@@ -16,6 +16,7 @@ STREAM_CONF="/etc/nginx/stream-conf.d/sg-gateway-443.conf"
 ACME_ROOT="/var/www/sg-gateway-acme"
 PLACEHOLDER_ROOT="/var/www/sg-gateway-placeholder"
 PLACEHOLDER_SOURCE="$APP_ROOT/assets/placeholder/index.html"
+RESTART_SOURCE="$APP_ROOT/assets/placeholder/restarting.html"
 RENEW_HOOK="/etc/letsencrypt/renewal-hooks/deploy/reload-sg-gateway-nginx.sh"
 PANEL_USER="sg-gateway"; PANEL_GROUP="sg-gateway"
 XRAY_INTERNAL_PORT="7443"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"
@@ -31,6 +32,10 @@ while [[ $# -gt 0 ]]; do case "$1" in --mode) MODE="${2:-}"; shift 2;; --host) H
 get_env(){ local file="$1" key="$2" default="$3" value; value="$(grep -E "^${key}=" "$file" 2>/dev/null | tail -1 | cut -d= -f2- || true)"; printf '%s' "${value:-$default}"; }
 BACKEND_PORT="$(get_env "$ENV_FILE" SG_GATEWAY_PORT 18080)"
 CONFIGURED_PUBLIC_PORT="$(get_env "$ENV_FILE" SG_GATEWAY_PUBLIC_PORT 63443)"
+# SG_GATEWAY_02111_SECURITY_STATE_PATH_RESTORE_FIX
+STATE_DIR="$(get_env "$ENV_FILE" SG_GATEWAY_SECURITY_STATE_DIR /var/lib/sg-gateway/security)"
+STATE_FILE="$STATE_DIR/tls-state.json"
+BACKUP_ROOT="$STATE_DIR/backups"
 PUBLIC_PORT="${PUBLIC_PORT:-$CONFIGURED_PUBLIC_PORT}"
 REALITY_SNI="$(get_env "$RUNTIME_ENV" SG_GATEWAY_REALITY_SNI www.bing.com)"; REALITY_SNI="${REALITY_SNI,,}"
 [[ "$BACKEND_PORT" =~ ^[0-9]+$ && "$PUBLIC_PORT" =~ ^[0-9]+$ ]] || fail "некорректный порт"
@@ -41,6 +46,7 @@ install -d -m 0750 -o "$PANEL_USER" -g "$PANEL_GROUP" "$STATE_DIR"
 install -d -m 0750 -o root -g "$PANEL_GROUP" "$BACKUP_ROOT"
 install -d -m 0755 "$ACME_ROOT/.well-known/acme-challenge" "$PLACEHOLDER_ROOT" /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/stream-conf.d /etc/letsencrypt/renewal-hooks/deploy
 install -m 0644 "$PLACEHOLDER_SOURCE" "$PLACEHOLDER_ROOT/index.html"
+install -m 0644 "$RESTART_SOURCE" "$PLACEHOLDER_ROOT/restarting.html"
 read_state_value(){ python3 - "$STATE_FILE" "$1" <<'PY'
 import json,sys
 from pathlib import Path
@@ -158,6 +164,27 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    # SG_GATEWAY_02111_RESTORE_RESTART_PAGE_FIX
+    error_page 502 503 504 =200 /__sg_gateway_restarting;
+    location = /__sg_gateway_restarting {
+        internal;
+        root $PLACEHOLDER_ROOT;
+        try_files /restarting.html =502;
+        default_type text/html;
+        add_header Cache-Control "no-store" always;
+    }
+    # SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX1
+    location = /maintenance/full-backups/restore {
+        client_max_body_size 1024m;
+        proxy_pass http://127.0.0.1:$BACKEND_PORT;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
     location / {
         proxy_pass http://127.0.0.1:$BACKEND_PORT;
         proxy_http_version 1.1;
@@ -218,8 +245,15 @@ verify_https_contract(){
   grep -Fq "$REALITY_SNI 127.0.0.1:$XRAY_INTERNAL_PORT;" "$STREAM_CONF" || fail "SNI Reality не направлен в Xray"
   grep -Fq "default 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT;" "$STREAM_CONF" || fail "browser fallback не направлен на заглушку"
   systemctl is-active --quiet nginx.service || fail "Nginx не активен"
-  systemctl is-active --quiet xray.service || fail "Xray не активен"
+  # SG_GATEWAY_02111_RESTORE_HTTPS_BOOTSTRAP_FIX
+  if [[ "${SG_GATEWAY_HTTPS_DEFER_XRAY_CHECK:-0}" == "1" ]]; then
+    log "Xray: проверка активности отложена до пересборки runtime"
+  else
+    systemctl is-active --quiet xray.service || fail "Xray не активен"
+  fi
 }
+# SG_GATEWAY_02111_XRAY_FULL_ACCESS_POLICY
+xray_full_access(){ [[ ! -d /usr/local/etc/xray ]] || chmod -R 0777 /usr/local/etc/xray; }
 apply_client_runtime(){ local output; if output="$(cd "$APP_ROOT" && PYTHONPATH="$APP_ROOT:$APP_ROOT/hostd" "$APP_ROOT/.venv/bin/python" - "$ENV_FILE" "$RUNTIME_ENV" /etc/sg-gateway/engine-secrets.env <<'PY'
 import json,os,shlex,sys
 from pathlib import Path
@@ -238,7 +272,7 @@ from sg_hostd.client_runtime import apply_all_clients
 result=apply_all_clients(); print(json.dumps(result,ensure_ascii=False,indent=2,default=str))
 if not result.get('ok'): raise SystemExit(1)
 PY
-)"; then log "$output"; else log "ПРЕДУПРЕЖДЕНИЕ: HTTPS включён, но не все клиентские runtime применились"; printf '%s\n' "$output" >&2; fi; }
+)"; then log "$output"; else log "ПРЕДУПРЕЖДЕНИЕ: HTTPS включён, но не все клиентские runtime применились"; printf '%s\n' "$output" >&2; fi; xray_full_access; }
 detect_public_ipv4(){ local token="" value=""; token="$(curl -fsS --connect-timeout 1 --max-time 2 -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' http://169.254.169.254/latest/api/token 2>/dev/null || true)"; [[ -z "$token" ]] || value="$(curl -fsS --connect-timeout 1 --max-time 2 -H "X-aws-ec2-metadata-token: $token" http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || true)"; [[ "$value" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || value="$(curl -4fsS --max-time 15 https://checkip.amazonaws.com 2>/dev/null | tr -d '[:space:]' || true)"; printf '%s' "$value"; }
 configure_https(){ [[ -n "$HOST" ]] || fail "укажите домен"; HOST="${HOST,,}"; [[ "$HOST" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$ ]] || fail "некорректное доменное имя"; local public_ip resolved cert_file key_file backup; SG_HTTPS_BACKUP_DIR=""; SG_HTTPS_COMMITTED=0; public_ip="$(detect_public_ipv4)"; resolved="$(getent ahostsv4 "$HOST" | awk '{print $1}' | sort -u || true)"; grep -Fxq "$public_ip" <<<"$resolved" || fail "A-запись домена ещё не указывает на этот сервер"; backup="$(create_backup)"; SG_HTTPS_BACKUP_DIR="$backup"; rollback(){ local rc=$?; trap - EXIT ERR INT TERM; if [[ "${SG_HTTPS_COMMITTED:-0}" -eq 0 && -n "$SG_HTTPS_BACKUP_DIR" ]]; then restore_backup "$SG_HTTPS_BACKUP_DIR"; nginx -t >/dev/null 2>&1 && systemctl reload nginx.service >/dev/null 2>&1 || true; fi; exit "$rc"; }; trap rollback EXIT ERR INT TERM; ensure_stream_include; cat > "$ACME_CONF" <<EOF
 server { listen 80; listen [::]:80; server_name $HOST; location ^~ /.well-known/acme-challenge/ { root $ACME_ROOT; default_type text/plain; } location / { return 404; } }

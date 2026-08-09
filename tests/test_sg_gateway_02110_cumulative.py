@@ -11,9 +11,9 @@ def source(relative: str) -> str:
 
 
 def test_02110_version_and_exact_placeholder() -> None:
-    assert source("VERSION").strip() == "0.1.0-021.10"
+    assert source("VERSION").strip() == "0.1.0-021.12"
     manifest = json.loads(source("release-manifest.json"))
-    assert manifest["version"] == "0.1.0-021.10"
+    assert manifest["version"] == "0.1.0-021.12"
     assert manifest["network_contract"]["public_sni_router_port"] == 443
     assert manifest["network_contract"]["reality_internal_listener"] == "127.0.0.1:7443"
     assert manifest["network_contract"]["browser_https_placeholder_internal"] == "127.0.0.1:7444"

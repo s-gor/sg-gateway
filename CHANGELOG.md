@@ -1,11 +1,26 @@
-## 0.1.0-021.10 accepted EC2 follow-up
+# 0.1.0-021.12 — Full Restore published cumulative
 
-- Раскрытая карточка нового устройства больше не показывает старую белую внутреннюю подложку и разделительную линию.
-- В Recovery рядом с каждой резервной копией добавлена кнопка «Восстановить».
-- Recovery и Maintenance используют одну и ту же проверенную транзакцию восстановления и rollback.
-- Существующая кнопка восстановления в Maintenance сохранена.
+- Published cumulative Full Backup/Restore and Domain Endpoint implementation from REBUILD-02.
+- Full Restore preserves the destination session secret, rebuilds runtime on the destination server, restores local HTTPS certificates, reapplies all client engines, and validates runtime before success.
+- During backend restart Nginx serves a static restart page instead of a raw 502, and the operation terminal offers an explicit panel reopen action.
+- Xray restore keeps the accepted recursive 0777 access policy.
+- Traffic/statistics remain excluded.
 
-## 0.1.0-021.10 full-clean accepted
+### 0.1.0-021.12 Full Restore final cumulative fix
+- Full Restore reapplies `/usr/local/etc/xray` as recursive `0777`, requires `xray.service` active, refreshes HTTPS from restored local Let’s Encrypt files, reapplies all client runtimes, and only then reports success.
+- Restore reports actual certificate validation, not only the presence of `/etc/letsencrypt`.
+- Xray full-access policy is preserved by install/update, routing writes, TLS material sync, HTTPS refresh and client runtime regeneration.
+
+# 0.1.0-021.12 — Full Backup/Restore + domain endpoint
+
+- Добавлен переносимый полный `.sgbackup`: клиенты, ключи, Xray/AWG/Mihomo/sing-box, Routing/WARP, GeoFiles, Nginx и весь `/etc/letsencrypt`.
+- Restore сохраняет публичный IP нового сервера и перед изменением создаёт safety backup.
+- Restore выполняется фоновой HostD-задачей с живым терминалом и переживает перезапуск панели.
+- Исправлены лимит загрузки/timeout Nginx, абсолютные symlink, вложенная история HTTPS-backup и права SQLite после восстановления.
+- При рабочем HTTPS-домене клиентские QR/ссылки/конфиги используют домен; без HTTPS автоматически используется IP.
+- Traffic/statistics и экспериментальные функции в релиз не включены.
+
+## 0.1.0-021.10 full-clean retest
 
 - HTTPS verification now waits for new Nginx workers instead of failing on a temporary ACME 404.
 - The self-extracting installer uses a direct binary payload; the build reproduces and rechecks the transfer ZIP.
@@ -173,3 +188,11 @@
 - Vendored runtime-комплект из шести проверяемых core-архивов для воспроизводимой чистой установки.
 - Mihomo/Mieru готов к работе сразу после чистой установки и управляется из общей панели.
 - Простое обновление GeoFiles: выбрать источник → проверить → обновить; подробная инструкция содержит реальные скриншоты.
+
+## 0.1.0-021.10 · installer safety fix 1 (packaging only)
+
+- Исправлена ложная ошибка `rc=141` в финальной проверке при `set -o pipefail`: `nginx -T` и `ss` больше не стоят перед `grep -q` в pipeline.
+- После установки/восстановления Nginx сохраняется пакетный baseline `/etc/nginx` до SG-настроек; аварийный rollback восстанавливает его и больше не оставляет установленный Nginx без `nginx.conf`.
+- Повторный clean install автоматически восстанавливает отсутствующий `/etc/nginx/nginx.conf` через `nginx-common`/`nginx` с `--force-confmiss`.
+- Full uninstall не падает, если старый ошибочный rollback уже удалил `/etc/nginx/nginx.conf`; Nginx-проверка в таком состоянии безопасно пропускается.
+- Версия приложения остаётся `0.1.0-021.10`; это исправление установочного комплекта, runtime работающих серверов не меняется.

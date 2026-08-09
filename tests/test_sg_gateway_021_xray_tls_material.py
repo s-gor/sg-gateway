@@ -37,9 +37,9 @@ def test_xray_tls_material_is_copied_for_service_group(monkeypatch, tmp_path):
     assert copied_key == str(key)
     assert cert.read_bytes() == b"CERTIFICATE\n"
     assert key.read_bytes() == b"PRIVATE KEY\n"
-    assert stat.S_IMODE(tls_dir.stat().st_mode) == 0o750
-    assert stat.S_IMODE(cert.stat().st_mode) == 0o640
-    assert stat.S_IMODE(key.stat().st_mode) == 0o640
+    assert stat.S_IMODE(tls_dir.stat().st_mode) == 0o777
+    assert stat.S_IMODE(cert.stat().st_mode) == 0o777
+    assert stat.S_IMODE(key.stat().st_mode) == 0o777
     assert ownership[-2][1:] == (0, 1234)
     assert ownership[-1][1:] == (0, 1234)
 

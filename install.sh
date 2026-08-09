@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="0.1.0-021.10"
-INSTALLER_BUILD="02110-full-clean-safety-fix3"
+VERSION="0.1.0-021.12"
+INSTALLER_BUILD="02111-full-clean-backup-domain"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
 LOG_DIR="/var/log/sg-gateway"
-INSTALL_LOG="/var/log/sg-gateway-installer-02110.log"
+INSTALL_LOG="/var/log/sg-gateway-installer-02111.log"
 BACKUP_ROOT="/root/sg-gateway-backups"
-RESUME_FILE="/root/sg-gateway-02110-installer-resume.env"
+RESUME_FILE="/root/sg-gateway-02111-installer-resume.env"
 MIHOMO_VERSION="v1.19.29"
 SING_BOX_VERSION="1.13.14"
 WGCF_CLI_VERSION="v0.3.6"
@@ -1349,23 +1349,11 @@ xray_installed_version() {
   printf '%s' "$value"
 }
 
+# SG_GATEWAY_02111_XRAY_FULL_ACCESS_POLICY
 set_xray_config_permissions() {
-  local config="/usr/local/etc/xray/config.json" service_user service_gid
-  [[ -f "$config" ]] || return 0
-  service_user="$(systemctl show -p User --value xray.service 2>/dev/null || true)"
-  service_user="${service_user:-root}"
-  if [[ "$service_user" == "root" ]]; then
-    chown root:root "$config"
-    chmod 0600 "$config"
-    return 0
-  fi
-  service_gid="$(id -g "$service_user" 2>/dev/null || true)"
-  [[ -n "$service_gid" ]] || {
-    echo "Не найден пользователь xray.service: $service_user" >&2
-    return 1
-  }
-  chown root:"$service_gid" "$config"
-  chmod 0640 "$config"
+  local root="/usr/local/etc/xray"
+  [[ -d "$root" ]] || return 0
+  chmod -R 0777 "$root"
 }
 
 verify_xray_version() {
@@ -1698,6 +1686,7 @@ stage_configuration_and_database() {
   install -d -m 0750 -o root -g root /var/lib/mihomo /var/lib/sing-box /var/log/sing-box
   install -d -m 0755 /var/www/sg-gateway-acme /var/www/sg-gateway-placeholder
   install -m 0644 "$PREFIX/assets/placeholder/index.html" /var/www/sg-gateway-placeholder/index.html
+  install -m 0644 "$PREFIX/assets/placeholder/restarting.html" /var/www/sg-gateway-placeholder/restarting.html
   rm -f /etc/mihomo/config.yaml.new
   if (( UPDATE_MODE == 0 )); then
     rm -rf /etc/mihomo/tls
@@ -2090,6 +2079,73 @@ if all(checks):
 PYHTTPSSTATE
 }
 
+ensure_full_restore_upload_nginx() {
+  # SG_GATEWAY_02111_CUMULATIVE_FULL_RESTORE_UPLOAD_FIX
+  # Clean installs and upgrades must both accept the .sgbackup upload before
+  # the request can reach Flask.  HTTPS refresh also carries the same rule in
+  # deploy/configure-panel-access.sh, while HostD repairs it after restore.
+  python3 - /etc/nginx/sites-available/sg-gateway "${BACKEND_PORT}" <<'PYFULLUPLOAD'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+backend_port = str(sys.argv[2])
+marker = "SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX1"
+if not path.is_file():
+    raise SystemExit(f"Nginx site not found: {path}")
+body = path.read_text(encoding="utf-8")
+if marker in body:
+    raise SystemExit(0)
+
+lines = body.splitlines(keepends=True)
+candidates = []
+for i, line in enumerate(lines):
+    if line.strip() != "location / {":
+        continue
+    indent = line[: len(line) - len(line.lstrip())]
+    j = i + 1
+    while j < len(lines):
+        if lines[j].startswith(indent) and lines[j].strip() == "}":
+            break
+        j += 1
+    if j >= len(lines):
+        continue
+    block = "".join(lines[i : j + 1])
+    if f"proxy_pass http://127.0.0.1:{backend_port};" in block:
+        candidates.append((i, indent, block))
+
+if len(candidates) != 1:
+    raise SystemExit(
+        f"Nginx Full Restore proxy location is ambiguous: {len(candidates)}"
+    )
+index, indent, existing = candidates[0]
+if "proxy_set_header X-Forwarded-Proto https;" in existing:
+    forwarded_proto = "https"
+elif "proxy_set_header X-Forwarded-Proto http;" in existing:
+    forwarded_proto = "http"
+else:
+    forwarded_proto = "$scheme"
+
+block = (
+    f"{indent}# {marker}\n"
+    f"{indent}location = /maintenance/full-backups/restore {{\n"
+    f"{indent}    client_max_body_size 1024m;\n"
+    f"{indent}    client_body_timeout 300s;\n"
+    f"{indent}    proxy_pass http://127.0.0.1:{backend_port};\n"
+    f"{indent}    proxy_http_version 1.1;\n"
+    f"{indent}    proxy_set_header Host $host;\n"
+    f"{indent}    proxy_set_header X-Real-IP $remote_addr;\n"
+    f"{indent}    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n"
+    f"{indent}    proxy_set_header X-Forwarded-Proto {forwarded_proto};\n"
+    f"{indent}    proxy_read_timeout 300s;\n"
+    f"{indent}    proxy_send_timeout 300s;\n"
+    f"{indent}}}\n\n"
+)
+lines.insert(index, block)
+path.write_text("".join(lines), encoding="utf-8", newline="\n")
+PYFULLUPLOAD
+}
+
 stage_systemd_units() {
   # Old layered installers left overrides here. They must not survive a full install.
   rm -rf /etc/systemd/system/sg-hostd.service.d
@@ -2258,6 +2314,30 @@ server {
     listen [::]:${PANEL_PORT};
     server_name _;
 
+    # SG_GATEWAY_02111_RESTORE_RESTART_PAGE_FIX
+    error_page 502 503 504 =200 /__sg_gateway_restarting;
+    location = /__sg_gateway_restarting {
+        internal;
+        root /var/www/sg-gateway-placeholder;
+        try_files /restarting.html =502;
+        default_type text/html;
+        add_header Cache-Control "no-store" always;
+    }
+
+    # SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX1
+    location = /maintenance/full-backups/restore {
+        client_max_body_size 1024m;
+        client_body_timeout 300s;
+        proxy_pass http://127.0.0.1:${BACKEND_PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto http;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:${BACKEND_PORT};
         proxy_http_version 1.1;
@@ -2278,6 +2358,9 @@ EOF
   nginx -t
   systemctl reload nginx.service
   fi
+  ensure_full_restore_upload_nginx
+  nginx -t
+  systemctl reload nginx.service
   systemctl daemon-reload
   [[ "$(systemctl show -p User --value sg-hostd.service)" == "root" ]]
   [[ -z "$(systemctl show -p DropInPaths --value sg-hostd.service)" ]]
@@ -2646,8 +2729,8 @@ main() {
   umask 022
   prepare_log
   export DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
-  printf '\n%s[SG-Gateway]%s Запускаю полный мастер SG-Gateway 0.1.0-021.10\n' "$CYAN" "$RESET"
-  printf '%s[SG-Gateway] [OK]%s Мастер установки SG-Gateway 0.1.0-021.10 запущен (0 сек.)\n' "$GREEN" "$RESET"
+  printf '\n%s[SG-Gateway]%s Запускаю полный мастер SG-Gateway 0.1.0-021.12\n' "$CYAN" "$RESET"
+  printf '%s[SG-Gateway] [OK]%s Мастер установки SG-Gateway 0.1.0-021.12 запущен (0 сек.)\n' "$GREEN" "$RESET"
   printf '[SG-Gateway] Технический журнал: %s\n' "$INSTALL_LOG"
   printf '[SG-Gateway] Повторный запуск выполняется на этом же EC2. Домен не обязателен.\n\n'
 

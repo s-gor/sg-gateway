@@ -130,28 +130,18 @@
         const backupName = document.getElementById("recovery-confirm-backup");
         const cancel = document.getElementById("recovery-confirm-cancel");
         const requestedRestore = {{ requested_restore|tojson }};
-
         if (!dialog || !form || !backupName) return;
-
         const openRestore = (button) => {
           form.action = button.dataset.restoreUrl || "";
           backupName.textContent = button.dataset.backupName || "";
           if (typeof dialog.showModal === "function") dialog.showModal();
           else dialog.setAttribute("open", "");
         };
-
-        document.querySelectorAll("[data-recovery-restore]").forEach((button) => {
-          button.addEventListener("click", () => openRestore(button));
-        });
-
+        document.querySelectorAll("[data-recovery-restore]").forEach((button) => button.addEventListener("click", () => openRestore(button)));
         cancel?.addEventListener("click", () => dialog.close());
-        dialog.addEventListener("click", (event) => {
-          if (event.target === dialog) dialog.close();
-        });
-
+        dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
         if (requestedRestore) {
-          const requested = Array.from(document.querySelectorAll("[data-recovery-restore]"))
-            .find((button) => button.dataset.backupName === requestedRestore);
+          const requested = Array.from(document.querySelectorAll("[data-recovery-restore]")).find((button) => button.dataset.backupName === requestedRestore);
           if (requested) openRestore(requested);
         }
       })();

@@ -17,9 +17,6 @@ backups/
 !data/
 !data/sg-gateway.sqlite
 
-# Runtime activity snapshot
-data/system-activity.json
-
 # Environment and secrets
 .env
 .env.*

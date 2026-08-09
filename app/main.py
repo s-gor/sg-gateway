@@ -55,6 +55,11 @@ from app.maintenance.backups import (
     restore_backup_transaction,
     restore_safety_backup,
 )
+from app.maintenance.full_backups import (
+    get_full_backup,
+    list_full_backups,
+    stage_uploaded_full_backup,
+)
 from app.maintenance.diagnostics import build_diagnostic_report, build_diagnostic_report_json
 from app.maintenance.health import collect_health_checks, health_summary
 from app.maintenance.operations import list_operations
@@ -876,7 +881,7 @@ def create_app() -> Flask:
         kind = str(job.get("kind") or "")
         if kind == "tls_issue":
             active = "security"
-        elif kind.startswith("xray_update_"):
+        elif kind == "full_backup_restore" or kind.startswith("xray_update_"):
             active = "maintenance"
         else:
             active = "connections"
@@ -1600,6 +1605,7 @@ def create_app() -> Flask:
             diagnostics=collect_diagnostics(),
             health_checks=collect_health_checks(),
             backups=list_backups(),
+            full_backups=list_full_backups(),
             operations=list_operations(),
             release=get_release_manifest(),
         )
@@ -1631,6 +1637,49 @@ def create_app() -> Flask:
             flash(f"Обновление Xray не запущено: {result.message}", "error")
             return redirect(url_for("maintenance", tab="updates"))
         return redirect(url_for("operation_job", job_id=str(result.payload.get("job_id") or "")))
+
+    @app.post("/maintenance/full-backups")
+    def create_full_backup_route():
+        result = run_hostd_command("backup.full.create", timeout=180)
+        if result.status != "ok":
+            flash(result.message or "Не удалось создать полный backup", "error")
+            return redirect(url_for("maintenance", tab="backups"))
+        name = str(result.payload.get("name") or "")
+        flash(f"Полный backup сервера создан: {name}", "success")
+        return redirect(url_for("maintenance", tab="backups"))
+
+    @app.get("/maintenance/full-backups/<name>/download")
+    def download_full_backup_route(name: str):
+        backup = get_full_backup(name)
+        if backup is None:
+            abort(404)
+        return send_file(
+            backup.path, as_attachment=True, download_name=backup.name,
+            mimetype="application/octet-stream",
+        )
+
+    @app.post("/maintenance/full-backups/restore")
+    def restore_full_backup_route():
+        upload = request.files.get("backup")
+        if upload is None or not str(upload.filename or "").strip():
+            flash("Выберите файл .sgbackup", "error")
+            return redirect(url_for("maintenance", tab="backups"))
+        try:
+            stage_uploaded_full_backup(upload)
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("maintenance", tab="backups"))
+
+        result = run_hostd_command("backup.full.restore.start", timeout=20)
+        if result.status != "ok":
+            flash(result.message or "Полный restore не запущен", "error")
+            return redirect(url_for("maintenance", tab="backups"))
+        return redirect(
+            url_for(
+                "operation_job",
+                job_id=str(result.payload.get("job_id") or ""),
+            )
+        )
 
     @app.post("/maintenance/backups")
     def create_backup_route():

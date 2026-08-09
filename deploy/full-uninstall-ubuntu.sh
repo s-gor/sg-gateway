@@ -5,7 +5,7 @@ PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
 LOG_DIR="/var/log/sg-gateway"
-UNINSTALL_LOG="/var/log/sg-gateway-full-uninstall-02110.log"
+UNINSTALL_LOG="/var/log/sg-gateway-full-uninstall-02111.log"
 
 PANEL_PORT="63443"
 XRAY_PORT="443"
@@ -62,7 +62,7 @@ if [[ ! "$TLS_DOMAIN" =~ ^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$ ]]
   TLS_DOMAIN=""
 fi
 
-printf '\n%sSG-Gateway 0.1.0-021.10 · ПОЛНОЕ УДАЛЕНИЕ%s\n' "$CYAN" "$RESET"
+printf '\n%sSG-Gateway 0.1.0-021.12 · ПОЛНОЕ УДАЛЕНИЕ%s\n' "$CYAN" "$RESET"
 printf 'Будут удалены приложение, база, настройки, backups, SG-службы и установленные SG runtime.\n'
 printf 'Системные пакеты Ubuntu (nginx, certbot, ufw, Python и т.п.) останутся установленными.\n'
 if [[ -n "$TLS_DOMAIN" ]]; then
@@ -221,6 +221,7 @@ remove_application_and_state(){
     /etc/sysctl.d/99-sg-gateway.conf \
     /root/sg-gateway-021-installer-resume.env \
     /root/sg-gateway-02110-installer-resume.env \
+    /root/sg-gateway-02111-installer-resume.env \
     /root/sg-gateway-preview48-installer-resume.env \
     /root/sg-gateway-preview50-installer-resume.env \
     /root/sg-gateway-preview51-installer-resume.env \
@@ -229,7 +230,8 @@ remove_application_and_state(){
     /root/sg-gateway-019-installer-resume.env \
     /root/sg-gateway-020-installer-resume.env \
     /var/log/sg-gateway-installer-021.log \
-    /var/log/sg-gateway-installer-02110.log
+    /var/log/sg-gateway-installer-02110.log \
+    /var/log/sg-gateway-installer-02111.log
   rm -f /tmp/sg-gateway-installer-output.* /tmp/sg-gateway-installer-log.* >/dev/null 2>&1 || true
 }
 
@@ -303,6 +305,10 @@ remove_account_and_verify(){
   fi
   if [[ -e /root/sg-gateway-02110-installer-resume.env ]]; then
     echo "Остаток после удаления: /root/sg-gateway-02110-installer-resume.env" >&2
+    bad=1
+  fi
+  if [[ -e /root/sg-gateway-02111-installer-resume.env ]]; then
+    echo "Остаток после удаления: /root/sg-gateway-02111-installer-resume.env" >&2
     bad=1
   fi
   (( bad == 0 )) || return 1
