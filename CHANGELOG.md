@@ -1,5 +1,7 @@
 # SG-Gateway 0.1.0-021.12 — Full Backup / Full Restore / Recovery
 
+- FIX9-R2: Light Update переведён с broad sparse checkout на runtime whitelist (`app/`, `hostd/`, `deploy/`). Тяжёлые `assets/geofiles`, `data`, `docs`, `tests`, `vendor` и `.github` больше не загружаются в panel-only Update.
+
 - FIX9 Light Update: panel Update получает исходники через Git partial clone + sparse checkout без `vendor/cores`; Clean Install ставит Git, а старые серверы имеют compatibility fallback на полный archive.
 
 - FIX8: dedicated Update no longer aborts after downloading GitHub main with `source: unbound variable`; candidate Python validation now receives `SOURCE_DIR` correctly.

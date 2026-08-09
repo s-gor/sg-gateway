@@ -68,7 +68,7 @@ Clean Install и Update — разные операции. `install-from-github.
 
 Update не запускает полный installer, не выполняет `apt-get` и не переустанавливает Nginx, Certbot, Xray, AmneziaWG, Mihomo, sing-box или WARP helper.
 
-В обычном режиме Update исходники получаются через Git partial clone (`--depth=1 --filter=blob:none`) и sparse checkout. `vendor/cores` не загружается. Если Git на старом сервере отсутствует или Light source недоступен, updater автоматически переходит на compatibility archive без установки пакетов.
+В обычном режиме Update исходники получаются через Git partial clone (`--depth=1 --filter=blob:none`) и **runtime whitelist**. В Light Update попадают `app/`, `hostd/`, `deploy/` и нужные root-файлы; `assets`, `data`, `docs`, `tests`, `vendor` и `.github` не загружаются. Если Git на старом сервере отсутствует или Light source недоступен, updater автоматически переходит на compatibility archive без установки пакетов.
 
 Перед переключением кода создаётся safety backup, включая `/opt/sg-gateway`, `/etc/sg-gateway`, `/var/lib/sg-gateway`, полный `/etc/letsencrypt`, SG-конфигурацию Nginx и состояние служб. После обновления проверяются Clients/credentials, HTTPS, Nginx и ранее работающие runtime-службы. При ошибке выполняется автоматический rollback.
 

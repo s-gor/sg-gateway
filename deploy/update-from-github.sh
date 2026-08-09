@@ -404,8 +404,8 @@ prepare_source_light() {
 
   rm -rf "$SOURCE_DIR"
   printf '[SG-Gateway Update] Source mode: LIGHT\n'
-  printf '[SG-Gateway Update] Git partial clone: depth=1 + blob:none + sparse checkout\n'
-  printf '[SG-Gateway Update] vendor/cores: skipped\n'
+  printf '[SG-Gateway Update] Git partial clone: depth=1 + blob:none + runtime whitelist\n'
+  printf '[SG-Gateway Update] non-runtime trees: assets/data/docs/tests/vendor/.github skipped\n'
 
   git -c advice.detachedHead=false clone \
     --quiet \
@@ -416,15 +416,18 @@ prepare_source_light() {
     --branch "$BRANCH" \
     "$GIT_URL" "$SOURCE_DIR" || return 1
 
-  git -C "$SOURCE_DIR" sparse-checkout set --no-cone \
-    '/*' \
-    '!/vendor/' \
-    '!/.github/' || return 1
+  # SG_GATEWAY_02112_LIGHT_UPDATE_FIX9_R2
+  # Whitelist only live application source. Cone mode also keeps the small
+  # repository-root files required by validation (VERSION, requirements.txt).
+  git -C "$SOURCE_DIR" sparse-checkout set app hostd deploy || return 1
 
-  [[ ! -e "$SOURCE_DIR/vendor/cores" ]] || {
-    echo "[SG-Gateway Update] LIGHT source unexpectedly contains vendor/cores" >&2
-    return 1
-  }
+  local forbidden
+  for forbidden in vendor assets data docs tests .github; do
+    [[ ! -e "$SOURCE_DIR/$forbidden" ]] || {
+      echo "[SG-Gateway Update] LIGHT source unexpectedly contains: $forbidden" >&2
+      return 1
+    }
+  done
 
   local object_size source_size
   object_size="$(du -sh "$SOURCE_DIR/.git/objects" 2>/dev/null | awk '{print $1}' || true)"
