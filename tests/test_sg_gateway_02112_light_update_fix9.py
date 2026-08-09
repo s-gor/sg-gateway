@@ -14,14 +14,16 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_light_update_uses_partial_clone_without_vendor_cores() -> None:
+def test_light_update_uses_partial_clone_without_heavy_trees() -> None:
     text = _text(UPDATER)
     assert "SG_GATEWAY_02112_LIGHT_UPDATE_FIX9" in text
+    assert "SG_GATEWAY_02112_LIGHT_UPDATE_FIX9_R2" in text
     assert "--depth=1" in text
     assert "--filter=blob:none" in text
     assert "--sparse" in text
-    assert "'!/vendor/'" in text
-    assert "vendor/cores: skipped" in text
+    assert "sparse-checkout set app hostd deploy" in text
+    assert "'/*'" not in text
+    assert "for forbidden in vendor assets data docs tests .github" in text
 
 
 def test_light_update_keeps_compatibility_archive_fallback() -> None:
