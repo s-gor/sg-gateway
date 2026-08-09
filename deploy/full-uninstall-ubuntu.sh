@@ -5,7 +5,7 @@ PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
 LOG_DIR="/var/log/sg-gateway"
-UNINSTALL_LOG="/var/log/sg-gateway-full-uninstall-02111.log"
+UNINSTALL_LOG="/var/log/sg-gateway-full-uninstall-02112.log"
 
 PANEL_PORT="63443"
 XRAY_PORT="443"
@@ -222,6 +222,7 @@ remove_application_and_state(){
     /root/sg-gateway-021-installer-resume.env \
     /root/sg-gateway-02110-installer-resume.env \
     /root/sg-gateway-02111-installer-resume.env \
+    /root/sg-gateway-02112-installer-resume.env \
     /root/sg-gateway-preview48-installer-resume.env \
     /root/sg-gateway-preview50-installer-resume.env \
     /root/sg-gateway-preview51-installer-resume.env \
@@ -231,7 +232,9 @@ remove_application_and_state(){
     /root/sg-gateway-020-installer-resume.env \
     /var/log/sg-gateway-installer-021.log \
     /var/log/sg-gateway-installer-02110.log \
-    /var/log/sg-gateway-installer-02111.log
+    /var/log/sg-gateway-installer-02111.log \
+    /var/log/sg-gateway-installer-02112.log \
+    /var/log/sg-gateway-full-uninstall-02111.log
   rm -f /tmp/sg-gateway-installer-output.* /tmp/sg-gateway-installer-log.* >/dev/null 2>&1 || true
 }
 

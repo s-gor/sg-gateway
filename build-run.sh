@@ -14,7 +14,13 @@ SHA_FILE="${OUT%.run}-SHA256.txt"
 TRANSFER_ZIP="${OUT%.run}-TRANSFER.zip"
 
 mkdir -p "$STAGE"
-tar -C "$ROOT" \
+# SG_GATEWAY_02112_CANONICAL_GIT_ARCHIVE_FIX11
+# Inside a Git checkout, build exactly committed HEAD. This removes
+# Windows/Linux EOL ambiguity from SOURCE-SHA256SUMS and FULL CLEAN.
+if command -v git >/dev/null 2>&1 && git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  git -C "$ROOT" archive --format=tar HEAD | tar -C "$STAGE" -xf -
+else
+  tar -C "$ROOT" \
   --exclude='./.git' \
   --exclude='./.venv' \
   --exclude='./venv' \
@@ -27,6 +33,7 @@ tar -C "$ROOT" \
   --exclude='./SG-Gateway-02112-FULL-CLEAN*-TRANSFER.zip' \
   --exclude='./SG-Gateway-02112-FULL-CLEAN*-SHA256.txt' \
   -cf - . | tar -C "$STAGE" -xf -
+fi
 
 tar --sort=name --mtime='UTC 2026-08-09' --owner=0 --group=0 --numeric-owner \
   -C "$TMP" -czf "$PAYLOAD" "$SOURCE_FOLDER"
@@ -76,6 +83,7 @@ verify_source() {
   done < <(find "\$root" -type f -name '*.sh' -print0)
   [[ "\$(sha256sum "\$root/assets/placeholder/index.html" | awk '{print \$1}')" == "06b280bab43d9ed4ceeb75d34008b60158366a968e6eb950b3e0b4b0cbcdd226" ]] || fail "Заглушка не совпала с принятой"
   grep -Fq 'SG_GATEWAY_02110_HTTPS_VERIFY_RETRY_FIX1' "\$root/deploy/configure-panel-access.sh" || fail "Нет HTTPS retry"
+  grep -Fq '/root/sg-gateway-02112-installer-resume.env' "\$root/deploy/full-uninstall-ubuntu.sh" || fail "Uninstall не очищает current resume 02112"
   grep -Fq '/root/sg-gateway-02111-installer-resume.env' "\$root/deploy/full-uninstall-ubuntu.sh" || fail "Uninstall не очищает resume 02111"
   grep -Fq 'include\\s+/etc/nginx/stream-conf\\.d/sg-gateway-443\\.conf' "\$root/deploy/full-uninstall-ubuntu.sh" || fail "Uninstall не очищает direct stream include"
   grep -Fq 'SG_DEVICE_COLLAPSE_V4_LAST_CSS' "\$root/app/web/templates/base.html" || fail "Нет финального Device Collapse V4"

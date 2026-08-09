@@ -83,6 +83,8 @@ Light source whitelist:
 Update не переустанавливает Nginx, Certbot, Xray, AmneziaWG, Mihomo, sing-box
 или WARP helper.
 
+**Local assets policy:** Light Update не скачивает `assets/` из GitHub и не удаляет уже установленный `/opt/sg-gateway/assets`. Целостность проверяется fingerprint. Для сервера, уже затронутого старым FIX9-R2, предусмотрено восстановление `assets` из предыдущего Safety Backup.
+
 ## Traffic
 
 Traffic/statistics в `021.12` не добавляются.

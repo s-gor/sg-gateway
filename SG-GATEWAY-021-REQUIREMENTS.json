@@ -10,6 +10,7 @@
     "traffic_features": false,
     "safe_update_mode": "light-runtime-whitelist",
     "safe_update_touches_cores": false,
+    "light_update_preserves_local_assets": true,
     "full_backup_restore_supported": true,
     "sg_admin_enter_means_yes": true,
     "installer_prints_client_links": false,

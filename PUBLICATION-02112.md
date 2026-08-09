@@ -1,5 +1,7 @@
 # SG-Gateway 0.1.0-021.12 — Full Backup / Full Restore / Recovery
 
+> **FINAL AWG2 / feature-frozen.** `0.1.0-021.12` — окончательная линия AmneziaWG 2. Новые функции и AWG3 в 021.12 не добавляются; следующая линия — `0.1.0-022.01`.
+
 SG-Gateway 0.1.0-021.12 — целевая рабочая версия без Traffic/statistics и без новых экспериментальных функций.
 
 Главное изменение этой линии — SG-Gateway теперь можно не только установить и настроить, но и **перенести на новый чистый Ubuntu-сервер либо восстановить после серьёзной аварии как целую систему**.
@@ -25,6 +27,10 @@ curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update
 ```
 
 Update больше не является повторным полным installer.
+
+**Light Update:** Git получает только runtime whitelist `app/`, `hostd/`, `deploy/` и маленькие root-файлы. `assets/`, `data/`, `docs/`, `tests/`, `vendor/` и `.github/` из GitHub не скачиваются.
+
+При этом уже установленный `/opt/sg-gateway/assets` сохраняется локально и проверяется fingerprint до/после Update. Если старый FIX9-R2 уже удалил `assets`, Update пытается восстановить их из предыдущего Safety Backup. Сетевой повторной загрузки тяжёлого asset-дерева нет.
 
 Он выполняет шесть отдельных этапов:
 

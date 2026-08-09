@@ -46,7 +46,8 @@
       "Nginx",
       "VPN runtime"
     ],
-    "updates_cores": false
+    "updates_cores": false,
+    "local_assets_policy": "preserve-local-no-download-with-safety-backup-recovery"
   },
   "clean_install_core_baseline": {
     "xray": "v26.6.27",

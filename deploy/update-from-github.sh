@@ -18,6 +18,9 @@ SOURCE_DIR=""
 BACKUP_READY=0
 SERVICES_STOPPED=0
 UPDATE_FINISHED=0
+ASSETS_FINGERPRINT=""
+ASSETS_RECOVERY_DIR=""
+ASSETS_RECOVERY_SOURCE=""
 
 GREEN=$'\033[1;32m'
 RED=$'\033[1;31m'
@@ -115,6 +118,36 @@ for raw_root in sys.argv[1:]:
         digest.update(b"\0")
 print(digest.hexdigest())
 PYFP
+}
+
+fingerprint_tree_relative() {
+  python3 - "$1" <<'PYASSETFP'
+import hashlib
+import os
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+if not root.is_dir():
+    raise SystemExit(1)
+digest = hashlib.sha256()
+for path in sorted(root.rglob("*"), key=lambda p: p.relative_to(root).as_posix()):
+    rel = path.relative_to(root).as_posix()
+    digest.update(rel.encode("utf-8"))
+    digest.update(b"\0")
+    if path.is_symlink():
+        digest.update(b"L")
+        digest.update(os.readlink(path).encode("utf-8"))
+    elif path.is_file():
+        digest.update(b"F")
+        with path.open("rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(block)
+    elif path.is_dir():
+        digest.update(b"D")
+    digest.update(b"\0")
+print(digest.hexdigest())
+PYASSETFP
 }
 
 fingerprint_clients() {
@@ -481,6 +514,49 @@ PYCHECK
 
 }
 
+# SG_GATEWAY_02112_LIGHT_UPDATE_ASSET_PRESERVE_FIX10
+prepare_preserved_assets() {
+  local live="$PREFIX/assets"
+  local country_rel="geoip/sg-country-geoip.dat"
+  local archive listing recover_root
+
+  ASSETS_FINGERPRINT=""
+  ASSETS_RECOVERY_DIR=""
+  ASSETS_RECOVERY_SOURCE=""
+
+  if [[ -f "$live/$country_rel" ]]; then
+    ASSETS_FINGERPRINT="$(fingerprint_tree_relative "$live")"
+    ASSETS_RECOVERY_SOURCE="live"
+    printf '[SG-Gateway Update] Local assets: preserving installed payload (not downloaded).\n'
+    return 0
+  fi
+
+  # FIX9-R2 could remove /opt/sg-gateway/assets on an already-updated
+  # server. Recover the last complete copy from our own pre-update
+  # Safety Backups. Never re-download the 100+ MB asset tree in Light mode.
+  listing="$TEMP_DIR/assets-backup-list.txt"
+  while IFS= read -r archive; do
+    [[ -f "$archive" ]] || continue
+    : > "$listing"
+    tar -tf "$archive" > "$listing" 2>/dev/null || continue
+    grep -Fxq "opt/sg-gateway/assets/$country_rel" "$listing" || continue
+
+    recover_root="$TEMP_DIR/recovered-assets"
+    rm -rf "$recover_root"
+    mkdir -p "$recover_root"
+    tar -C "$recover_root" -xpf "$archive" opt/sg-gateway/assets || continue
+    [[ -f "$recover_root/opt/sg-gateway/assets/$country_rel" ]] || continue
+
+    ASSETS_RECOVERY_DIR="$recover_root/opt/sg-gateway/assets"
+    ASSETS_FINGERPRINT="$(fingerprint_tree_relative "$ASSETS_RECOVERY_DIR")"
+    ASSETS_RECOVERY_SOURCE="$(basename "$(dirname "$archive")")"
+    printf '[SG-Gateway Update] Local assets: recovered from Safety Backup %s.\n' "$ASSETS_RECOVERY_SOURCE"
+    return 0
+  done < <(find "$BACKUP_ROOT" -mindepth 2 -maxdepth 2 -type f -name state.tar -print 2>/dev/null | sort -r)
+
+  fail "local assets are missing and no Safety Backup with assets was found; refusing to change the installed application"
+}
+
 deploy_source() {
   local source="$1"
   local stage="$TEMP_DIR/live-source"
@@ -490,6 +566,8 @@ deploy_source() {
   rm -rf "$stage/vendor/cores" "$stage/.git" "$stage/.github"
   rm -f "$stage/install.sh"
 
+  prepare_preserved_assets
+
   if (( SERVICES_STOPPED == 0 )); then
     systemctl stop "$PANEL_SERVICE" "$HOSTD_SERVICE"
     SERVICES_STOPPED=1
@@ -497,17 +575,30 @@ deploy_source() {
 
   local child
   while IFS= read -r -d '' child; do
-    [[ "$(basename "$child")" == ".venv" ]] && continue
+    case "$(basename "$child")" in
+      ".venv"|"assets") continue ;;
+    esac
     rm -rf "$child"
   done < <(find "$PREFIX" -mindepth 1 -maxdepth 1 -print0)
 
   cp -a "$stage/." "$PREFIX/"
+  if [[ ! -f "$PREFIX/assets/geoip/sg-country-geoip.dat" ]]; then
+    [[ -n "$ASSETS_RECOVERY_DIR" && -d "$ASSETS_RECOVERY_DIR" ]] || fail "preserved assets are unavailable"
+    rm -rf "$PREFIX/assets"
+    cp -a "$ASSETS_RECOVERY_DIR" "$PREFIX/assets"
+  fi
   chown -R root:root "$PREFIX"
   chmod 0755 "$PREFIX"
   find "$PREFIX" -path "$PREFIX/.venv" -prune -o -type d -exec chmod 0755 {} +
   find "$PREFIX" -path "$PREFIX/.venv" -prune -o -type f -exec chmod 0644 {} +
   find "$PREFIX/deploy" -maxdepth 1 -type f -name '*.sh' -exec chmod 0755 {} + 2>/dev/null || true
   chmod -R a+rX "$PREFIX/.venv"
+
+  [[ -f "$PREFIX/assets/geoip/sg-country-geoip.dat" ]] || fail "country GeoIP asset disappeared during Update"
+  local assets_after
+  assets_after="$(fingerprint_tree_relative "$PREFIX/assets")"
+  [[ -n "$ASSETS_FINGERPRINT" && "$assets_after" == "$ASSETS_FINGERPRINT" ]] || fail "local assets changed during panel-only Update"
+  printf '[SG-Gateway Update] Local assets preserved: OK\n'
 
   runuser -u sg-gateway -- test -r "$PREFIX/app/main.py"
   runuser -u sg-gateway -- test -x "$PREFIX/.venv/bin/python"

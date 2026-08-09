@@ -1,5 +1,19 @@
 {
   "build": "full-clean-ec2-02112-full-backup-domain-endpoint",
+  "status": "FINAL-AWG2",
+  "next_development_line": "0.1.0-022.01",
+  "safe_update": {
+    "mode": "light-runtime-whitelist",
+    "download_assets": false,
+    "preserve_local_assets": true,
+    "recover_missing_assets_from_safety_backup": true
+  },
+  "source_integrity": {
+    "manifest": "SOURCE-SHA256SUMS",
+    "mode": "git-blob-sha256",
+    "ci_verified": true,
+    "build_run_verified": true
+  },
   "channel": "main-02112",
   "client_access_model": {
     "hysteria_auth_per_device": true,
