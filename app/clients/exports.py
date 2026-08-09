@@ -16,6 +16,7 @@ from app.clients.repository import (
 )
 from app.config import load_config
 from app.connections.settings import get_connection_settings
+from app.connections.public_endpoint import public_host, working_tls_domain
 from app.mihomo.service import build_device_yaml
 
 from app.security.tls import overview as tls_overview
@@ -72,26 +73,13 @@ def _slug(client: Client, device: Device | None) -> str:
 
 
 # SG_GATEWAY_02110_DOMAIN_EXPORT_FIX1
+# SG_GATEWAY_02112_ALL_CONNECTIONS_DOMAIN_FIX3
 def _working_tls_domain() -> str:
-    # Use the domain only after SG-Gateway considers HTTPS ready.
-    try:
-        state = tls_overview()
-    except Exception:
-        return ""
-    domain = str(state.get("domain") or "").strip().lower().rstrip(".")
-    return domain if state.get("https_ready") and domain else ""
+    return working_tls_domain()
 
 
 def _public_export_host(*fallbacks: object) -> str:
-    # One public endpoint policy for QR, links and downloaded configs.
-    domain = _working_tls_domain()
-    if domain:
-        return domain
-    for value in fallbacks:
-        host = str(value or "").strip().rstrip(".")
-        if host:
-            return host
-    return ""
+    return public_host(*fallbacks)
 
 
 def _format_endpoint(host: str, port: int) -> str:

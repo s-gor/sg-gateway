@@ -78,11 +78,15 @@ def test_domain_endpoint_policy_covers_all_exports() -> None:
     def block(source: str, name: str, next_name: str) -> str:
         return source[source.index(f"def {name}("):source.index(f"def {next_name}(")]
 
+    public_endpoint = text("app/connections/public_endpoint.py")
     helper = block(exports, "_public_export_host", "_format_endpoint")
-    assert "domain = _working_tls_domain()" in helper
-    assert "if domain:" in helper
-    assert "return domain" in helper
-    assert helper.index("return domain") < helper.index("for value in fallbacks")
+    assert "return public_host(*fallbacks)" in helper
+    assert "def working_tls_domain()" in public_endpoint
+    assert "domain = working_tls_domain()" in public_endpoint
+    assert "if domain:" in public_endpoint
+    assert "return domain" in public_endpoint
+    assert "load_config().public_address" in public_endpoint
+    assert public_endpoint.index("return domain") < public_endpoint.index("load_config().public_address")
 
     awg = block(exports, "build_awg_config", "_xray_profile")
     xray = block(exports, "build_xray_profile_link", "build_xray_link")

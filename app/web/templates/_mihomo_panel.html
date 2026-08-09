@@ -17,7 +17,7 @@
     <section class="mhv2-compact-endpoint sg-ljd-nested">
       <div>
         <span>ПУБЛИЧНЫЙ ENDPOINT</span>
-        <strong>{{ mihomo.settings.host or 'Не определён' }}</strong>
+        <strong>{{ mihomo_public_host or 'Не определён' }}</strong>
         <small>{{ country_name(mihomo.settings.country_code) }} · {{ mihomo.settings.endpoint_source }}</small>
       </div>
       <span class="mhv2-listener-count">{{ mihomo.listener_active }} / {{ mihomo.listener_total }} работают</span>

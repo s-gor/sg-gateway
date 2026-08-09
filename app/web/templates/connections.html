@@ -14,6 +14,9 @@
 {% set xray_ready = xray_key_ready and xray_short_ready %}
 {% set awg_country = connections[0].country_code if connections else 'unknown' %}
 {% set xray_country = connections[1].country_code if connections | length > 1 else 'unknown' %}
+{% set awg_public_host = connections[0].public_host if connections else awg_settings.host %}
+{% set xray_public_host = connections[1].public_host if connections | length > 1 else xray_settings.host %}
+{% set mihomo_public_host = connections[2].public_host if connections | length > 2 else mihomo.settings.host %}
 
 <section class="cnv1-page">
   <header class="cnv1-heading">
@@ -55,7 +58,7 @@
           <img src="{{ country_flag_url(xray_country) }}" alt="{{ country_name(xray_country) }}" width="30" height="20">
           <div>
             <span>ВНЕШНЯЯ ТОЧКА</span>
-            <strong>{{ xray_profiles.host }}</strong>
+            <strong>{{ xray_public_host }}</strong>
             <small>{{ country_name(xray_country) }} · каждый профиль использует собственный listener</small>
           </div>
         </div>
@@ -64,7 +67,7 @@
 
       <div id="xray-profiles" class="xps2-panel">
         <form id="xps2-form" method="post" action="{{ url_for('update_xray_profiles') }}">
-          <input type="hidden" name="host" value="{{ xray_profiles.host }}">
+          <input type="hidden" name="host" value="{{ xray_public_host }}">
 
           <div class="xps2-top-actions">
             <button class="button primary sg-ljd-key-action" type="button" data-xps2-top-apply>Проверить и запустить</button>
@@ -270,7 +273,7 @@
         <div class="cnv1-advanced-body">
           <form method="post" action="{{ url_for('update_xray') }}" class="cnv1-engine-form">
             <div class="cnv1-form-grid">
-              <label class="cnv1-field-wide"><span>Публичный адрес или домен</span><input type="text" name="host" value="{{ xray_settings.host }}" required></label>
+              <label class="cnv1-field-wide"><span>Публичный адрес или домен</span><input type="text" name="host" value="{{ xray_public_host }}" required></label>
               <label><span>Reality TCP-порт</span><input type="number" name="port" min="1" max="65535" value="{{ xray_settings.port }}" required></label>
               <label><span>Reality SNI</span><input type="text" name="server_name" value="{{ xray_settings.config.get('server_name', 'bing.com') }}"></label>
               <label><span>Reality public key</span><textarea name="public_key" rows="3">{{ xray_settings.config.get('public_key', '') }}</textarea></label>
@@ -312,7 +315,7 @@
                width="30" height="20">
           <div>
             <span>ВНЕШНЯЯ ТОЧКА</span>
-            <strong>{{ awg_settings.host }}</strong>
+            <strong>{{ awg_public_host }}</strong>
             <small>UDP {{ awg_settings.port }} · {{ country_name(awg_country) }}</small>
           </div>
         </div>
@@ -320,7 +323,7 @@
       </section>
 
       <form method="post" action="{{ url_for('update_amneziawg') }}" class="cnv1-engine-form cnv1-engine-form-compact">
-        <input type="hidden" name="host" value="{{ awg_settings.host }}">
+        <input type="hidden" name="host" value="{{ awg_public_host }}">
         <input type="hidden" name="country_code" value="{{ awg_country }}">
 
         <div class="cnv1-compact-fields">
@@ -349,7 +352,7 @@
         </details>
 
         <footer class="cnv1-form-actions">
-          <span>Адрес подключения: {{ awg_settings.host }}:{{ awg_settings.port }}</span>
+          <span>Адрес подключения: {{ awg_public_host }}:{{ awg_settings.port }}</span>
           <button class="button primary" type="submit">Сохранить</button>
         </footer>
       </form>
@@ -374,9 +377,9 @@
   </section>
 
   <footer class="cnv1-page-footer">
-    <span>AmneziaWG: {{ awg_settings.host }}:{{ awg_settings.port }}</span>
-    <span>Xray Reality: {{ xray_settings.host }}:{{ xray_settings.port }}</span>
-    <span>Mihomo: {{ mihomo.settings.host }} · {{ mihomo.listener_active }}/{{ mihomo.listener_total }}</span>
+    <span>AmneziaWG: {{ awg_public_host }}:{{ awg_settings.port }}</span>
+    <span>Xray Reality: {{ xray_public_host }}:{{ xray_settings.port }}</span>
+    <span>Mihomo: {{ mihomo_public_host }} · {{ mihomo.listener_active }}/{{ mihomo.listener_total }}</span>
   </footer>
 </section>
 {% endblock %}
