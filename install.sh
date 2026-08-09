@@ -1102,7 +1102,7 @@ snapshot_nginx_package_baseline() {
 stage_system_packages() {
   export DEBIAN_FRONTEND=noninteractive
   apt_get install -y \
-    software-properties-common sqlite3 nftables iproute2 procps ufw \
+    software-properties-common git sqlite3 nftables iproute2 procps ufw \
     nginx certbot python3-certbot-nginx libnginx-mod-stream \
     build-essential dkms pkg-config zstd unzip "linux-headers-$(uname -r)"
 

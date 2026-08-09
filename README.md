@@ -89,6 +89,8 @@ curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update
 
 Update больше не является повторным полным installer.
 
+Исходники для Update загружаются в **Light mode**: Git partial clone (`depth=1`, `blob:none`) + sparse checkout. Каталог `vendor/cores` в Update не скачивается. На старых серверах без Git остаётся compatibility fallback на полный GitHub archive; сам Update системные пакеты не устанавливает.
+
 Он выполняет шесть отдельных этапов:
 
 ```text

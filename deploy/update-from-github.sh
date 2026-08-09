@@ -4,6 +4,7 @@ set -Eeuo pipefail
 REPOSITORY="s-gor/sg-gateway"
 BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-main}"
 ARCHIVE_URL="https://github.com/${REPOSITORY}/archive/refs/heads/${BRANCH}.tar.gz"
+GIT_URL="https://github.com/${REPOSITORY}.git"
 
 PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
@@ -386,17 +387,68 @@ preflight() {
   fi
 }
 
-prepare_source() {
-  TEMP_DIR="$(mktemp -d /tmp/sg-gateway-github-update.XXXXXX)"
+prepare_source_archive() {
   local archive="$TEMP_DIR/sg-gateway-main.tar.gz"
-  SOURCE_DIR="$TEMP_DIR/source"
+  rm -rf "$SOURCE_DIR"
   mkdir -p "$SOURCE_DIR"
 
-  printf '[SG-Gateway Update] Downloading GitHub branch %s...\n' "$BRANCH"
+  printf '[SG-Gateway Update] Source mode: COMPATIBILITY (full GitHub archive)\n'
   curl -fL --retry 6 --retry-all-errors --retry-delay 3 --connect-timeout 20 \
     "$ARCHIVE_URL" -o "$archive"
   gzip -t "$archive"
   tar -xzf "$archive" -C "$SOURCE_DIR" --strip-components=1
+}
+
+prepare_source_light() {
+  command -v git >/dev/null 2>&1 || return 1
+
+  rm -rf "$SOURCE_DIR"
+  printf '[SG-Gateway Update] Source mode: LIGHT\n'
+  printf '[SG-Gateway Update] Git partial clone: depth=1 + blob:none + sparse checkout\n'
+  printf '[SG-Gateway Update] vendor/cores: skipped\n'
+
+  git -c advice.detachedHead=false clone \
+    --quiet \
+    --depth=1 \
+    --filter=blob:none \
+    --sparse \
+    --single-branch \
+    --branch "$BRANCH" \
+    "$GIT_URL" "$SOURCE_DIR" || return 1
+
+  git -C "$SOURCE_DIR" sparse-checkout set --no-cone \
+    '/*' \
+    '!/vendor/' \
+    '!/.github/' || return 1
+
+  [[ ! -e "$SOURCE_DIR/vendor/cores" ]] || {
+    echo "[SG-Gateway Update] LIGHT source unexpectedly contains vendor/cores" >&2
+    return 1
+  }
+
+  local object_size source_size
+  object_size="$(du -sh "$SOURCE_DIR/.git/objects" 2>/dev/null | awk '{print $1}' || true)"
+  source_size="$(du -sh --exclude=.git "$SOURCE_DIR" 2>/dev/null | awk '{print $1}' || true)"
+  [[ -n "$object_size" ]] && printf '[SG-Gateway Update] Git objects fetched: %s\n' "$object_size"
+  [[ -n "$source_size" ]] && printf '[SG-Gateway Update] Checked-out source: %s\n' "$source_size"
+
+  rm -rf "$SOURCE_DIR/.git"
+}
+
+prepare_source() {
+  TEMP_DIR="$(mktemp -d /tmp/sg-gateway-github-update.XXXXXX)"
+  SOURCE_DIR="$TEMP_DIR/source"
+
+  # SG_GATEWAY_02112_LIGHT_UPDATE_FIX9
+  if command -v git >/dev/null 2>&1; then
+    if ! prepare_source_light; then
+      printf '[SG-Gateway Update] LIGHT source failed; falling back to full archive.\n' >&2
+      prepare_source_archive
+    fi
+  else
+    printf '[SG-Gateway Update] git is not installed; using compatibility source mode.\n'
+    prepare_source_archive
+  fi
 
   [[ -f "$SOURCE_DIR/VERSION" ]] || fail "VERSION is missing from GitHub source"
   [[ -f "$SOURCE_DIR/requirements.txt" ]] || fail "requirements.txt is missing from GitHub source"
