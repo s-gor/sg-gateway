@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="0.1.0-021.12"
-INSTALLER_BUILD="02112-full-clean-backup-domain"
+VERSION="0.1.0-022.01"
+INSTALLER_BUILD="02201-installer-ui-only"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
 LOG_DIR="/var/log/sg-gateway"
-INSTALL_LOG="/var/log/sg-gateway-installer-02112.log"
+INSTALL_LOG="/var/log/sg-gateway-installer-02201.log"
 BACKUP_ROOT="/root/sg-gateway-backups"
-RESUME_FILE="/root/sg-gateway-02112-installer-resume.env"
+RESUME_FILE="/root/sg-gateway-02201-installer-resume.env"
 MIHOMO_VERSION="v1.19.29"
 SING_BOX_VERSION="1.13.14"
 WGCF_CLI_VERSION="v0.3.6"
@@ -464,12 +464,18 @@ run_stage() {
   local label="$2"
   local function_name="$3"
   CURRENT_STAGE="$number"
-  CURRENT_LABEL="Этап ${number}/${TOTAL_STAGES} · ${label}"
-  if [[ "$number" == "1" ]]; then
-    run_live "$CURRENT_LABEL" "$function_name"
-  else
-    run_quiet "$CURRENT_LABEL" "$function_name"
-  fi
+  CURRENT_LABEL="[${number}/${TOTAL_STAGES}] ${label}"
+  run_quiet "$CURRENT_LABEL" "$function_name"
+}
+
+stage10_start_and_verify() {
+  stage9_start_hostd
+  stage9_verify_hostd
+  stage9_apply_runtime
+  stage9_ensure_warp
+  stage9_start_panel
+  stage9_verify_nginx
+  verify_client_identities_after_update
 }
 
 wait_for_apt() {
@@ -2729,12 +2735,10 @@ main() {
   umask 022
   prepare_log
   export DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
-  printf '\n%s[SG-Gateway]%s Запускаю полный мастер SG-Gateway 0.1.0-021.12\n' "$CYAN" "$RESET"
-  printf '%s[SG-Gateway] [OK]%s Мастер установки SG-Gateway 0.1.0-021.12 запущен (0 сек.)\n' "$GREEN" "$RESET"
-  printf '[SG-Gateway] Технический журнал: %s\n' "$INSTALL_LOG"
-  printf '[SG-Gateway] Повторный запуск выполняется на этом же EC2. Домен не обязателен.\n\n'
+  printf '\n%sSG-Gateway 0.1.0-022.01%s\n' "$CYAN" "$RESET"
+  printf '[SG-Gateway] Журнал: %s\n\n' "$INSTALL_LOG"
 
-  run_stage 1 "Подготовка Ubuntu" bootstrap_packages
+  run_stage 1 "Подготовка системы" bootstrap_packages
   # Fail before any server mutation if our own pinned installation media is
   # missing or damaged. This is the key reproducibility guarantee of 021.
   verify_vendor_core_set
@@ -2770,26 +2774,17 @@ main() {
   # AmneziaWG has one canonical SG-Gateway transport port.
   AWG_PORT="$DEFAULT_AWG_PORT"
 
-  BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)-before-sg-gateway-021"
+  BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)-before-sg-gateway-02201"
   MUTATION_STARTED=1
-  run_stage 2 "Резервная копия и подготовка исходника" stage_backup_and_prepare
-  run_stage 3 "Системные пакеты, Nginx и Certbot" stage_system_packages
-  run_stage 4 "Xray, AmneziaWG, Mihomo, sing-box и WARP helper" stage_engine_runtimes
-  run_stage 5 "Python-окружение и проверка исходника" stage_python_and_source_check
-  run_stage 6 "Полный UI, база и сохранение Xray 013" stage_configuration_and_database
-  run_stage 7 "Локальная проверка страниц" stage_local_application_smoke_test
-  run_stage 8 "Создание systemd-служб" stage_systemd_units
-  run_stage 9 "Firewall и сетевые порты" stage_firewall_and_network
-
-  CURRENT_STAGE="10"
-  CURRENT_LABEL="Запуск и финальная проверка"
-  run_quiet "Этап 10/10 · Запуск sg-hostd" stage9_start_hostd
-  run_quiet "Этап 10/10 · Проверка команд hostd" stage9_verify_hostd
-  run_quiet "Этап 10/10 · Применение подтверждённого Xray и клиентов" stage9_apply_runtime
-  run_quiet "Этап 10/10 · Создание и активация WARP" stage9_ensure_warp
-  run_quiet "Этап 10/10 · Запуск панели" stage9_start_panel
-  run_quiet "Этап 10/10 · Проверка Nginx и служб" stage9_verify_nginx
-  run_quiet "Этап 10/10 · Контроль неизменности Clients" verify_client_identities_after_update
+  run_stage 2 "Резервная копия" stage_backup_and_prepare
+  run_stage 3 "Системные пакеты" stage_system_packages
+  run_stage 4 "Сетевые ядра" stage_engine_runtimes
+  run_stage 5 "Проверка исходника" stage_python_and_source_check
+  run_stage 6 "Конфигурация" stage_configuration_and_database
+  run_stage 7 "Проверка панели" stage_local_application_smoke_test
+  run_stage 8 "Системные службы" stage_systemd_units
+  run_stage 9 "Firewall и сеть" stage_firewall_and_network
+  run_stage 10 "Запуск и проверка" stage10_start_and_verify
 
   INSTALL_SUCCESS=1
   sanitize_installer_log_file
