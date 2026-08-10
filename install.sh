@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="0.1.0-022.01"
-INSTALLER_BUILD="02201-installer-ui-only"
+VERSION="0.1.0-022.02"
+INSTALLER_BUILD="02202-dual-awg"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
 LOG_DIR="/var/log/sg-gateway"
-INSTALL_LOG="/var/log/sg-gateway-installer-02201.log"
+INSTALL_LOG="/var/log/sg-gateway-installer-02202.log"
 BACKUP_ROOT="/root/sg-gateway-backups"
-RESUME_FILE="/root/sg-gateway-02201-installer-resume.env"
+RESUME_FILE="/root/sg-gateway-02202-installer-resume.env"
 MIHOMO_VERSION="v1.19.29"
 SING_BOX_VERSION="1.13.14"
 WGCF_CLI_VERSION="v0.3.6"
-AMNEZIAWG_TOOLS_VERSION="1.0.20260618-2"
-AMNEZIAWG_KMOD_VERSION="1.0.20260329-2"
+AMNEZIAWG_TOOLS_VERSION="3.0.20260805"
+AMNEZIAWG_KMOD_VERSION="3.0.20260805"
 AMNEZIAWG_DKMS_VERSION="1.0.0"
 PANEL_USER="sg-gateway"
 PANEL_GROUP="sg-gateway"
@@ -30,12 +30,13 @@ XRAY_VENDOR_FILE="Xray-linux-64.zip"
 MIHOMO_VENDOR_FILE="mihomo-linux-amd64-v1.19.29.gz"
 SINGBOX_VENDOR_FILE="sing-box-1.13.14-linux-amd64.tar.gz"
 WGCF_VENDOR_FILE="wgcf-cli-linux-64.tar.zstd"
-AWG_TOOLS_VENDOR_FILE="amneziawg-tools-1.0.20260618-2.tar.gz"
-AWG_KMOD_VENDOR_FILE="amneziawg-linux-kernel-module-1.0.20260329-2.tar.gz"
+AWG_TOOLS_VENDOR_FILE="amneziawg-tools-3.0.20260805.tar.gz"
+AWG_KMOD_VENDOR_FILE="amneziawg-linux-kernel-module-3.0.20260805.tar.gz"
 
 DEFAULT_PANEL_PORT="63443"
 DEFAULT_XRAY_PORT="443"
 DEFAULT_AWG_PORT="585"
+DEFAULT_AWG3_PORT="586"
 DEFAULT_REALITY_TARGET="www.bing.com:443"
 DEFAULT_REALITY_SNI="www.bing.com"
 MIHOMO_PORT="2099"
@@ -95,6 +96,7 @@ MANAGED_PATHS=(
   etc/systemd/system/sg-hostd.service
   etc/systemd/system/sg-hostd.service.d
   etc/systemd/system/sg-gateway-awg.service
+  etc/systemd/system/sg-gateway-awg3.service
   etc/systemd/system/sg-gateway-singbox.service
   etc/systemd/system/mihomo.service
   etc/nginx/nginx.conf
@@ -1288,8 +1290,13 @@ install_wgcf_from_vendor() {
 
 amneziawg_runtime_ready() {
   command -v awg >/dev/null 2>&1 || return 1
-  awg --version >/dev/null 2>&1 || return 1
+  local tools_version=""
+  tools_version="$(awg --version 2>/dev/null || true)"
+  [[ "$tools_version" == *"${AMNEZIAWG_TOOLS_VERSION}"* ]] || return 1
   modinfo amneziawg >/dev/null 2>&1 || return 1
+  local module_version=""
+  module_version="$(modinfo -F version amneziawg 2>/dev/null || true)"
+  [[ "$module_version" == *"${AMNEZIAWG_KMOD_VERSION}"* ]] || return 1
   return 0
 }
 
@@ -1738,6 +1745,7 @@ SG_GATEWAY_PANEL_PORT=${PANEL_PORT}
 SG_GATEWAY_XRAY_PORT=${XRAY_PORT}
 SG_GATEWAY_REALITY_INTERNAL_PORT=${REALITY_INTERNAL_PORT}
 SG_GATEWAY_AWG_PORT=${AWG_PORT}
+SG_GATEWAY_AWG3_PORT=${DEFAULT_AWG3_PORT}
 SG_GATEWAY_MIHOMO_PORT=${MIHOMO_PORT}
 SG_GATEWAY_REALITY_TARGET=${REALITY_TARGET}
 SG_GATEWAY_REALITY_SNI=${REALITY_SNI}
@@ -2215,6 +2223,7 @@ WantedBy=multi-user.target
 EOF
 
   install -m 0644 "$PREFIX/deploy/sg-gateway-awg.service" /etc/systemd/system/sg-gateway-awg.service
+  install -m 0644 "$PREFIX/deploy/sg-gateway-awg3.service" /etc/systemd/system/sg-gateway-awg3.service
   install -m 0644 "$PREFIX/deploy/sg-gateway-singbox.service" /etc/systemd/system/sg-gateway-singbox.service
   install -m 0644 "$PREFIX/deploy/mihomo.service" /etc/systemd/system/mihomo.service
 
@@ -2370,14 +2379,21 @@ EOF
   systemctl daemon-reload
   [[ "$(systemctl show -p User --value sg-hostd.service)" == "root" ]]
   [[ -z "$(systemctl show -p DropInPaths --value sg-hostd.service)" ]]
+  systemctl enable sg-gateway-awg.service sg-gateway-awg3.service >/dev/null 2>&1 || true
   if (( UPDATE_MODE == 0 )); then
-    systemctl disable sg-gateway-awg.service sg-gateway-singbox.service >/dev/null 2>&1 || true
+    systemctl stop sg-gateway-awg.service sg-gateway-awg3.service >/dev/null 2>&1 || true
+    systemctl disable sg-gateway-singbox.service >/dev/null 2>&1 || true
     systemctl enable --now mihomo.service
     systemctl is-active --quiet mihomo.service
   fi
 }
 
 stage_firewall_and_network() {
+  cat > /etc/sysctl.d/99-sg-gateway-forwarding.conf <<'EOF'
+net.ipv4.ip_forward=1
+net.ipv6.conf.all.forwarding=1
+EOF
+  sysctl --system
   local ufw_state=""
   ufw_state="$(ufw status 2>/dev/null || true)"
   if grep -q '^Status: active' <<<"$ufw_state"; then
@@ -2385,7 +2401,7 @@ stage_firewall_and_network() {
     for rule in \
       "${PANEL_PORT}/tcp" "80/tcp" "${XRAY_PORT}/tcp" \
       "${XHTTP_REALITY_PORT}/tcp" "${XHTTP_TLS_PORT}/tcp" \
-      "${AWG_PORT}/udp" "${HYSTERIA2_PORT}/udp" \
+      "${AWG_PORT}/udp" "${DEFAULT_AWG3_PORT}/udp" "${HYSTERIA2_PORT}/udp" \
       "${MIHOMO_PORT}/tcp" "${ANYTLS_PORT}/tcp" "${TUIC_PORT}/udp"; do
       ufw allow "$rule"
     done

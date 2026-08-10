@@ -15,13 +15,14 @@ MAX_DEVICE_NAME_LENGTH = 60
 PRIMARY_DEVICE_NAME = "Основной доступ"
 SUPPORTED_ENGINES = (
     "amneziawg",
+    "amneziawg3",
     "xray",
     "mihomo",
     "anytls",
     "tuic",
     "sgclient",
 )
-RUNTIME_ENGINES = ("amneziawg", "xray", "mihomo", "anytls", "tuic")
+RUNTIME_ENGINES = ("amneziawg", "amneziawg3", "xray", "mihomo", "anytls", "tuic")
 XRAY_PROFILE_TOKENS = {
     "xray_reality_tcp": "reality_tcp",
     "xray_xhttp_reality": "xhttp_reality",
@@ -182,7 +183,7 @@ def _parse_access(access: str) -> tuple[list[str], list[str], list[str]]:
     aliases = {
         "recommended": "xray_xhttp_reality,sgclient",
         "full": (
-            "amneziawg,xray_reality_tcp,xray_xhttp_reality,"
+            "amneziawg,amneziawg3,xray_reality_tcp,xray_xhttp_reality,"
             "xray_xhttp_tls,xray_hysteria2,sgclient"
         ),
         "xray": "xray_reality_tcp,xray_xhttp_reality",

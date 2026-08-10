@@ -1,0 +1,62 @@
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+def text(path: str) -> str:
+    return (ROOT / path).read_text(encoding="utf-8")
+
+def function_block(body: str, name: str, next_name: str) -> str:
+    start = body.index(f"def {name}")
+    end = body.index(f"def {next_name}", start)
+    return body[start:end]
+
+def test_dual_awg_contract():
+    repository = text("app/clients/repository.py")
+    provisioning = text("app/engines/provisioning.py")
+    access = text("app/clients/access.py")
+    exports = text("app/clients/exports.py")
+    runtime = text("hostd/sg_hostd/client_runtime.py")
+    awg3_runtime = text("hostd/sg_hostd/awg3_runtime.py")
+    installer = text("install.sh")
+    unit = text("deploy/sg-gateway-awg3.service")
+    clients = text("app/web/templates/clients.html")
+    manifest = text("vendor/cores/SHA256SUMS")
+
+    assert '"amneziawg3"' in repository
+    assert '"amneziawg", "amneziawg3"' in repository
+    assert 'engine == "amneziawg3"' in provisioning
+    assert '"address": f"10.67.' in provisioning
+    assert '"port": 586' in provisioning
+
+    assert 'kind="amneziawg"' in access
+    assert 'kind="amneziawg3"' in access
+    assert 'title="AmneziaWG 2.0"' in access
+    assert 'title="AmneziaWG 3.0"' in access
+    assert 'build_awg3_config' in exports
+    assert '"amneziawg3": "amneziawg3"' in exports
+    assert 'value="amneziawg3"' in clients
+
+    assert 'AWG3_PORT = 586' in awg3_runtime
+    assert '10.67.0.1/16' in awg3_runtime
+    assert 'HeaderProtectionKey' in awg3_runtime
+    assert 'ContentPaddingAddition' in awg3_runtime
+    assert '/etc/systemd/system' not in awg3_runtime
+    assert '"enable"' not in awg3_runtime
+    assert 'ufw' not in awg3_runtime.lower()
+    assert 'sysctl' not in awg3_runtime.lower()
+
+    awg2_apply = function_block(runtime, "_apply_awg()", "_set_xray_config_permissions")
+    assert '"systemctl", "enable"' not in awg2_apply
+    assert 'sysctl' not in awg2_apply
+    assert 'apply_awg3()' in runtime
+
+    assert 'DEFAULT_AWG_PORT="585"' in installer
+    assert 'DEFAULT_AWG3_PORT="586"' in installer
+    assert 'sg-gateway-awg3.service' in installer
+    assert '${DEFAULT_AWG3_PORT}/udp' in installer
+    assert '/etc/sysctl.d/99-sg-gateway-forwarding.conf' in installer
+    assert 'awg3.conf' in unit
+    assert '3.0.20260805' in installer
+
+    assert 'ac0966e4cab36bf40c7a621d269c47d94bd153b3fc3f205b371dd0f21d54f36d' in manifest
+    assert '438586e4e1bc08d60de16a4411a94609429a3323bbd65b7b468531c006b074dc' in manifest

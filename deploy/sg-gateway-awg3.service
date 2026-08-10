@@ -1,0 +1,17 @@
+[Unit]
+Description=SG-Gateway AmneziaWG 3.0 awg3
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/amnezia/amneziawg/awg3.conf
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=-/usr/bin/awg-quick down /etc/amnezia/amneziawg/awg3.conf
+ExecStart=/usr/bin/awg-quick up /etc/amnezia/amneziawg/awg3.conf
+ExecStop=/usr/bin/awg-quick down /etc/amnezia/amneziawg/awg3.conf
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

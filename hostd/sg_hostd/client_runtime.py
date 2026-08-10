@@ -720,14 +720,6 @@ def _apply_awg() -> EngineResult:
             shutil.copy2(AWG_CONFIG, backup)
         _atomic_write(AWG_CONFIG, body, 0o600)
 
-        _atomic_write(
-            Path("/etc/sysctl.d/99-sg-gateway-forwarding.conf"),
-            "net.ipv4.ip_forward=1\nnet.ipv6.conf.all.forwarding=1\n",
-            0o644,
-        )
-        _run(["sysctl", "--system"], timeout=60)
-        _run(["systemctl", "daemon-reload"])
-        _run(["systemctl", "enable", AWG_SERVICE])
         _run(["systemctl", "restart", AWG_SERVICE], timeout=90)
         _run(["systemctl", "is-active", "--quiet", AWG_SERVICE])
 
@@ -1724,8 +1716,11 @@ def apply_all_clients() -> dict[str, Any]:
 
         _repair_deployment_configs()
 
+        from sg_hostd.awg3_runtime import apply_awg3
+
         critical_results = [
             _apply_awg(),
+            apply_awg3(),
             _apply_xray(),
         ]
         optional_results = [

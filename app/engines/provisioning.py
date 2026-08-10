@@ -88,6 +88,31 @@ def build_engine_config(
             sort_keys=True,
         )
 
+    if engine == "amneziawg3":
+        settings = get_connection_settings("amneziawg")
+        private_key, public_key = _awg_keypair()
+        payload = {
+            "client_name": access_name,
+            "private_key": private_key,
+            "public_key": public_key,
+            "address": f"10.67.{min(254, access_id // 250)}.{2 + (access_id % 250)}/32",
+            "dns": settings.config.get("dns", "1.1.1.1"),
+            "server_public_key": "",
+            "endpoint": f"{settings.host}:586",
+            "port": 586,
+            "allowed_ips": settings.config.get(
+                "allowed_ips",
+                "0.0.0.0/0, ::/0",
+            ),
+            "persistent_keepalive": "25-35",
+            "generation": 3,
+        }
+        return public_key, json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+
     if engine == "xray":
         settings = get_connection_settings(engine)
         user_id = str(uuid.uuid4())
