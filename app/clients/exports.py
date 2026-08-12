@@ -371,11 +371,11 @@ def build_xray_profile_link(
         }
         obfs_mode = str(server_config.get("hysteria2_obfs_mode") or "none").strip().lower()
         obfs_password = str(server_config.get("hysteria2_obfs_password") or "").strip()
-        if obfs_mode == "salamander":
+        if obfs_mode in {"salamander", "gecko"}:
             if not obfs_password:
                 body = ""
             else:
-                query_values["obfs"] = "gecko"
+                query_values["obfs"] = obfs_mode
                 query_values["obfs-password"] = obfs_password
                 scheme = str(server_config.get("hysteria2_uri_scheme") or "hysteria2").strip().lower()
                 if scheme not in {"hysteria2", "hy2"}:
