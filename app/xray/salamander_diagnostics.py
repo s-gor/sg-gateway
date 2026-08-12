@@ -7,6 +7,7 @@ from typing import Any
 from app.connections.settings import get_connection_settings
 from app.hostd.client import run_hostd_command
 from app.xray.salamander import (
+    GECKO_MODE,
     GECKO_PACKET_SIZE,
     SALAMANDER_MODE,
     SALAMANDER_MODE_NONE,
@@ -43,33 +44,30 @@ def _find_hysteria2_inbound(payload: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
-def _live_gecko(inbound: dict[str, Any] | None) -> tuple[bool, str, str]:
+def _live_obfs(inbound: dict[str, Any] | None) -> tuple[str, str, str]:
     if not isinstance(inbound, dict):
-        return False, "", ""
+        return SALAMANDER_MODE_NONE, "", ""
     stream = inbound.get("streamSettings")
     if not isinstance(stream, dict):
-        return False, "", ""
+        return SALAMANDER_MODE_NONE, "", ""
     finalmask = stream.get("finalmask")
     if not isinstance(finalmask, dict):
-        return False, "", ""
+        return SALAMANDER_MODE_NONE, "", ""
     udp = finalmask.get("udp")
     if not isinstance(udp, list):
-        return False, "", ""
+        return SALAMANDER_MODE_NONE, "", ""
     for item in udp:
         if not isinstance(item, dict):
             continue
-        # Xray names the Gecko primitive "salamander"; packetSize selects Gecko.
         if str(item.get("type") or "").strip().lower() != SALAMANDER_MODE:
             continue
         settings = item.get("settings")
         if not isinstance(settings, dict):
-            return True, "", ""
-        return (
-            True,
-            str(settings.get("password") or ""),
-            str(settings.get("packetSize") or ""),
-        )
-    return False, "", ""
+            return SALAMANDER_MODE, "", ""
+        packet_size = str(settings.get("packetSize") or "")
+        mode = GECKO_MODE if packet_size == GECKO_PACKET_SIZE else SALAMANDER_MODE
+        return mode, str(settings.get("password") or ""), packet_size
+    return SALAMANDER_MODE_NONE, "", ""
 
 
 def inspect(path: Path = XRAY_CONFIG_PATH) -> dict[str, Any]:
@@ -80,14 +78,15 @@ def inspect(path: Path = XRAY_CONFIG_PATH) -> dict[str, Any]:
     except ValueError:
         mode = SALAMANDER_MODE_NONE
     secret = str(config.get("hysteria2_obfs_password") or "")
-    database_enabled = mode == SALAMANDER_MODE
+    database_enabled = mode != SALAMANDER_MODE_NONE
     database_secret_ready = password_ready(secret)
 
     live_payload, live_error = _load_live_config(path)
     inbound = _find_hysteria2_inbound(live_payload)
-    live_active, live_password, live_packet_size = _live_gecko(inbound)
+    live_mode, live_password, live_packet_size = _live_obfs(inbound)
+    live_active = live_mode != SALAMANDER_MODE_NONE
     live_secret_ready = password_ready(live_password)
-    packet_size_ready = live_packet_size == GECKO_PACKET_SIZE
+    mode_matches = mode == live_mode
     password_matches = bool(
         database_enabled
         and database_secret_ready
@@ -95,11 +94,14 @@ def inspect(path: Path = XRAY_CONFIG_PATH) -> dict[str, Any]:
         and live_secret_ready
         and secret == live_password
     )
+    packet_size_ready = bool(
+        mode != GECKO_MODE or live_packet_size == GECKO_PACKET_SIZE
+    )
 
-    # The web process intentionally cannot read root-only Xray config. Ask
-    # privileged HostD for a safe, secret-free runtime verdict instead. The
-    # current HostD command predates Gecko and does not expose packetSize, so
-    # the exact packet range is verified by candidate/runtime tests instead.
+    # The web process may not be able to read root-owned Xray config. Ask
+    # privileged HostD for a safe verdict. The legacy command does not expose
+    # the variant, so when secrets match we trust the already-applied DB mode;
+    # Xray candidate validation still checks the exact rendered FinalMask.
     if live_error:
         hostd = run_hostd_command("xray.salamander.status", timeout=5)
         if hostd.status == "ok" and hostd.payload.get("readable"):
@@ -108,22 +110,30 @@ def inspect(path: Path = XRAY_CONFIG_PATH) -> dict[str, Any]:
             live_active = bool(hostd.payload.get("finalmask_udp_active"))
             live_secret_ready = bool(hostd.payload.get("live_password_configured"))
             password_matches = bool(hostd.payload.get("password_matches_database"))
-            packet_size_ready = bool(live_active and password_matches)
+            if password_matches:
+                live_mode = mode
+                mode_matches = True
+                packet_size_ready = True
 
     consistent = (
         (not database_enabled and not live_active)
-        or (password_matches and packet_size_ready)
+        or (password_matches and mode_matches and packet_size_ready)
     )
     uri_parameters_present = database_enabled and database_secret_ready
+    mode_label = {
+        SALAMANDER_MODE_NONE: "None",
+        SALAMANDER_MODE: "Salamander",
+        GECKO_MODE: "Gecko",
+    }.get(mode, "Unknown")
 
-    mode_label = "Gecko" if database_enabled else "None"
     return {
         "mode": mode,
         "mode_label": mode_label,
         "password_configured": database_secret_ready,
         "finalmask_udp_active": live_active,
-        "gecko_packet_size": GECKO_PACKET_SIZE if database_enabled else "",
-        "gecko_packet_size_ready": packet_size_ready,
+        "live_mode": live_mode,
+        "gecko_packet_size": GECKO_PACKET_SIZE if mode == GECKO_MODE else "",
+        "gecko_packet_size_ready": packet_size_ready if mode == GECKO_MODE else True,
         "client_uri_parameters_present": uri_parameters_present,
         "live_password_configured": live_secret_ready,
         "password_matches_live": password_matches,
@@ -132,8 +142,8 @@ def inspect(path: Path = XRAY_CONFIG_PATH) -> dict[str, Any]:
         "inbound_present": inbound is not None,
         "safe_lines": [
             f"Hysteria2 obfuscation: {mode_label}",
-            "Gecko password: " + ("configured" if database_secret_ready else "not configured"),
-            "Gecko packetSize: " + (GECKO_PACKET_SIZE if database_enabled else "disabled"),
+            "Hysteria2 obfs password: " + ("configured" if database_secret_ready else "not configured"),
+            "Gecko packetSize: " + (GECKO_PACKET_SIZE if mode == GECKO_MODE else "disabled"),
             "FinalMask UDP layer: " + ("active" if live_active else "inactive"),
             "Client URI parameters: " + ("present" if uri_parameters_present else "absent"),
         ],
