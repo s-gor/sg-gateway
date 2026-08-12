@@ -376,7 +376,7 @@ def build_xray_profile_link(
             if not obfs_password:
                 body = ""
             else:
-                query_values["obfs"] = "salamander"
+                query_values["obfs"] = "gecko"
                 query_values["obfs-password"] = obfs_password
                 scheme = str(server_config.get("hysteria2_uri_scheme") or "hysteria2").strip().lower()
                 if scheme not in {"hysteria2", "hy2"}:
@@ -465,6 +465,7 @@ def build_mieru_json(client: Client, device: Device | None = None) -> ClientExpo
         body=body,
     )
 
+
 def build_mihomo_yaml(client: Client, device: Device | None = None) -> ClientExport:
     resolved = _resolve_device(client, device)
     if resolved is None:
@@ -499,6 +500,7 @@ def build_anytls_link(client: Client, device: Device | None = None) -> ClientExp
         body=body,
     )
 
+
 def build_tuic_link(client: Client, device: Device | None = None) -> ClientExport:
     config = _deployment_config(client, "tuic", device)
     host = _public_export_host(config.get("host", ""))
@@ -522,6 +524,7 @@ def build_tuic_link(client: Client, device: Device | None = None) -> ClientExpor
         media_type="text/plain; charset=utf-8",
         body=body,
     )
+
 
 def protocol_engine(kind: str) -> str:
     return {
