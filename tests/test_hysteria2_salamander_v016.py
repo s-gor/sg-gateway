@@ -17,9 +17,11 @@ if str(HOSTD) not in sys.path:
 from app.clients import exports  # noqa: E402
 from app.clients.repository import Client, ClientDeployment  # noqa: E402
 from app.connections.settings import get_connection_settings, update_connection_settings  # noqa: E402
-from app.db import connect, init_db  # noqa: E402
+from app.db import init_db  # noqa: E402
 from app.xray.salamander import (  # noqa: E402
+    GECKO_MINIMUM_VERSION,
     GECKO_PACKET_SIZE,
+    MANAGED_VARIANT_MARKER,
     SALAMANDER_MINIMUM_VERSION,
     generate_password,
     merge_finalmask,
@@ -41,34 +43,45 @@ def test_password_is_24_random_bytes_base64url_shape():
 
 
 def test_minimum_version_contract():
-    assert SALAMANDER_MINIMUM_VERSION == "26.6.27"
+    assert SALAMANDER_MINIMUM_VERSION == "26.3.27"
+    assert GECKO_MINIMUM_VERSION == "26.6.27"
     assert GECKO_PACKET_SIZE == "512-1200"
-    assert version_supported("26.6.27")
-    assert version_supported("26.7.28")
-    assert not version_supported("26.6.26")
+    assert version_supported("26.3.27", SALAMANDER_MINIMUM_VERSION)
+    assert not version_supported("26.3.26", SALAMANDER_MINIMUM_VERSION)
+    assert version_supported("26.6.27", GECKO_MINIMUM_VERSION)
+    assert version_supported("26.7.28", GECKO_MINIMUM_VERSION)
+    assert not version_supported("26.6.26", GECKO_MINIMUM_VERSION)
 
 
-def test_finalmask_merge_makes_gecko_exclusive_for_udp_and_restores_base_when_off():
+def test_finalmask_renders_plain_salamander_gecko_and_off_without_leaking_marker():
     base = {
         "quicParams": {"maxIdleTimeout": 30},
         "tcp": [{"type": "padding", "settings": {"size": 9}}],
         "udp": [{"type": "padding", "settings": {"size": 7}}],
+        MANAGED_VARIANT_MARKER: True,
     }
-    merged = merge_finalmask(base, "salamander", "A" * 32)
-    assert merged["quicParams"] == base["quicParams"]
-    assert merged["tcp"] == base["tcp"]
-    assert merged["udp"] == [
+    salamander = merge_finalmask(base, "salamander", "A" * 32)
+    gecko = merge_finalmask(base, "gecko", "A" * 32)
+    disabled = merge_finalmask(base, "none", "")
+
+    assert MANAGED_VARIANT_MARKER not in salamander
+    assert MANAGED_VARIANT_MARKER not in gecko
+    assert MANAGED_VARIANT_MARKER not in disabled
+    assert salamander["udp"] == [
+        {"type": "salamander", "settings": {"password": "A" * 32}}
+    ]
+    assert gecko["udp"] == [
         {
             "type": "salamander",
-            "settings": {
-                "password": "A" * 32,
-                "packetSize": "512-1200",
-            },
+            "settings": {"password": "A" * 32, "packetSize": "512-1200"},
         }
     ]
-    # Stored base state is not mutated and is restored exactly when Gecko is off.
+    assert disabled == {
+        "quicParams": {"maxIdleTimeout": 30},
+        "tcp": [{"type": "padding", "settings": {"size": 9}}],
+        "udp": [{"type": "padding", "settings": {"size": 7}}],
+    }
     assert base["udp"] == [{"type": "padding", "settings": {"size": 7}}]
-    assert merge_finalmask(base, "none", "") == base
 
 
 def test_database_migration_is_additive_and_idempotent(tmp_path, monkeypatch):
@@ -103,7 +116,7 @@ def test_settings_transaction_rolls_back_and_commits(tmp_path, monkeypatch):
     assert get_connection_settings("xray").config["hysteria2_obfs_mode"] == "salamander"
 
 
-def test_hysteria2_uri_has_exact_encoded_gecko_parameters(monkeypatch):
+def _mock_gecko_export(monkeypatch):
     client = Client(1, "Test client", True, None, "missing", "applied")
     deployment = ClientDeployment(
         engine="xray",
@@ -121,7 +134,7 @@ def test_hysteria2_uri_has_exact_encoded_gecko_parameters(monkeypatch):
         "public_key": "public-key",
         "short_id": "0123456789abcdef",
         "server_name": "vpn.example.com",
-        "hysteria2_obfs_mode": "salamander",
+        "hysteria2_obfs_mode": "gecko",
         "hysteria2_obfs_password": "pass /?&+=" + "X" * 20,
         "hysteria2_uri_scheme": "hysteria2",
     }
@@ -137,7 +150,11 @@ def test_hysteria2_uri_has_exact_encoded_gecko_parameters(monkeypatch):
         "xray_profiles_overview",
         lambda: {"profiles": [profile], "tls_domain": "vpn.example.com", "host": "203.0.113.9"},
     )
+    return client, server_config
 
+
+def test_hysteria2_uri_has_exact_encoded_gecko_parameters_and_no_alpn(monkeypatch):
+    client, server_config = _mock_gecko_export(monkeypatch)
     link = exports.build_xray_profile_link(client, "hysteria2").body
     parsed = urlsplit(link)
     query = parse_qs(parsed.query)
@@ -148,6 +165,7 @@ def test_hysteria2_uri_has_exact_encoded_gecko_parameters(monkeypatch):
     assert query["obfs-password"] == [server_config["hysteria2_obfs_password"]]
     assert query["sni"] == ["vpn.example.com"]
     assert query["insecure"] == ["0"]
+    assert "alpn" not in query
 
 
 def test_runtime_candidate_merges_gecko_and_quic_params(monkeypatch):
@@ -166,9 +184,9 @@ def test_runtime_candidate_merges_gecko_and_quic_params(monkeypatch):
         "target": "www.bing.com:443",
         "hysteria2_finalmask": {
             "quicParams": {"maxIdleTimeout": 45},
-            "udp": [{"type": "padding", "settings": {"size": 11}}],
+            MANAGED_VARIANT_MARKER: True,
         },
-        "hysteria2_obfs_mode": "salamander",
+        "hysteria2_obfs_mode": "gecko",
         "hysteria2_obfs_password": "C" * 32,
     }
     monkeypatch.setattr(
@@ -208,6 +226,7 @@ def test_runtime_candidate_merges_gecko_and_quic_params(monkeypatch):
             "settings": {"password": "C" * 32, "packetSize": "512-1200"},
         }
     ]
+    assert MANAGED_VARIANT_MARKER not in finalmask
 
 
 def test_diagnostics_reports_gecko_state_without_secret(tmp_path, monkeypatch):
@@ -218,8 +237,9 @@ def test_diagnostics_reports_gecko_state_without_secret(tmp_path, monkeypatch):
     secret = "D" * 32
     config.update(
         {
-            "hysteria2_obfs_mode": "salamander",
+            "hysteria2_obfs_mode": "gecko",
             "hysteria2_obfs_password": secret,
+            "hysteria2_finalmask": {MANAGED_VARIANT_MARKER: True},
         }
     )
     assert update_connection_settings("xray", "203.0.113.10", 443, config)
@@ -252,22 +272,26 @@ def test_diagnostics_reports_gecko_state_without_secret(tmp_path, monkeypatch):
     result = inspect(live)
     assert result["consistent"] is True
     assert result["finalmask_udp_active"] is True
+    assert result["live_mode"] == "gecko"
     assert result["gecko_packet_size_ready"] is True
     assert result["client_uri_parameters_present"] is True
     assert secret not in json.dumps(result, ensure_ascii=False)
     assert result["safe_lines"] == [
         "Hysteria2 obfuscation: Gecko",
-        "Gecko password: configured",
+        "Hysteria2 obfs password: configured",
         "Gecko packetSize: 512-1200",
         "FinalMask UDP layer: active",
         "Client URI parameters: present",
     ]
 
 
-def test_ui_uses_internal_confirmation_and_no_browser_dialogs():
+def test_ui_has_off_salamander_gecko_and_internal_confirmation():
     template = (ROOT / "app/web/templates/connections.html").read_text(encoding="utf-8")
     section = template[template.index('data-salamander-panel'):]
-    assert 'name="hysteria2_obfs_mode"' in section
+    assert 'name="hysteria2_obfs_mode" value="none"' in section
+    assert 'name="hysteria2_obfs_mode" value="salamander"' in section
+    assert 'name="hysteria2_obfs_mode" value="gecko"' in section
+    assert "Gecko · рекомендуется" in section
     assert "Сгенерировать новый" in section
     assert "dataset.sgConfirm" in section
     assert "window.alert" not in section
@@ -275,7 +299,8 @@ def test_ui_uses_internal_confirmation_and_no_browser_dialogs():
     assert "window.prompt" not in section
 
 
-def test_runtime_discovers_live_base_and_removes_only_managed_layer(tmp_path, monkeypatch):
+def test_runtime_legacy_discovery_still_removes_plain_salamander_layer(tmp_path, monkeypatch):
+    secret = "OLD" * 11
     live = tmp_path / "config.json"
     live.write_text(
         json.dumps(
@@ -288,13 +313,7 @@ def test_runtime_discovers_live_base_and_removes_only_managed_layer(tmp_path, mo
                                 "quicParams": {"maxIdleTimeout": 22},
                                 "udp": [
                                     {"type": "padding", "settings": {"size": 5}},
-                                    {
-                                        "type": "salamander",
-                                        "settings": {
-                                            "password": "OLD" * 11,
-                                            "packetSize": "512-1200",
-                                        },
-                                    },
+                                    {"type": "salamander", "settings": {"password": secret}},
                                 ],
                             }
                         },
@@ -308,7 +327,7 @@ def test_runtime_discovers_live_base_and_removes_only_managed_layer(tmp_path, mo
     base = client_runtime._live_hysteria_finalmask_base(
         {
             "hysteria2_obfs_mode": "salamander",
-            "hysteria2_obfs_password": "OLD" * 11,
+            "hysteria2_obfs_password": secret,
         }
     )
     assert base == {
@@ -340,7 +359,7 @@ def test_rotation_uses_password_shown_to_admin(monkeypatch):
             "hysteria2_port": 8446,
             "hysteria2_obfs_mode": "salamander",
             "hysteria2_obfs_password": old,
-            "hysteria2_finalmask": {},
+            "hysteria2_finalmask": {MANAGED_VARIANT_MARKER: True},
             "hysteria2_uri_scheme": "hysteria2",
             "vless_encryption": "ready",
         },
@@ -369,6 +388,7 @@ def test_rotation_uses_password_shown_to_admin(monkeypatch):
         }
     )
     assert prepared.config["hysteria2_obfs_password"] == shown
+    assert prepared.config["hysteria2_finalmask"][MANAGED_VARIANT_MARKER] is True
     assert prepared.salamander_rotated is True
 
 
@@ -389,7 +409,7 @@ def test_pending_candidate_does_not_leak_into_client_uri(monkeypatch):
         "hysteria2_obfs_password": None,
     }
     candidate_config = dict(applied_config)
-    candidate_config.update({"hysteria2_obfs_mode": "salamander", "hysteria2_obfs_password": "H" * 32})
+    candidate_config.update({"hysteria2_obfs_mode": "gecko", "hysteria2_obfs_password": "H" * 32})
     monkeypatch.setattr(exports, "list_client_deployments", lambda client_id: [deployment])
     monkeypatch.setattr(
         exports,
