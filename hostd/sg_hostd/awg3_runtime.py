@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import secrets as pysecrets
 import shutil
 import subprocess
 from pathlib import Path
@@ -86,6 +87,15 @@ def _set_env_values(path: Path, values: dict[str, str]) -> None:
     cr._atomic_write(path, "\n".join(output).rstrip() + "\n", 0o600)
 
 
+def _independent_headers() -> list[str]:
+    values: list[str] = []
+    while len(values) < 4:
+        value = str(100000 + pysecrets.randbelow(4_000_000_000))
+        if value not in values:
+            values.append(value)
+    return values
+
+
 def _ensure_server_secrets() -> dict[str, str]:
     secrets = cr._read_env(cr.ENGINE_SECRETS)
     required = (
@@ -102,7 +112,7 @@ def _ensure_server_secrets() -> dict[str, str]:
     if not private_key or not public_key or not header_key:
         raise cr.ClientRuntimeError("AWG3: не удалось создать серверные параметры")
 
-    legacy = cr._awg_obfuscation(secrets)
+    h1, h2, h3, h4 = _independent_headers()
     values = {
         "SG_GATEWAY_AWG3_PRIVATE_KEY": private_key,
         "SG_GATEWAY_AWG3_PUBLIC_KEY": public_key,
@@ -114,10 +124,10 @@ def _ensure_server_secrets() -> dict[str, str]:
         "SG_GATEWAY_AWG3_S2": str(AWG3_DEFAULTS["s2"]),
         "SG_GATEWAY_AWG3_S3": str(AWG3_DEFAULTS["s3"]),
         "SG_GATEWAY_AWG3_S4": str(AWG3_DEFAULTS["s4"]),
-        "SG_GATEWAY_AWG3_H1": str(legacy["h1"]),
-        "SG_GATEWAY_AWG3_H2": str(legacy["h2"]),
-        "SG_GATEWAY_AWG3_H3": str(legacy["h3"]),
-        "SG_GATEWAY_AWG3_H4": str(legacy["h4"]),
+        "SG_GATEWAY_AWG3_H1": h1,
+        "SG_GATEWAY_AWG3_H2": h2,
+        "SG_GATEWAY_AWG3_H3": h3,
+        "SG_GATEWAY_AWG3_H4": h4,
         "SG_GATEWAY_AWG3_CONTENT_PADDING_ADDITION": str(AWG3_DEFAULTS["content_padding_addition"]),
         "SG_GATEWAY_AWG3_REKEY_AFTER_TIME": str(AWG3_DEFAULTS["rekey_after_time"]),
         "SG_GATEWAY_AWG3_REKEY_TIMEOUT": str(AWG3_DEFAULTS["rekey_timeout"]),
