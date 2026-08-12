@@ -13,6 +13,7 @@ SALAMANDER_MINIMUM_VERSION = "26.3.27"
 GECKO_MINIMUM_VERSION = "26.6.27"
 SALAMANDER_PASSWORD_BYTES = 24
 GECKO_PACKET_SIZE = "512-1200"
+MANAGED_VARIANT_MARKER = "_sg_hysteria2_obfs_managed"
 
 
 class SalamanderError(ValueError):
@@ -85,17 +86,26 @@ def _contains_salamander(finalmask: dict[str, Any]) -> bool:
 
 
 def finalmask_base(value: Any) -> dict[str, Any]:
-    """Return a safe deep copy of the unmanaged/base FinalMask object."""
+    """Return a safe stored base FinalMask with an internal managed marker.
+
+    The marker intentionally keeps the stored base non-empty even when there
+    are no unmanaged FinalMask fields. HostD therefore does not rediscover the
+    currently-live managed Salamander/Gecko layer as unmanaged state when the
+    administrator switches between the two variants. ``merge_finalmask``
+    removes this marker before rendering the live Xray JSON.
+    """
     if value is None:
-        return {}
-    if not isinstance(value, dict):
+        result: dict[str, Any] = {}
+    elif not isinstance(value, dict):
         raise SalamanderError("Существующий FinalMask Hysteria2 повреждён")
-    result = copy.deepcopy(value)
+    else:
+        result = copy.deepcopy(value)
     for key in ("tcp", "udp"):
         if key in result and not isinstance(result[key], list):
             raise SalamanderError(f"FinalMask {key} должен быть массивом")
     if "quicParams" in result and not isinstance(result["quicParams"], dict):
         raise SalamanderError("FinalMask quicParams должен быть объектом")
+    result[MANAGED_VARIANT_MARKER] = True
     return result
 
 
@@ -115,8 +125,10 @@ def merge_finalmask(base_value: Any, mode: Any, password: Any) -> dict[str, Any]
     Xray uses FinalMask type ``salamander`` for both variants. Plain Salamander
     renders only its password. Gecko uses the same primitive plus
     ``packetSize=512-1200``, which enables handshake fragmentation/padding.
+    The private SG-Gateway marker is never emitted into the live Xray config.
     """
     base = finalmask_base(base_value)
+    base.pop(MANAGED_VARIANT_MARKER, None)
     selected = normalise_mode(mode)
     if selected == SALAMANDER_MODE_NONE:
         return base
