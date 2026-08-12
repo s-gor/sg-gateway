@@ -98,10 +98,11 @@ def inspect(path: Path = XRAY_CONFIG_PATH) -> dict[str, Any]:
         mode != GECKO_MODE or live_packet_size == GECKO_PACKET_SIZE
     )
 
-    # The web process may not be able to read root-owned Xray config. Ask
-    # privileged HostD for a safe verdict. The legacy command does not expose
-    # the variant, so when secrets match we trust the already-applied DB mode;
-    # Xray candidate validation still checks the exact rendered FinalMask.
+    # The web process may not be able to read root-owned Xray config. The
+    # existing privileged command predates the public Gecko mode and reports
+    # password equality only for DB mode "salamander". For Gecko, an applied
+    # Xray candidate already validated the exact password + packetSize, so the
+    # safe HostD fallback can use the presence verdict without changing HostD.
     if live_error:
         hostd = run_hostd_command("xray.salamander.status", timeout=5)
         if hostd.status == "ok" and hostd.payload.get("readable"):
@@ -109,7 +110,13 @@ def inspect(path: Path = XRAY_CONFIG_PATH) -> dict[str, Any]:
             inbound = {} if hostd.payload.get("inbound_present") else None
             live_active = bool(hostd.payload.get("finalmask_udp_active"))
             live_secret_ready = bool(hostd.payload.get("live_password_configured"))
-            password_matches = bool(hostd.payload.get("password_matches_database"))
+            hostd_password_matches = bool(hostd.payload.get("password_matches_database"))
+            if mode == GECKO_MODE:
+                password_matches = bool(
+                    database_secret_ready and live_active and live_secret_ready
+                )
+            else:
+                password_matches = hostd_password_matches
             if password_matches:
                 live_mode = mode
                 mode_matches = True
