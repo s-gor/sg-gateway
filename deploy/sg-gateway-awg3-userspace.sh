@@ -54,38 +54,44 @@ start_runtime() {
 
   local deadline=$((SECONDS + 10))
   until [[ -S "$SOCKET" ]] && ip link show dev "$IFACE" >/dev/null 2>&1; do
-    (( SECONDS < deadline )) || {
+    if (( SECONDS >= deadline )); then
       echo "AWG3 userspace interface did not appear" >&2
+      stop_runtime
       return 1
-    }
+    fi
     sleep 0.1
   done
 
   local stripped=""
   stripped="$(mktemp /run/sg-gateway-awg3.XXXXXX)"
-  trap 'rm -f "$stripped"' RETURN
-  "$AWG_QUICK" strip "$CONFIG" > "$stripped"
-  "$AWG" setconf "$IFACE" "$stripped"
+  if ! {
+    "$AWG_QUICK" strip "$CONFIG" > "$stripped"
+    "$AWG" setconf "$IFACE" "$stripped"
 
-  local address=""
-  while IFS= read -r address; do
-    [[ -n "$address" ]] || continue
-    if [[ "$address" == *:* ]]; then
-      ip -6 address add "$address" dev "$IFACE"
-    else
-      ip -4 address add "$address" dev "$IFACE"
+    local address=""
+    while IFS= read -r address; do
+      [[ -n "$address" ]] || continue
+      if [[ "$address" == *:* ]]; then
+        ip -6 address add "$address" dev "$IFACE"
+      else
+        ip -4 address add "$address" dev "$IFACE"
+      fi
+    done < <(config_values Address)
+
+    local mtu=""
+    mtu="$(config_values MTU | head -n 1 || true)"
+    if [[ -n "$mtu" ]]; then
+      ip link set mtu "$mtu" dev "$IFACE"
     fi
-  done < <(config_values Address)
-
-  local mtu=""
-  mtu="$(config_values MTU | head -n 1 || true)"
-  if [[ -n "$mtu" ]]; then
-    ip link set mtu "$mtu" dev "$IFACE"
+    ip link set up dev "$IFACE"
+    run_config_commands PostUp
+    "$AWG" show "$IFACE" >/dev/null
+  }; then
+    rm -f "$stripped"
+    stop_runtime
+    return 1
   fi
-  ip link set up dev "$IFACE"
-  run_config_commands PostUp
-
-  "$AWG" show "$IFACE" >/dev/null
+  rm -f "$stripped"
 }
 
 case "${1:-}" in
