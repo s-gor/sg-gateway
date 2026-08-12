@@ -325,7 +325,7 @@ def _prepare(form: Any) -> PreparedXraySettings:
         installed = _installed_xray_version()
         if not salamander_version_supported(installed):
             raise XrayProfilesError(
-                "Установленная версия Xray не поддерживает Hysteria2 Salamander "
+                "Установленная версия Xray не поддерживает Hysteria2 Gecko "
                 f"FinalMask. Требуется {SALAMANDER_MINIMUM_VERSION} или новее."
             )
         if rotate_requested and password_field:
@@ -449,7 +449,7 @@ def overview() -> dict[str, Any]:
         elif encryption_required and not encryption_ready:
             status = "Нужен VLESS Encryption"
         elif not obfs_ready:
-            status = "Нужен пароль Salamander"
+            status = "Нужен пароль Gecko"
         elif not enabled:
             status = "Выключен"
         elif service_active and ready:
@@ -509,7 +509,7 @@ def overview() -> dict[str, Any]:
             "hysteria2", "Hysteria 2", "QUIC / UDP", "TLS",
             "hysteria2_port", "hysteria2_enabled",
             tls_required=True,
-            note="Один Hysteria 2 inbound на отдельном UDP-порту.",
+            note="Hysteria 2 с управляемым Gecko padding 512–1200 на отдельном UDP-порту.",
         ),
     ]
     return {
@@ -575,7 +575,7 @@ def salamander_secret() -> str:
     values = _values(dict(settings.config), int(settings.port or 443))
     secret = str(values["hysteria2_obfs_password"] or "")
     if not password_ready(secret):
-        raise XrayProfilesError("Пароль Salamander ещё не создан")
+        raise XrayProfilesError("Пароль Gecko ещё не создан")
     return secret
 
 
