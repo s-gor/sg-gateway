@@ -206,8 +206,8 @@
                   <header>
                     <div>
                       <span class="xps2-salamander-kicker">ОБФУСКАЦИЯ</span>
-                      <strong>Salamander FinalMask</strong>
-                      <p>Дополнительный UDP-слой для всего Hysteria2 inbound. Один пароль используется всеми его клиентами.</p>
+                      <strong>Gecko FinalMask</strong>
+                      <p>Salamander-шифрование плюс фрагментация QUIC handshake и случайный padding 512–1200 байт. Один пароль используется всеми клиентами Hysteria2.</p>
                     </div>
                     <span class="xps2-salamander-version {{ 'ready' if xray_profiles.hysteria2_obfs.version_ready else 'blocked' }}">
                       Xray ≥ {{ xray_profiles.hysteria2_obfs.minimum_version }}
@@ -224,13 +224,13 @@
                       <input type="radio" name="hysteria2_obfs_mode" value="salamander"
                              {% if xray_profiles.hysteria2_obfs.mode == 'salamander' %}checked{% endif %}
                              {% if not xray_profiles.hysteria2_obfs.version_ready %}disabled{% endif %}>
-                      <span>Salamander</span>
+                      <span>Gecko</span>
                     </label>
                   </div>
 
                   <div class="xps2-salamander-secret" data-salamander-secret>
                     <label>
-                      <span>Пароль Salamander</span>
+                      <span>Пароль Gecko</span>
                       <input id="hysteria2-obfs-password" type="password"
                              name="hysteria2_obfs_password" value=""
                              placeholder="{{ xray_profiles.hysteria2_obfs.password_mask or 'Будет создан при первом включении' }}"
@@ -246,7 +246,7 @@
                   <p class="xps2-salamander-status" data-salamander-status>
                     {% if xray_profiles.hysteria2_obfs.password_configured %}Пароль настроен и не выводится в журналах.{% else %}Пароль ещё не создан.{% endif %}
                   </p>
-                  <p class="xps2-salamander-warning">После включения или замены пароля старые Hysteria2-профили без актуального Salamander перестанут подключаться. Ссылки, QR и subscription обновятся только после успешного применения Xray.</p>
+                  <p class="xps2-salamander-warning">После включения или замены пароля старые Hysteria2-профили без актуального Gecko перестанут подключаться. Ссылки, QR и subscription обновятся только после успешного применения Xray.</p>
                 </section>
                 {% endif %}
               </article>
@@ -419,16 +419,16 @@
     delete applyButton.dataset.sgConfirmTone;
     if (rotated || (mode === 'salamander' && typed && salamander.dataset.passwordConfigured === '1')) {
       applyButton.dataset.sgConfirm = 'После замены пароля все старые Hysteria2-профили перестанут подключаться. Обновите профиль или subscription на каждом устройстве.';
-      applyButton.dataset.sgConfirmTitle = 'Заменить пароль Salamander';
+      applyButton.dataset.sgConfirmTitle = 'Заменить пароль Gecko';
       applyButton.dataset.sgConfirmButton = 'Заменить и применить';
       applyButton.dataset.sgConfirmTone = 'danger';
     } else if (initialMode !== mode && mode === 'salamander') {
-      applyButton.dataset.sgConfirm = 'Включение Salamander изменит транспорт Hysteria2. Все ранее выданные Hysteria2-профили без Salamander перестанут подключаться. SG-Gateway создаст новые ссылки, QR-коды и subscription.';
-      applyButton.dataset.sgConfirmTitle = 'Включить Salamander';
+      applyButton.dataset.sgConfirm = 'Включение Gecko изменит транспорт Hysteria2. Все ранее выданные Hysteria2-профили без Gecko перестанут подключаться. SG-Gateway создаст новые ссылки, QR-коды и subscription.';
+      applyButton.dataset.sgConfirmTitle = 'Включить Gecko';
       applyButton.dataset.sgConfirmButton = 'Включить и обновить профили';
     } else if (initialMode !== mode && mode === 'none') {
-      applyButton.dataset.sgConfirm = 'Отключение Salamander изменит транспорт Hysteria2. Старые профили с параметрами obfs перестанут подключаться.';
-      applyButton.dataset.sgConfirmTitle = 'Отключить Salamander';
+      applyButton.dataset.sgConfirm = 'Отключение Gecko изменит транспорт Hysteria2. Старые профили с параметрами obfs перестанут подключаться.';
+      applyButton.dataset.sgConfirmTitle = 'Отключить Gecko';
       applyButton.dataset.sgConfirmButton = 'Отключить и применить';
     }
   };
