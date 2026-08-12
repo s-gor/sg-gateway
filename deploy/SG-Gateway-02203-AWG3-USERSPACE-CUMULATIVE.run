@@ -1,0 +1,514 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+VERSION="0.1.0-022.03"
+BUILD_ID="WORKING-02203-AWG3-USERSPACE"
+BRANCH="dev-02203-awg3-userspace"
+SOURCE_COMMIT="c70206782297459f5f86aa1f4906ca1541aa0bf3"
+REPOSITORY="s-gor/sg-gateway"
+PREFIX="/opt/sg-gateway"
+CONFIG_DIR="/etc/sg-gateway"
+DATA_DIR="/var/lib/sg-gateway"
+AWG3_ROOT="$PREFIX/awg3"
+AWG3_GO_COMMIT="08d68cdae27762c3e07f36bbb12d2bad32f81926"
+AWG3_TOOLS_FILE="amneziawg-tools-3.0.20260805.tar.gz"
+AWG3_TOOLS_SHA256="090f9383532822a756d078890b447e00af7f46bd30a10f9f47c46d633d807b19"
+GO_VERSION="1.26.5"
+GO_SHA256="5c2c3b16caefa1d968a94c1daca04a7ca301a496d9b086e17ad77bb81393f053"
+LOG="/var/log/sg-gateway-02203-awg3-userspace-cumulative.log"
+BACKUP_ROOT="$DATA_DIR/backups"
+BACKUP_DIR=""
+TEMP_DIR=""
+MUTATED=0
+SUCCESS=0
+
+GREEN=$'\033[1;32m'
+RED=$'\033[1;31m'
+YELLOW=$'\033[1;33m'
+CYAN=$'\033[1;36m'
+RESET=$'\033[0m'
+
+AWG2_AWG_HASH=""
+AWG2_QUICK_HASH=""
+AWG2_MODULE_PATH=""
+AWG2_MODULE_HASH=""
+AWG2_CONFIG_HASH=""
+AWG2_ACTIVE="0"
+AWG3_WAS_ACTIVE="0"
+AWG3_WAS_ENABLED="0"
+
+cleanup() {
+  [[ -z "$TEMP_DIR" || ! -d "$TEMP_DIR" ]] || rm -rf "$TEMP_DIR"
+}
+
+show_log_tail() {
+  printf '\n%s[SG-Gateway] Причина:%s\n' "$YELLOW" "$RESET"
+  if [[ -n "${TEMP_DIR:-}" && -f "$TEMP_DIR/last-error.log" ]]; then
+    tail -n 100 "$TEMP_DIR/last-error.log" | sed 's/^/[SG-Gateway] /' || true
+  else
+    tail -n 100 "$LOG" 2>/dev/null | sed 's/^/[SG-Gateway] /' || true
+  fi
+  printf '[SG-Gateway] Полный технический журнал: %s\n' "$LOG"
+}
+
+rollback() {
+  (( MUTATED == 1 )) || return 0
+  printf '\n%s[SG-Gateway] [ОТКАТ]%s Возвращаю состояние до AWG3.\n' "$YELLOW" "$RESET"
+  systemctl stop sg-gateway-awg3.service >/dev/null 2>&1 || true
+  ip link delete dev awg3 >/dev/null 2>&1 || true
+  rm -f /var/run/amneziawg/awg3.sock
+  systemctl stop sg-hostd.service sg-gateway.service >/dev/null 2>&1 || true
+
+  rm -rf "$AWG3_ROOT"
+  rm -f /etc/systemd/system/sg-gateway-awg3.service
+  rm -f /etc/amnezia/amneziawg/awg3.conf /etc/amnezia/amneziawg/awg3.conf.previous
+  rm -f "$PREFIX/hostd/sg_hostd/awg3_runtime.py"
+  rm -f "$PREFIX/deploy/sg-gateway-awg3-userspace.sh" "$PREFIX/deploy/sg-gateway-awg3.service"
+
+  if [[ -f "$BACKUP_DIR/state.tar" ]]; then
+    tar -C / -xpf "$BACKUP_DIR/state.tar" >>"$LOG" 2>&1 || true
+  fi
+  systemctl daemon-reload >/dev/null 2>&1 || true
+
+  if [[ "$AWG3_WAS_ENABLED" == "1" ]]; then
+    systemctl enable sg-gateway-awg3.service >/dev/null 2>&1 || true
+  fi
+  if [[ "$AWG3_WAS_ACTIVE" == "1" ]]; then
+    systemctl start sg-gateway-awg3.service >/dev/null 2>&1 || true
+  fi
+  systemctl restart sg-hostd.service sg-gateway.service >/dev/null 2>&1 || true
+  printf '%s[SG-Gateway] [ОТКАТ OK]%s\n' "$GREEN" "$RESET"
+}
+
+on_error() {
+  local rc=$?
+  trap - ERR INT TERM
+  rollback || true
+  show_log_tail
+  cleanup
+  exit "$rc"
+}
+trap on_error ERR
+trap 'exit 130' INT TERM
+trap cleanup EXIT
+
+run_quiet() {
+  local label="$1"; shift
+  local tmp pid rc frame_index=0
+  local frames=('|' '/' '-' '\\')
+  tmp="$(mktemp /tmp/sg-gateway-awg3-stage.XXXXXX)"
+  chmod 0600 "$tmp"
+  ( trap - ERR; "$@" ) >"$tmp" 2>&1 &
+  pid=$!
+  while kill -0 "$pid" >/dev/null 2>&1; do
+    printf '\r%s[SG-Gateway]%s %s %s' "$CYAN" "$RESET" "$label" "${frames[$frame_index]}"
+    frame_index=$(( (frame_index + 1) % 4 ))
+    sleep 0.12
+  done
+  if wait "$pid"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  cat "$tmp" >> "$LOG"
+  if (( rc != 0 )); then
+    cp -f "$tmp" "$TEMP_DIR/last-error.log"
+    printf '\n===== FAILED STAGE: %s (rc=%s) =====\n' "$label" "$rc" >> "$LOG"
+    cat "$tmp" >> "$LOG"
+  fi
+  rm -f "$tmp"
+  if (( rc == 0 )); then
+    printf '\r%s[SG-Gateway]%s %s %s[OK]%s\n' "$CYAN" "$RESET" "$label" "$GREEN" "$RESET"
+  else
+    printf '\r%s[SG-Gateway]%s %s %s[ОШИБКА]%s\n' "$CYAN" "$RESET" "$label" "$RED" "$RESET"
+  fi
+  return "$rc"
+}
+
+hash_or_missing() {
+  local path="$1"
+  if [[ -f "$path" ]]; then
+    sha256sum "$path" | awk '{print $1}'
+  else
+    printf 'MISSING\n'
+  fi
+}
+
+stage_preflight() {
+  [[ "$(id -u)" -eq 0 ]] || { echo "Запустите через sudo" >&2; return 1; }
+  [[ "$(uname -m)" == "x86_64" || "$(uname -m)" == "amd64" ]] || {
+    echo "Эта тестовая сборка рассчитана на linux/amd64" >&2; return 1;
+  }
+  local installed build
+  installed="$(tr -d '\r\n' < "$PREFIX/VERSION" 2>/dev/null || true)"
+  build="$(tr -d '\r\n' < "$PREFIX/BUILD-ID" 2>/dev/null || true)"
+  if [[ "$installed" != "0.1.0-021.12" ]]; then
+    echo "Этот накопительный installer запускается только поверх чистой 021.12; установлено: $installed" >&2
+    return 1
+  fi
+  if [[ "$build" != "MAIN-02112" ]]; then
+    echo "BUILD-ID не соответствует замороженной 021.12: $build" >&2
+    return 1
+  fi
+  for cmd in curl tar gzip sha256sum make gcc git python3 systemctl ip ss awk modinfo sqlite3; do
+    command -v "$cmd" >/dev/null 2>&1 || { echo "Не найден обязательный инструмент: $cmd" >&2; return 1; }
+  done
+  [[ -x /usr/bin/awg && -x /usr/bin/awg-quick ]] || { echo "Штатный AWG2 runtime 021.12 не найден" >&2; return 1; }
+  AWG2_MODULE_PATH="$(modinfo -n amneziawg 2>/dev/null || true)"
+  [[ -n "$AWG2_MODULE_PATH" && -f "$AWG2_MODULE_PATH" ]] || { echo "Штатный модуль AWG2 не найден" >&2; return 1; }
+
+  AWG2_AWG_HASH="$(hash_or_missing /usr/bin/awg)"
+  AWG2_QUICK_HASH="$(hash_or_missing /usr/bin/awg-quick)"
+  AWG2_MODULE_HASH="$(hash_or_missing "$AWG2_MODULE_PATH")"
+  AWG2_CONFIG_HASH="$(hash_or_missing /etc/amnezia/amneziawg/awg0.conf)"
+  systemctl is-active --quiet sg-gateway-awg.service && AWG2_ACTIVE=1 || true
+  systemctl is-active --quiet sg-gateway-awg3.service && AWG3_WAS_ACTIVE=1 || true
+  systemctl is-enabled --quiet sg-gateway-awg3.service && AWG3_WAS_ENABLED=1 || true
+
+  mkdir -p "$BACKUP_ROOT"
+  BACKUP_DIR="$BACKUP_ROOT/02203-awg3-userspace-$(date -u +%Y%m%d-%H%M%S)"
+  mkdir -p "$BACKUP_DIR"
+  chmod 0700 "$BACKUP_DIR"
+  printf '%s\n' "$BACKUP_DIR" > "$TEMP_DIR/backup-dir"
+  {
+    printf 'AWG2_AWG_HASH=%q\n' "$AWG2_AWG_HASH"
+    printf 'AWG2_QUICK_HASH=%q\n' "$AWG2_QUICK_HASH"
+    printf 'AWG2_MODULE_PATH=%q\n' "$AWG2_MODULE_PATH"
+    printf 'AWG2_MODULE_HASH=%q\n' "$AWG2_MODULE_HASH"
+    printf 'AWG2_CONFIG_HASH=%q\n' "$AWG2_CONFIG_HASH"
+    printf 'AWG2_ACTIVE=%q\n' "$AWG2_ACTIVE"
+    printf 'AWG3_WAS_ACTIVE=%q\n' "$AWG3_WAS_ACTIVE"
+    printf 'AWG3_WAS_ENABLED=%q\n' "$AWG3_WAS_ENABLED"
+  } > "$TEMP_DIR/preflight-state.env"
+
+  local paths=()
+  local item
+  for item in \
+    opt/sg-gateway/VERSION \
+    opt/sg-gateway/BUILD-ID \
+    opt/sg-gateway/app/clients/access.py \
+    opt/sg-gateway/app/clients/exports.py \
+    opt/sg-gateway/app/clients/repository.py \
+    opt/sg-gateway/app/engines/provisioning.py \
+    opt/sg-gateway/app/install_seed.py \
+    opt/sg-gateway/app/web/templates/clients.html \
+    opt/sg-gateway/hostd/sg_hostd/client_runtime.py \
+    opt/sg-gateway/hostd/sg_hostd/awg3_runtime.py \
+    opt/sg-gateway/deploy/sg-gateway-awg3-userspace.sh \
+    opt/sg-gateway/deploy/sg-gateway-awg3.service \
+    opt/sg-gateway/awg3 \
+    etc/systemd/system/sg-gateway-awg3.service \
+    etc/amnezia/amneziawg/awg3.conf \
+    etc/sg-gateway/engine-secrets.env \
+    var/lib/sg-gateway/sg-gateway.sqlite; do
+    [[ -e "/$item" || -L "/$item" ]] && paths+=("$item")
+  done
+  if (( ${#paths[@]} )); then
+    tar -C / -cpf "$BACKUP_DIR/state.tar" "${paths[@]}"
+    tar -tf "$BACKUP_DIR/state.tar" >/dev/null
+  else
+    : > "$BACKUP_DIR/state.tar"
+  fi
+  {
+    echo "installed=$installed"
+    echo "build=$build"
+    echo "awg2_awg=$AWG2_AWG_HASH"
+    echo "awg2_quick=$AWG2_QUICK_HASH"
+    echo "awg2_module_path=$AWG2_MODULE_PATH"
+    echo "awg2_module=$AWG2_MODULE_HASH"
+    echo "awg2_config=$AWG2_CONFIG_HASH"
+    /usr/bin/awg --version || true
+    modinfo amneziawg || true
+  } > "$BACKUP_DIR/awg2-before.txt"
+}
+
+stage_source() {
+  local archive="$TEMP_DIR/sg-gateway.tar.gz"
+  mkdir -p "$TEMP_DIR/source"
+  curl -fsSL --retry 6 --retry-all-errors --retry-delay 3 \
+    "https://github.com/${REPOSITORY}/archive/${SOURCE_COMMIT}.tar.gz" -o "$archive"
+  gzip -t "$archive"
+  tar -xzf "$archive" -C "$TEMP_DIR/source" --strip-components=1
+  [[ "$(tr -d '\r\n' < "$TEMP_DIR/source/VERSION")" == "$VERSION" ]]
+  [[ "$(tr -d '\r\n' < "$TEMP_DIR/source/BUILD-ID")" == "DEV-02203-AWG3-USERSPACE" ]]
+  echo "$AWG3_TOOLS_SHA256  $TEMP_DIR/source/vendor/cores/$AWG3_TOOLS_FILE" | sha256sum -c -
+}
+
+stage_private_tools() {
+  local src_root="$TEMP_DIR/awg-tools" src jobs
+  rm -rf "$src_root"
+  mkdir -p "$src_root"
+  tar -xzf "$TEMP_DIR/source/vendor/cores/$AWG3_TOOLS_FILE" -C "$src_root"
+  src="$(find "$src_root" -maxdepth 1 -type d -name 'amneziawg-tools-*' -print -quit)"
+  [[ -n "$src" ]]
+  jobs="$(nproc 2>/dev/null || echo 1)"
+  mkdir -p "$AWG3_ROOT"
+  make -C "$src/src" PLATFORM=linux -j"$jobs"
+  make -C "$src/src" PLATFORM=linux WITH_WGQUICK=yes WITH_BASHCOMPLETION=no WITH_SYSTEMDUNITS=no PREFIX="$AWG3_ROOT" install
+  [[ -x "$AWG3_ROOT/bin/awg" && -x "$AWG3_ROOT/bin/awg-quick" ]]
+  "$AWG3_ROOT/bin/awg" --version
+}
+
+stage_userspace_daemon() {
+  local go_root="$TEMP_DIR/go" go_tar="$TEMP_DIR/go.tar.gz" src="$TEMP_DIR/amneziawg-go"
+  curl -fsSL --retry 6 --retry-all-errors --retry-delay 3 \
+    "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o "$go_tar"
+  echo "$GO_SHA256  $go_tar" | sha256sum -c -
+  mkdir -p "$go_root"
+  tar -xzf "$go_tar" -C "$go_root"
+
+  git init -q "$src"
+  git -C "$src" remote add origin https://github.com/amnezia-vpn/amneziawg-go.git
+  git -C "$src" fetch -q --depth=1 origin "$AWG3_GO_COMMIT"
+  git -C "$src" checkout -q FETCH_HEAD
+  [[ "$(git -C "$src" rev-parse HEAD)" == "$AWG3_GO_COMMIT" ]]
+
+  cat > "$src/version.go" <<EOF_VERSION
+package main
+
+const Version = "3.0.20260805-sg02203-${AWG3_GO_COMMIT:0:12}"
+EOF_VERSION
+  (cd "$src" && CGO_ENABLED=0 "$go_root/go/bin/go" build -trimpath -o "$AWG3_ROOT/bin/amneziawg-go" .)
+  chmod 0755 "$AWG3_ROOT/bin/amneziawg-go"
+  "$AWG3_ROOT/bin/amneziawg-go" --version
+
+  local probe="sgawg3probe" probe_socket="/var/run/amneziawg/sgawg3probe.sock" deadline
+  ip link delete dev "$probe" >/dev/null 2>&1 || true
+  rm -f "$probe_socket"
+  LOG_LEVEL=error "$AWG3_ROOT/bin/amneziawg-go" "$probe"
+  deadline=$((SECONDS + 10))
+  until [[ -S "$probe_socket" ]] && ip link show dev "$probe" >/dev/null 2>&1; do
+    (( SECONDS < deadline )) || { echo "AWG3 UAPI probe: userspace interface/socket did not appear" >&2; return 1; }
+    sleep 0.1
+  done
+  "$AWG3_ROOT/bin/awg" show "$probe" >/dev/null
+  ip link delete dev "$probe" >/dev/null 2>&1 || true
+  rm -f "$probe_socket"
+  echo "AWG3 UAPI probe: OK"
+}
+
+patch_awg3_runtime() {
+  python3 - "$PREFIX/hostd/sg_hostd/awg3_runtime.py" <<'PYAWG3PATCH'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1])
+s=p.read_text(encoding="utf-8")
+if "import secrets as pysecrets" not in s:
+    s=s.replace("import json\n", "import json\nimport secrets as pysecrets\n", 1)
+old = "    legacy = cr._awg_obfuscation(secrets)\n    values = {\n"
+new = (
+    "    # AWG3 owns a separate H1-H4 namespace and never depends on AWG2 values.\n"
+    "    headers = []\n"
+    "    while len(headers) < 4:\n"
+    "        value = 100000 + pysecrets.randbelow(4000000000)\n"
+    "        if value not in headers:\n"
+    "            headers.append(value)\n"
+    "    values = {\n"
+)
+if old in s:
+    s=s.replace(old, new, 1)
+elif "legacy = cr._awg_obfuscation(secrets)" in s:
+    raise SystemExit("AWG3 runtime H-namespace anchor mismatch")
+old_h = (
+    '        "SG_GATEWAY_AWG3_H1": str(legacy["h1"]),\n'
+    '        "SG_GATEWAY_AWG3_H2": str(legacy["h2"]),\n'
+    '        "SG_GATEWAY_AWG3_H3": str(legacy["h3"]),\n'
+    '        "SG_GATEWAY_AWG3_H4": str(legacy["h4"]),\n'
+)
+new_h = (
+    '        "SG_GATEWAY_AWG3_H1": str(headers[0]),\n'
+    '        "SG_GATEWAY_AWG3_H2": str(headers[1]),\n'
+    '        "SG_GATEWAY_AWG3_H3": str(headers[2]),\n'
+    '        "SG_GATEWAY_AWG3_H4": str(headers[3]),\n'
+)
+if old_h in s:
+    s=s.replace(old_h, new_h, 1)
+if "legacy[" in s or "cr._awg_obfuscation(secrets)" in s:
+    raise SystemExit("AWG3 runtime still depends on AWG2 obfuscation")
+if "import secrets as pysecrets" not in s or "headers = []" not in s:
+    raise SystemExit("AWG3 dedicated H namespace patch was not applied")
+p.write_text(s, encoding="utf-8", newline="\n")
+PYAWG3PATCH
+}
+
+patch_client_runtime() {
+  python3 - "$PREFIX/hostd/sg_hostd/client_runtime.py" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1])
+s=p.read_text(encoding='utf-8')
+if 'from sg_hostd.awg3_runtime import apply_awg3' in s and 'apply_awg3(),' in s:
+    raise SystemExit(0)
+needle='''        _repair_deployment_configs()\n\n        critical_results = [\n            _apply_awg(),\n            _apply_xray(),\n'''
+replacement='''        _repair_deployment_configs()\n\n        from sg_hostd.awg3_runtime import apply_awg3\n\n        critical_results = [\n            _apply_awg(),\n            apply_awg3(),\n            _apply_xray(),\n'''
+if s.count(needle) != 1:
+    raise SystemExit('021.12 client_runtime anchor mismatch')
+p.write_text(s.replace(needle,replacement),encoding='utf-8',newline='\n')
+PY
+}
+
+stage_project_source() {
+  MUTATED=1
+  local src="$TEMP_DIR/source"
+  install -m 0644 "$src/app/clients/access.py" "$PREFIX/app/clients/access.py"
+  install -m 0644 "$src/app/clients/exports.py" "$PREFIX/app/clients/exports.py"
+  install -m 0644 "$src/app/clients/repository.py" "$PREFIX/app/clients/repository.py"
+  install -m 0644 "$src/app/engines/provisioning.py" "$PREFIX/app/engines/provisioning.py"
+  install -m 0644 "$src/app/install_seed.py" "$PREFIX/app/install_seed.py"
+  install -m 0644 "$src/app/web/templates/clients.html" "$PREFIX/app/web/templates/clients.html"
+  install -m 0644 "$src/hostd/sg_hostd/awg3_runtime.py" "$PREFIX/hostd/sg_hostd/awg3_runtime.py"
+  patch_awg3_runtime
+  patch_client_runtime
+  install -m 0755 "$src/deploy/sg-gateway-awg3-userspace.sh" "$PREFIX/deploy/sg-gateway-awg3-userspace.sh"
+  install -m 0644 "$src/deploy/sg-gateway-awg3.service" "$PREFIX/deploy/sg-gateway-awg3.service"
+  printf '%s\n' "$VERSION" > "$PREFIX/VERSION"
+  printf '%s\n' "$BUILD_ID" > "$PREFIX/BUILD-ID"
+
+  "$PREFIX/.venv/bin/python" -m py_compile \
+    "$PREFIX/app/clients/access.py" \
+    "$PREFIX/app/clients/exports.py" \
+    "$PREFIX/app/clients/repository.py" \
+    "$PREFIX/app/engines/provisioning.py" \
+    "$PREFIX/hostd/sg_hostd/client_runtime.py" \
+    "$PREFIX/hostd/sg_hostd/awg3_runtime.py"
+}
+
+stage_service() {
+  install -m 0644 "$PREFIX/deploy/sg-gateway-awg3.service" /etc/systemd/system/sg-gateway-awg3.service
+  systemctl daemon-reload
+  systemctl enable sg-gateway-awg3.service >/dev/null
+  systemctl restart sg-hostd.service sg-gateway.service
+  systemctl is-active --quiet sg-hostd.service
+  systemctl is-active --quiet sg-gateway.service
+}
+
+stage_apply_awg3() {
+  local rc=0
+  echo "AWG3 STEP 7.1: import + database state"
+  SG_GATEWAY_DATA_DIR="$DATA_DIR" \
+  PYTHONPATH="$PREFIX:$PREFIX/hostd" "$PREFIX/.venv/bin/python" - <<'PYAWG3STATE'
+import sqlite3
+from pathlib import Path
+from app.db import get_database_path
+from sg_hostd import awg3_runtime as a
+expected = Path('/var/lib/sg-gateway/sg-gateway.sqlite').resolve()
+actual = get_database_path().resolve()
+print(f"runtime module: {Path(a.__file__).resolve()}")
+print(f"private awg: {a.AWG3_AWG}")
+print(f"private awg-quick: {a.AWG3_AWG_QUICK}")
+print(f"application database: {actual}")
+if actual != expected:
+    raise SystemExit(f"wrong application database: expected {expected}, got {actual}")
+con=sqlite3.connect(str(actual))
+tables={row[0] for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+for required in ('device_credentials','connection_settings'):
+    if required not in tables:
+        raise SystemExit(f"production database missing required table: {required}")
+for engine in ('amneziawg','amneziawg3'):
+    n=con.execute('SELECT COUNT(*) FROM device_credentials WHERE engine=?',(engine,)).fetchone()[0]
+    print(f"db {engine}: {n}")
+print(f"db connection_settings: {con.execute('SELECT COUNT(*) FROM connection_settings').fetchone()[0]}")
+con.close()
+PYAWG3STATE
+
+  echo "AWG3 STEP 7.2: migration + candidate + runtime apply"
+  set +e
+  SG_GATEWAY_DATA_DIR="$DATA_DIR" \
+  PYTHONPATH="$PREFIX:$PREFIX/hostd" "$PREFIX/.venv/bin/python" - <<'PYAWG3APPLY'
+from sg_hostd.awg3_runtime import apply_awg3
+try:
+    r=apply_awg3()
+except Exception as exc:
+    print(f"UNCAUGHT {type(exc).__name__}: {exc}")
+    raise
+print(f"AWG3 RESULT ok={r.ok} clients={r.clients}")
+print(r.message)
+raise SystemExit(0 if r.ok else 1)
+PYAWG3APPLY
+  rc=$?
+  set -e
+
+  if (( rc != 0 )); then
+    echo "AWG3 STEP 7.3: failure diagnostics"
+    systemctl status sg-gateway-awg3.service --no-pager -l || true
+    journalctl -b -u sg-gateway-awg3.service -n 120 --no-pager -o short-iso || true
+    if [[ -f /etc/amnezia/amneziawg/awg3.conf ]]; then
+      echo "--- awg3.conf parser ---"
+      "$AWG3_ROOT/bin/awg-quick" strip /etc/amnezia/amneziawg/awg3.conf >/dev/null && echo "strip: OK" || true
+    else
+      echo "awg3.conf: MISSING"
+    fi
+    echo "--- userspace socket/interface ---"
+    ls -l /var/run/amneziawg/awg3.sock 2>/dev/null || true
+    ip -details link show dev awg3 2>/dev/null || true
+    "$AWG3_ROOT/bin/awg" show awg3 2>&1 || true
+    ss -H -lunp 2>/dev/null | grep -E '(:|\])586[[:space:]]' || true
+    return "$rc"
+  fi
+
+  echo "AWG3 STEP 7.3: runtime confirmed"
+  systemctl is-active --quiet sg-gateway-awg3.service
+  "$AWG3_ROOT/bin/awg" show awg3 >/dev/null
+  return 0
+}
+
+stage_verify() {
+  [[ "$(tr -d '\r\n' < "$PREFIX/VERSION")" == "$VERSION" ]]
+  [[ "$(tr -d '\r\n' < "$PREFIX/BUILD-ID")" == "$BUILD_ID" ]]
+  [[ "$(hash_or_missing /usr/bin/awg)" == "$AWG2_AWG_HASH" ]] || { echo "AWG2 binary changed" >&2; return 1; }
+  [[ "$(hash_or_missing /usr/bin/awg-quick)" == "$AWG2_QUICK_HASH" ]] || { echo "AWG2 helper changed" >&2; return 1; }
+  [[ "$(modinfo -n amneziawg)" == "$AWG2_MODULE_PATH" ]] || { echo "AWG2 module path changed" >&2; return 1; }
+  [[ "$(hash_or_missing "$AWG2_MODULE_PATH")" == "$AWG2_MODULE_HASH" ]] || { echo "AWG2 module changed" >&2; return 1; }
+  [[ "$(hash_or_missing /etc/amnezia/amneziawg/awg0.conf)" == "$AWG2_CONFIG_HASH" ]] || { echo "AWG2 live config changed" >&2; return 1; }
+  local active=0
+  systemctl is-active --quiet sg-gateway-awg.service && active=1 || true
+  [[ "$active" == "$AWG2_ACTIVE" ]] || { echo "AWG2 service state changed" >&2; return 1; }
+
+  "$AWG3_ROOT/bin/awg" --version
+  "$AWG3_ROOT/bin/amneziawg-go" --version
+  grep -Fq '/opt/sg-gateway/awg3/bin/amneziawg-go' /etc/systemd/system/sg-gateway-awg3.service
+  ! grep -Fq '/usr/bin/awg-quick' /etc/systemd/system/sg-gateway-awg3.service
+
+  local count
+  count="$(sqlite3 "$DATA_DIR/sg-gateway.sqlite" "SELECT COUNT(*) FROM device_credentials WHERE engine='amneziawg3' AND status='applied';" 2>/dev/null || echo 0)"
+  [[ "$count" =~ ^[0-9]+$ ]]
+  if (( count > 0 )); then
+    systemctl is-active --quiet sg-gateway-awg3.service
+    "$AWG3_ROOT/bin/awg" show awg3 >/dev/null
+    ss -H -lun | grep -Eq '(:|\])586[[:space:]]'
+    grep -Eq '^ListenPort[[:space:]]*=[[:space:]]*586[[:space:]]*$' /etc/amnezia/amneziawg/awg3.conf
+  fi
+  printf 'AWG2 unchanged; AWG3 applied clients: %s\n' "$count"
+}
+
+mkdir -p "$(dirname "$LOG")"
+: > "$LOG"
+chmod 0600 "$LOG"
+TEMP_DIR="$(mktemp -d /tmp/sg-gateway-02203-awg3.XXXXXX)"
+
+printf '\n%sSG-Gateway 022.03 AWG3 USERSPACE CUMULATIVE%s\n' "$GREEN" "$RESET"
+printf 'Clean 021.12 baseline -> isolated AWG3 userspace; verified working architecture\n'
+printf 'Журнал: %s\n\n' "$LOG"
+
+run_quiet "[1/8] Проверка 021.12 и резервная копия" stage_preflight
+# run_quiet isolates each stage; recover state explicitly in the parent shell.
+BACKUP_DIR="$(cat "$TEMP_DIR/backup-dir")"
+# shellcheck disable=SC1090
+source "$TEMP_DIR/preflight-state.env"
+run_quiet "[2/8] Получение проверенного 022.03 source" stage_source
+MUTATED=1
+run_quiet "[3/8] Сборка отдельного AWG3 tools" stage_private_tools
+run_quiet "[4/8] Сборка отдельного amneziawg-go" stage_userspace_daemon
+run_quiet "[5/8] Установка AWG3 в проект" stage_project_source
+run_quiet "[6/8] Запуск отдельного AWG3 service" stage_service
+run_quiet "[7/8] Миграция и применение AWG3" stage_apply_awg3
+run_quiet "[8/8] Финальная проверка AWG2/AWG3" stage_verify
+
+SUCCESS=1
+printf '\n%s[SG-Gateway] ГОТОВО%s\n' "$GREEN" "$RESET"
+printf 'Version: %s\n' "$VERSION"
+printf 'Build: %s\n' "$BUILD_ID"
+printf 'AWG2 runtime 021.12: не изменён\n'
+printf 'AWG3 runtime: отдельный userspace\n'
+printf 'Backup: %s\n' "$BACKUP_DIR"
+printf 'Log: %s\n' "$LOG"
