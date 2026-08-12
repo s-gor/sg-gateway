@@ -15,17 +15,22 @@ from app.xray.salamander import merge_finalmask  # noqa: E402
 from sg_hostd import client_runtime  # noqa: E402
 
 
-def test_known_good_salamander_live_shape_is_single_udp_layer():
+def test_known_good_gecko_live_shape_is_single_udp_layer():
     base = {
         "udp": [{"type": "padding", "settings": {"size": 7}}],
     }
     live = merge_finalmask(base, "salamander", "S" * 32)
     assert live == {
-        "udp": [{"type": "salamander", "settings": {"password": "S" * 32}}]
+        "udp": [
+            {
+                "type": "salamander",
+                "settings": {"password": "S" * 32, "packetSize": "512-1200"},
+            }
+        ]
     }
 
 
-def test_discovered_previous_udp_mask_is_saved_but_suppressed_while_salamander_is_on(
+def test_discovered_previous_udp_mask_is_saved_but_suppressed_while_gecko_is_on(
     tmp_path, monkeypatch
 ):
     secret = "P" * 32
@@ -40,7 +45,13 @@ def test_discovered_previous_udp_mask_is_saved_but_suppressed_while_salamander_i
                             "finalmask": {
                                 "udp": [
                                     {"type": "padding", "settings": {"size": 5}},
-                                    {"type": "salamander", "settings": {"password": secret}},
+                                    {
+                                        "type": "salamander",
+                                        "settings": {
+                                            "password": secret,
+                                            "packetSize": "512-1200",
+                                        },
+                                    },
                                 ]
                             }
                         },
@@ -62,7 +73,10 @@ def test_discovered_previous_udp_mask_is_saved_but_suppressed_while_salamander_i
 
     enabled = merge_finalmask(stored_base, "salamander", secret)
     assert enabled["udp"] == [
-        {"type": "salamander", "settings": {"password": secret}}
+        {
+            "type": "salamander",
+            "settings": {"password": secret, "packetSize": "512-1200"},
+        }
     ]
 
     disabled = merge_finalmask(stored_base, "none", "")
