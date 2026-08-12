@@ -368,7 +368,6 @@ def build_xray_profile_link(
         query_values = {
             "sni": domain,
             "insecure": "0",
-            "alpn": "h3",
         }
         obfs_mode = str(server_config.get("hysteria2_obfs_mode") or "none").strip().lower()
         obfs_password = str(server_config.get("hysteria2_obfs_password") or "").strip()
