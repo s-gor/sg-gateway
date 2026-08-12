@@ -14,7 +14,7 @@ from app.clients import exports  # noqa: E402
 from app.clients.repository import Client, ClientDeployment  # noqa: E402
 
 
-def test_hysteria2_gecko_uri_does_not_export_alpn(monkeypatch):
+def _link(monkeypatch, mode: str) -> tuple[str, dict]:
     client = Client(1, "URI cleanup", True, None, "missing", "applied")
     deployment = ClientDeployment(
         engine="xray",
@@ -32,7 +32,7 @@ def test_hysteria2_gecko_uri_does_not_export_alpn(monkeypatch):
         "public_key": "public-key",
         "short_id": "0123456789abcdef",
         "server_name": "vpn.example.com",
-        "hysteria2_obfs_mode": "salamander",
+        "hysteria2_obfs_mode": mode,
         "hysteria2_obfs_password": "G" * 32,
         "hysteria2_uri_scheme": "hysteria2",
     }
@@ -51,12 +51,22 @@ def test_hysteria2_gecko_uri_does_not_export_alpn(monkeypatch):
             "host": "203.0.113.9",
         },
     )
+    return exports.build_xray_profile_link(client, "hysteria2").body, server_config
 
-    link = exports.build_xray_profile_link(client, "hysteria2").body
+
+def test_hysteria2_gecko_uri_does_not_export_alpn(monkeypatch):
+    link, server_config = _link(monkeypatch, "gecko")
     query = parse_qs(urlsplit(link).query)
-
     assert query["sni"] == ["vpn.example.com"]
     assert query["insecure"] == ["0"]
     assert query["obfs"] == ["gecko"]
+    assert query["obfs-password"] == [server_config["hysteria2_obfs_password"]]
+    assert "alpn" not in query
+
+
+def test_hysteria2_salamander_uri_does_not_export_alpn(monkeypatch):
+    link, server_config = _link(monkeypatch, "salamander")
+    query = parse_qs(urlsplit(link).query)
+    assert query["obfs"] == ["salamander"]
     assert query["obfs-password"] == [server_config["hysteria2_obfs_password"]]
     assert "alpn" not in query
