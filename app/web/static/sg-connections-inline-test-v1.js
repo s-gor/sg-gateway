@@ -34,6 +34,7 @@
     if (!(submitter instanceof HTMLButtonElement) || submitter !== testButton) return;
 
     event.preventDefault();
+    event.stopImmediatePropagation();
     if (running) return;
     running = true;
 
@@ -45,7 +46,10 @@
     try {
       const payload = new FormData(form);
       payload.set("action", "test");
-      const response = await fetch(form.action, {
+      const endpoint = form.getAttribute("action");
+      if (!endpoint) throw new Error("у формы Xray не задан action");
+
+      const response = await fetch(endpoint, {
         method: "POST",
         body: payload,
         credentials: "same-origin",
@@ -75,5 +79,5 @@
       testButton.disabled = false;
       testButton.textContent = originalText;
     }
-  });
+  }, true);
 })();
