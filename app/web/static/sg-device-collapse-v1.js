@@ -16,6 +16,7 @@
   ];
 
   function setExpanded(card, button, expanded) {
+    card.classList.toggle('sg-device-expanded', expanded);
     card.classList.toggle('sg-device-collapsed', !expanded);
     button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     button.setAttribute('aria-label', expanded ? 'Свернуть устройство' : 'Развернуть устройство');
@@ -124,12 +125,32 @@
     if (recommended) recommended.textContent = 'VLESS Reality TCP, Mieru и персональная SUB.';
   }
 
-  function markWarmActionButtons() {
-    document.querySelectorAll('.dv16-device-controls .button').forEach(button => {
-      const text = button.textContent.replace(/\s+/g, ' ').trim().toLowerCase();
-      if (text.startsWith('отключить')) {
+  function prepareDisableActions() {
+    document.querySelectorAll('.dv16-device-controls .button, .dv16-heading-actions .button').forEach(button => {
+      const text = button.textContent.replace(/\s+/g, ' ').trim();
+      if (!text.toLowerCase().startsWith('отключить')) return;
+
+      const form = button.closest('form');
+      if (!form) return;
+
+      const card = button.closest('.dv16-device');
+      if (card) {
+        const deviceName = card.querySelector('.dv16-device-title h2')?.textContent.trim() || 'устройство';
+        form.dataset.sgConfirm = `Отключить «${deviceName}»? Подключения этого устройства перестанут работать до повторного включения.`;
+        form.dataset.sgConfirmTitle = 'Отключить устройство';
+        form.dataset.sgConfirmButton = 'Отключить';
+        form.dataset.sgConfirmKicker = 'Защита от случайного отключения';
+        form.dataset.sgConfirmTone = 'warning';
         button.classList.add('sg-warm-action');
+        return;
       }
+
+      const clientName = document.querySelector('.dv16-heading h1')?.textContent.trim() || 'клиента';
+      form.dataset.sgConfirm = `Отключить клиента «${clientName}»? Все его устройства и подключения станут недоступны до повторного включения.`;
+      form.dataset.sgConfirmTitle = 'Отключить клиента';
+      form.dataset.sgConfirmButton = 'Отключить';
+      form.dataset.sgConfirmKicker = 'Защита от случайного отключения';
+      form.dataset.sgConfirmTone = 'warning';
     });
   }
 
@@ -140,14 +161,17 @@
     const controls = head?.querySelector('.dv16-device-controls');
     if (!head || !controls) return;
 
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'button sg-device-collapse-toggle';
-    button.innerHTML = '<span aria-hidden="true">⌄</span>';
-    controls.appendChild(button);
+    let button = controls.querySelector('.sg-device-collapse-toggle');
+    if (!button) {
+      button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'button sg-device-collapse-toggle';
+      button.innerHTML = '<span aria-hidden="true">⌄</span>';
+      controls.appendChild(button);
+    }
 
-    card.dataset.sgCollapseReady = '1';
     setExpanded(card, button, false);
+    card.dataset.sgCollapseReady = '1';
 
     button.addEventListener('click', event => {
       event.preventDefault();
@@ -178,7 +202,7 @@
   function initAll() {
     normalizeProtocolPickers();
     document.querySelectorAll('.dv16-devices > .dv16-device').forEach(initDevice);
-    markWarmActionButtons();
+    prepareDisableActions();
 
     const hash = String(location.hash || '');
     if (hash.startsWith('#device-')) {
