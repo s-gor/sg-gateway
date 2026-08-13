@@ -4,21 +4,44 @@
 
   const testButton = form.querySelector('button[type="submit"][name="action"][value="test"]');
   const actions = form.querySelector(".xps2-actions");
-  if (!(testButton instanceof HTMLButtonElement) || !actions) return;
+  if (!(testButton instanceof HTMLButtonElement) || !(actions instanceof HTMLElement)) return;
 
-  const result = document.createElement("div");
-  result.className = "xps2-inline-test-result";
-  result.setAttribute("role", "status");
-  result.setAttribute("aria-live", "polite");
+  actions.style.flexWrap = "wrap";
+  const help = actions.querySelector(":scope > p");
+  if (help instanceof HTMLElement) {
+    help.style.flex = "1 1 520px";
+    help.style.minWidth = "280px";
+    help.style.maxWidth = "none";
+  }
+
+  const controls = [...actions.children].find(item => item instanceof HTMLDivElement && !item.hasAttribute("data-xps2-inline-test-result"));
+  if (controls instanceof HTMLElement) controls.style.flex = "0 0 auto";
+
+  let result = actions.querySelector("[data-xps2-inline-test-result]");
+  if (!(result instanceof HTMLElement)) {
+    result = document.createElement("div");
+    result.setAttribute("data-xps2-inline-test-result", "");
+    result.setAttribute("role", "status");
+    result.setAttribute("aria-live", "polite");
+    actions.appendChild(result);
+  }
+
   result.hidden = true;
-  result.style.marginTop = "14px";
+  result.style.flex = "1 0 100%";
+  result.style.width = "100%";
+  result.style.minWidth = "0";
+  result.style.boxSizing = "border-box";
+  result.style.marginTop = "0";
   result.style.padding = "12px 16px";
   result.style.borderRadius = "10px";
   result.style.border = "1px solid var(--sg-line, #31455c)";
   result.style.background = "var(--sg-field, #0d1825)";
   result.style.fontWeight = "700";
   result.style.lineHeight = "1.45";
-  actions.appendChild(result);
+  result.style.whiteSpace = "normal";
+  result.style.overflowWrap = "anywhere";
+  result.style.maxHeight = "150px";
+  result.style.overflowY = "auto";
 
   const showResult = (message, ok) => {
     result.hidden = false;
@@ -41,7 +64,7 @@
     const originalText = testButton.textContent;
     testButton.disabled = true;
     testButton.textContent = "Проверяю…";
-    showResult("Проверяется полный Xray candidate. Изменения пока не применяются…", true);
+    showResult("Проверяется полный Xray candidate. Изменения не применяются…", true);
 
     try {
       const payload = new FormData(form);
@@ -65,8 +88,10 @@
 
       if (response.url.includes("/login")) {
         showResult("Сессия панели завершилась. Войдите снова и повторите проверку.", false);
+      } else if (!failed && message) {
+        showResult("Конфигурация Xray успешно проверена. Ошибок нет. Изменения не применялись.", true);
       } else if (message) {
-        showResult(message, !failed);
+        showResult(message, false);
       } else if (response.ok) {
         showResult("Проверка завершилась, но сервер не вернул текст результата.", false);
       } else {
