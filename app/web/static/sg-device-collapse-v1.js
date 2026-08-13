@@ -124,6 +124,15 @@
     if (recommended) recommended.textContent = 'VLESS Reality TCP, Mieru и персональная SUB.';
   }
 
+  function markWarmActionButtons() {
+    document.querySelectorAll('.dv16-device-controls .button').forEach(button => {
+      const text = button.textContent.replace(/\s+/g, ' ').trim().toLowerCase();
+      if (text.startsWith('отключить')) {
+        button.classList.add('sg-warm-action');
+      }
+    });
+  }
+
   function initDevice(card) {
     if (card.dataset.sgCollapseReady === '1') return;
 
@@ -169,6 +178,7 @@
   function initAll() {
     normalizeProtocolPickers();
     document.querySelectorAll('.dv16-devices > .dv16-device').forEach(initDevice);
+    markWarmActionButtons();
 
     const hash = String(location.hash || '');
     if (hash.startsWith('#device-')) {
