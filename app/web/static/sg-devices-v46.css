@@ -60,6 +60,21 @@ html body.page-clients .dv16-dialog .dv16-protocol small {
   font-size:10.5px !important;
   line-height:1.35 !important;
 }
+html body.page-clients .dv16-device-controls .button.sg-warm-action {
+  border-color:rgba(164,126,78,.55) !important;
+  background:linear-gradient(180deg, rgba(122,88,49,.96) 0%, rgba(93,66,38,.96) 100%) !important;
+  color:#f6ecd8 !important;
+  box-shadow:0 10px 20px rgba(70,49,26,.24) !important;
+}
+html body.page-clients .dv16-device-controls .button.sg-warm-action:hover {
+  background:linear-gradient(180deg, rgba(132,96,56,.98) 0%, rgba(100,72,42,.98) 100%) !important;
+}
+html[data-theme="light"] body.page-clients .dv16-device-controls .button.sg-warm-action {
+  border-color:#b68e61 !important;
+  background:linear-gradient(180deg, #caa06d 0%, #b68653 100%) !important;
+  color:#fff8ef !important;
+  box-shadow:0 8px 18px rgba(115,80,39,.16) !important;
+}
 @media(max-width:900px){
   html body.page-clients .dv16-dialog .dv16-protocol-list {
     grid-template-columns:repeat(2,minmax(0,1fr)) !important;
