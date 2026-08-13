@@ -36,3 +36,37 @@ html[data-theme="light"] .dv46-recommended{background:var(--sg-ljd-surface-soft)
   left: auto;
   z-index: 40;
 }
+
+/* SG-Gateway 022.04 · unified protocol picker 3x3 in device/client edit dialogs. */
+html body.page-clients .dv16-dialog {
+  width:min(1120px,calc(100vw - 32px)) !important;
+  max-width:1120px !important;
+}
+html body.page-clients .dv16-dialog .dv16-protocol-list {
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  gap:10px !important;
+}
+html body.page-clients .dv16-dialog .dv16-protocol-list > legend {
+  grid-column:1 / -1 !important;
+}
+html body.page-clients .dv16-dialog .dv16-protocol {
+  min-height:66px !important;
+  padding:11px 13px !important;
+}
+html body.page-clients .dv16-dialog .dv16-protocol strong {
+  font-size:13px !important;
+}
+html body.page-clients .dv16-dialog .dv16-protocol small {
+  font-size:10.5px !important;
+  line-height:1.35 !important;
+}
+@media(max-width:900px){
+  html body.page-clients .dv16-dialog .dv16-protocol-list {
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
+@media(max-width:620px){
+  html body.page-clients .dv16-dialog .dv16-protocol-list {
+    grid-template-columns:1fr !important;
+  }
+}
