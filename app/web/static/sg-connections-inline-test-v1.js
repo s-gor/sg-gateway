@@ -43,9 +43,11 @@
     showResult("Проверяется полный Xray candidate. Изменения пока не применяются…", true);
 
     try {
+      const payload = new FormData(form);
+      payload.set("action", "test");
       const response = await fetch(form.action, {
         method: "POST",
-        body: new FormData(form),
+        body: payload,
         credentials: "same-origin",
         headers: {"X-Requested-With": "XMLHttpRequest"},
         redirect: "follow",
