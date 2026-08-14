@@ -96,8 +96,8 @@ nginx.service
 | Профиль | Транспорт | Защита | Flow | VLESS Encryption | XMUX | Домен |
 |---|---|---|---|---|---|---|
 | VLESS Reality TCP | TCP | REALITY | `xtls-rprx-vision` | Нет, `encryption=none` | Нет | Не требуется |
-| VLESS XHTTP Reality | XHTTP | REALITY | `xtls-rprx-vision` | Да | Да | Не требуется |
-| VLESS XHTTP TLS | XHTTP | TLS | `xtls-rprx-vision` | Да | Да | Требуется |
+| VLESS XHTTP Reality | XHTTP | REALITY | `xtls-rprx-vision` | Да | Опционально | Не требуется |
+| VLESS XHTTP TLS | XHTTP | TLS | `xtls-rprx-vision` | Да | Опционально | Требуется |
 | Hysteria 2 | QUIC/UDP | TLS | Не применяется | Не применяется | Не применяется | Требуется |
 
 ## 6. XTLS Vision
@@ -196,7 +196,7 @@ flow=xtls-rprx-vision
 encryption=<client VLESS Encryption>
 path=<profile path>
 mode=<client mode>
-extra={"xmux":{...}}
+[extra={"xmux":{...}}]  # только preset/manual; в Xray Auto отсутствует
 ```
 
 Дополнительно используются Reality Public Key, ShortID, SNI и fingerprint.
@@ -214,14 +214,39 @@ sni=<panel domain>
 alpn=h2
 path=<profile path>
 mode=<client mode>
-extra={"xmux":{...}}
+[extra={"xmux":{...}}]  # только preset/manual; в Xray Auto отсутствует
 ```
 
 Профиль доступен только при готовом HTTPS-состоянии.
 
-## 9. XMUX для российских сетей
+По умолчанию XMUX работает в режиме **Xray Auto**: `extra.xmux` не передаётся. Standard, уменьшенный и ручной режимы являются явным выбором администратора и применяются только к клиентским XHTTP-профилям.
 
-XMUX постоянно добавляется к обоим XHTTP-профилям:
+## 9. XMUX для XHTTP
+
+XMUX — общий **клиентский** параметр для VLESS XHTTP Reality и VLESS XHTTP TLS. Серверные XHTTP inbound его не получают.
+
+Режим по умолчанию — **Xray Auto**. В этом режиме SG-Gateway вообще не добавляет `extra.xmux`, поэтому используются штатные значения установленного Xray-core.
+
+Администратор может явно выбрать:
+
+- `Xray Auto` — рекомендуемый режим без навязанных значений;
+- `Standard` — совместимый пресет SG-Panel;
+- `Для РФ — уменьшенный` — совместимый пресет SG-Panel;
+- `Ручной` — собственные значения или диапазоны.
+
+Standard:
+
+```json
+{
+  "maxConnections": "2-4",
+  "cMaxReuseTimes": "300-600",
+  "hMaxRequestTimes": "1000-2000",
+  "hMaxReusableSecs": "1200-2400",
+  "hKeepAlivePeriod": 600
+}
+```
+
+Для РФ — уменьшенный:
 
 ```json
 {
@@ -234,19 +259,7 @@ XMUX постоянно добавляется к обоим XHTTP-профил�
 }
 ```
 
-XMUX является клиентской частью ссылки:
-
-```json
-{
-  "extra": {
-    "xmux": {}
-  }
-}
-```
-
-Он не добавляется в серверный inbound Xray.
-
-В интерфейсе нет отдельного переключателя: это встроенный профиль SG-Gateway для XHTTP. Параметры можно просмотреть, но пользователю не требуется включать их вручную.
+В ручном режиме поддерживаются `maxConcurrency`, `maxConnections`, `cMaxReuseTimes`, `hMaxRequestTimes`, `hMaxReusableSecs` и `hKeepAlivePeriod`. Для range-полей допустимы число или диапазон `N-M`. Положительные `maxConnections` и `maxConcurrency` одновременно запрещены.
 
 ## 10. Reality
 
