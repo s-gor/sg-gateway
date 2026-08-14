@@ -21,16 +21,31 @@ from app.clients.sg_subscription_store import (
 PUBLIC_ENDPOINT = "sg_subscription_v1"
 INFO_ENDPOINT = "sg_subscription_v1_info"
 QR_ENDPOINT = "sg_subscription_v1_qr"
+UNIVERSAL_QR_ENDPOINT = "sg_subscription_v1_universal_qr"
+
+
+def _universal_url(client) -> str:
+    return build_sg_subscription_url(client)
 
 
 def _native_url(client) -> str:
-    url = build_sg_subscription_url(client)
+    url = _universal_url(client)
     return f"{url}?format=sg" if url else ""
 
 
 def _json_url(client) -> str:
-    url = build_sg_subscription_url(client)
+    url = _universal_url(client)
     return f"{url}?format=json" if url else ""
+
+
+def _qr_response(url: str):
+    if not url:
+        abort(409)
+    try:
+        svg = build_qr_svg(url)
+    except ClientQrError as exc:
+        return Response(str(exc), status=409, mimetype="text/plain")
+    return Response(svg, mimetype="image/svg+xml")
 
 
 def register_sg_subscription(app: Flask) -> None:
@@ -77,8 +92,9 @@ def register_sg_subscription(app: Flask) -> None:
             client = get_client(client_id)
             if client is None:
                 abort(404)
+            universal_url = _universal_url(client)
             native_url = _native_url(client)
-            if not native_url:
+            if not universal_url:
                 return jsonify({
                     "ok": False,
                     "format": SG_SUBSCRIPTION_FORMAT,
@@ -89,8 +105,12 @@ def register_sg_subscription(app: Flask) -> None:
                 "ok": True,
                 "format": SG_SUBSCRIPTION_FORMAT,
                 "version": SG_SUBSCRIPTION_VERSION,
+                # Keep the historical field for existing SG clients.
                 "url": native_url,
-                "compat_url": build_sg_subscription_url(client),
+                "compat_url": universal_url,
+                # Explicit names are the stable dual-format contract from 022.05 onward.
+                "universal_url": universal_url,
+                "native_url": native_url,
                 "json_url": _json_url(client),
                 "summary": build_sg_subscription_document(client)["summary"],
             })
@@ -102,19 +122,14 @@ def register_sg_subscription(app: Flask) -> None:
             methods=["GET"],
         )
 
+    # Preserve the existing QR endpoint as SG-native for compatibility with
+    # already shipped SG clients and live UI patches.
     if QR_ENDPOINT not in app.view_functions:
         def qr(client_id: int):
             client = get_client(client_id)
             if client is None:
                 abort(404)
-            url = _native_url(client)
-            if not url:
-                abort(409)
-            try:
-                svg = build_qr_svg(url)
-            except ClientQrError as exc:
-                return Response(str(exc), status=409, mimetype="text/plain")
-            return Response(svg, mimetype="image/svg+xml")
+            return _qr_response(_native_url(client))
 
         app.add_url_rule(
             "/clients/<int:client_id>/sg-subscription-v1/qr",
@@ -123,11 +138,29 @@ def register_sg_subscription(app: Flask) -> None:
             methods=["GET"],
         )
 
+    if UNIVERSAL_QR_ENDPOINT not in app.view_functions:
+        def universal_qr(client_id: int):
+            client = get_client(client_id)
+            if client is None:
+                abort(404)
+            return _qr_response(_universal_url(client))
+
+        app.add_url_rule(
+            "/clients/<int:client_id>/sg-subscription-v1/qr/universal",
+            endpoint=UNIVERSAL_QR_ENDPOINT,
+            view_func=universal_qr,
+            methods=["GET"],
+        )
+
     if not getattr(app, "_sg_subscription_v1_template_context", False):
         def template_context():
             return {
+                # Historical aliases stay intact so older patches keep working.
                 "sg_subscription_url": _native_url,
-                "sg_subscription_compat_url": build_sg_subscription_url,
+                "sg_subscription_compat_url": _universal_url,
+                # New UI must use these explicit names instead of guessing format.
+                "sg_subscription_universal_url": _universal_url,
+                "sg_subscription_native_url": _native_url,
             }
 
         app.context_processor(template_context)
