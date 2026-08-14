@@ -64,9 +64,10 @@ def strip_direct_single_sg_blocks(value: str) -> str:
 text = strip_direct_single_sg_blocks(text)
 
 # Normalize the dual include to exactly one instance immediately before devices.
+# Keep whitespace of the following element intact; only consume the marker/include lines.
 pattern = re.compile(
-    r'^[ \t]*<!-- SG_SUBSCRIPTION_DUAL_UI_V1 -->\s*\n'
-    r'^[ \t]*\{% include "_sg_subscription_dual\.html" %\}\s*\n?',
+    r'^[ \t]*<!-- SG_SUBSCRIPTION_DUAL_UI_V1 -->[ \t]*\n'
+    r'^[ \t]*\{% include "_sg_subscription_dual\.html" %\}[ \t]*\n',
     re.MULTILINE,
 )
 text = pattern.sub('', text)
