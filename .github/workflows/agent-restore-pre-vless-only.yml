@@ -1,0 +1,29 @@
+name: Agent selective pre-VLESS restore
+
+on:
+  push:
+    branches:
+      - agent/restore-pre-vless-only-20260814
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/restore-pre-vless-only-20260814
+          fetch-depth: 0
+      - name: Restore only VLESS/XMUX/UI files
+        run: |
+          python3 .github/agent-restore-pre-vless-only.py
+          git add -A
+          git diff --cached --check
+      - name: Commit selective restore
+        run: |
+          git config user.name "SG-Gateway automation"
+          git config user.email "actions@users.noreply.github.com"
+          git commit -m "Restore pre-VLESS UI/runtime only"
+          git push origin HEAD:agent/restore-pre-vless-only-20260814
