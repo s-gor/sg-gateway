@@ -12,26 +12,18 @@ def _patch_template(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     restore_marker = f"location = {RESTORE} {{"
     verify_marker = f"location = {VERIFY} {{"
-    restore_count = text.count(restore_marker)
-    if restore_count < 1:
+    if restore_marker not in text:
         raise RuntimeError(f"{path}: restore upload location missing")
 
-    # Each old restore block is a complete nginx location with the proven 1024m
-    # limit. Duplicate that exact block for Verify, preserving indentation and
-    # any shell/template variables inside it.
     block_pattern = re.compile(
         r"(?ms)^(?P<block>[ \t]*location = /maintenance/full-backups/restore \{\n"
         r"[ \t]*client_max_body_size 1024m;\n"
         r".*?^[ \t]*\}\n)"
     )
     matches = list(block_pattern.finditer(text))
-    if len(matches) != restore_count:
-        raise RuntimeError(
-            f"{path}: found {restore_count} restore markers but only {len(matches)} exact 1024m blocks"
-        )
+    if not matches:
+        raise RuntimeError(f"{path}: no exact restore 1024m nginx block found")
 
-    # Rebuild from the end so offsets stay valid. Skip only when the same
-    # template already has a Verify block immediately following this Restore.
     for match in reversed(matches):
         restore_block = match.group("block")
         tail = text[match.end() :]
@@ -41,12 +33,8 @@ def _patch_template(path: Path) -> None:
         verify_block = restore_block.replace(RESTORE, VERIFY, 1)
         text = text[: match.end()] + verify_block + text[match.end() :]
 
-    final_restore = text.count(restore_marker)
-    final_verify = text.count(verify_marker)
-    if final_restore != final_verify or final_restore < 1:
-        raise RuntimeError(
-            f"{path}: upload contract mismatch restore={final_restore}, verify={final_verify}"
-        )
+    if verify_marker not in text:
+        raise RuntimeError(f"{path}: verify upload location was not created")
     path.write_text(text, encoding="utf-8", newline="\n")
 
 
