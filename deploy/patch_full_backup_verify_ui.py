@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 VERIFY_MARKER = "data-sg-full-verify-button"
+VERIFY_ACTION_ATTRS = 'name="backup_action" value="verify"'
 
 
 def _replace_once(text: str, old: str, new: str, label: str) -> str:
@@ -29,13 +30,21 @@ def patch_text(text: str) -> str:
               <span>Восстановить сервер</span>
             </button>"""
         verify_and_restore = """            <button class=\"button sg-full-restore-button sg-full-verify-button\" type=\"submit\"
-                    formaction=\"{{ url_for('verify_full_backup_route') }}\" formmethod=\"post\"
+                    name=\"backup_action\" value=\"verify\"
                     disabled data-sg-full-verify-button>
               <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m5 12 4 4L19 6\"/></svg>
               <span>Проверить backup</span>
             </button>
 """ + restore_button
         text = _replace_once(text, restore_button, verify_and_restore, "restore button")
+    else:
+        # Migrate the first implementation that posted Verify to a second URL.
+        old = """                    formaction=\"{{ url_for('verify_full_backup_route') }}\" formmethod=\"post\"
+                    disabled data-sg-full-verify-button>"""
+        new = """                    name=\"backup_action\" value=\"verify\"
+                    disabled data-sg-full-verify-button>"""
+        if old in text:
+            text = text.replace(old, new, 1)
 
     if "const verifyButton = form.querySelector(\"[data-sg-full-verify-button]\");" not in text:
         text = _replace_once(
@@ -66,8 +75,7 @@ def patch_text(text: str) -> str:
     # The same form owns the destructive Restore action and therefore carries
     # data-sg-confirm. Verification must not show that dialog. Set the shared
     # confirmation bypass immediately on the verify-button click; form submit
-    # happens synchronously afterwards and base.html consumes/removes it. The
-    # timeout removes it as a safety net if native validation prevents submit.
+    # happens synchronously afterwards and base.html consumes/removes it.
     if "verifyButton.addEventListener(\"click\", () => {" not in text:
         text = _replace_once(
             text,
@@ -89,7 +97,7 @@ def patch_text(text: str) -> str:
 
     required = (
         VERIFY_MARKER,
-        "verify_full_backup_route",
+        VERIFY_ACTION_ATTRS,
         "готов к проверке / восстановлению",
         "verifyButton.addEventListener(\"click\", () => {",
         "form.dataset.sgConfirmBypass = \"1\"",
@@ -98,6 +106,8 @@ def patch_text(text: str) -> str:
     missing = [item for item in required if item not in text]
     if missing:
         raise RuntimeError("Full Backup verify UI patch incomplete: " + ", ".join(missing))
+    if "verify_full_backup_route" in text:
+        raise RuntimeError("Full Backup verify UI still uses the obsolete second upload endpoint")
     return text
 
 
