@@ -688,43 +688,74 @@ def _restore_payload(payload_root: Path, preserve_machine_env: bool = True) -> N
 
 
 def _ensure_full_restore_upload_nginx() -> None:
-    # SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX1
+    # SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX2
     path = Path("/etc/nginx/sites-available/sg-gateway")
     if not path.is_file():
         return
     body = path.read_text(encoding="utf-8")
-    if "SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX1" in body:
-        return
-    matches = list(re.finditer(
-        r"(?m)^    location / \{\n        proxy_pass http://127\.0\.0\.1:(\d+);\n",
-        body,
-    ))
-    if len(matches) != 1:
-        raise RuntimeError(
-            f"Nginx Full Restore proxy location is ambiguous: {len(matches)}"
-        )
-    match = matches[0]
-    port = match.group(1)
-    block = (
-        "    # SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX1\n"
-        "    location = /maintenance/full-backups/restore {\n"
-        "        client_max_body_size 1024m;\n"
-        f"        proxy_pass http://127.0.0.1:{port};\n"
-        "        proxy_http_version 1.1;\n"
-        "        proxy_set_header Host $host;\n"
-        "        proxy_set_header X-Real-IP $remote_addr;\n"
-        "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n"
-        "        proxy_set_header X-Forwarded-Proto https;\n"
-        "        proxy_read_timeout 300s;\n"
-        "        proxy_send_timeout 300s;\n"
-        "    }\n"
-    )
-    path.write_text(
-        body[:match.start()] + block + body[match.start():],
-        encoding="utf-8",
-        newline="\n",
-    )
+    restore_path = "/maintenance/full-backups/restore"
+    verify_path = "/maintenance/full-backups/verify"
+    restore_marker = f"location = {restore_path} {{"
+    verify_marker = f"location = {verify_path} {{"
 
+    if restore_marker in body and verify_marker in body:
+        return
+
+    def existing_block(endpoint: str) -> str | None:
+        pattern = re.compile(
+            rf"(?ms)^    location = {re.escape(endpoint)} \{{\n"
+            r"        client_max_body_size 1024m;\n"
+            r".*?^    \}\n"
+        )
+        match = pattern.search(body)
+        return match.group(0) if match else None
+
+    restore_block = existing_block(restore_path)
+    verify_block = existing_block(verify_path)
+
+    if restore_block and not verify_block:
+        insert_at = body.find(restore_block) + len(restore_block)
+        body = body[:insert_at] + restore_block.replace(restore_path, verify_path, 1) + body[insert_at:]
+    elif verify_block and not restore_block:
+        insert_at = body.find(verify_block)
+        body = body[:insert_at] + verify_block.replace(verify_path, restore_path, 1) + body[insert_at:]
+    elif not restore_block and not verify_block:
+        matches = list(re.finditer(
+            r"(?m)^    location / \{\n        proxy_pass http://127\.0\.0\.1:(\d+);\n",
+            body,
+        ))
+        if len(matches) != 1:
+            raise RuntimeError(
+                f"Nginx Full Backup proxy location is ambiguous: {len(matches)}"
+            )
+        match = matches[0]
+        port = match.group(1)
+
+        def make_block(endpoint: str) -> str:
+            return (
+                f"    location = {endpoint} {{\n"
+                "        client_max_body_size 1024m;\n"
+                f"        proxy_pass http://127.0.0.1:{port};\n"
+                "        proxy_http_version 1.1;\n"
+                "        proxy_set_header Host $host;\n"
+                "        proxy_set_header X-Real-IP $remote_addr;\n"
+                "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n"
+                "        proxy_set_header X-Forwarded-Proto https;\n"
+                "        proxy_read_timeout 300s;\n"
+                "        proxy_send_timeout 300s;\n"
+                "    }\n"
+            )
+
+        block = (
+            "    # SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX2\n"
+            + make_block(restore_path)
+            + make_block(verify_path)
+        )
+        body = body[:match.start()] + block + body[match.start():]
+    else:
+        raise RuntimeError("Nginx Full Backup upload locations are malformed")
+
+    path.write_text(body, encoding="utf-8", newline="\n")
 
 def _probe(
     command: list[str],
