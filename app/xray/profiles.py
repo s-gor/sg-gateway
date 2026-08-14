@@ -58,10 +58,17 @@ XHTTP_MODE_OPTIONS = (
 )
 VLESS_ENCRYPTION_PLACEHOLDER = "PLACEHOLDER_VLESS_ENCRYPTION"
 
-# Client-only XHTTP XMUX preset confirmed for Russian networks.
-# maxConcurrency stays 0 because Xray forbids a positive maxConcurrency together
-# with a positive maxConnections.
-XHTTP_XMUX_RF = {
+# Client-only XHTTP XMUX presets mirrored from SG-Panel.
+# Standard is the default (`xmux_mode=auto` in SG-Panel).  The reduced/RF
+# preset is retained here only as an explicit comparison/reference preset.
+XHTTP_XMUX_STANDARD = {
+    "maxConnections": "2-4",
+    "cMaxReuseTimes": "300-600",
+    "hMaxRequestTimes": "1000-2000",
+    "hMaxReusableSecs": "1200-2400",
+    "hKeepAlivePeriod": 600,
+}
+XHTTP_XMUX_REDUCED = {
     "maxConcurrency": 0,
     "maxConnections": 6,
     "cMaxReuseTimes": 0,
@@ -475,7 +482,7 @@ def overview() -> dict[str, Any]:
             encryption_ready=encryption_ready if encryption_required else False,
             mode=str(values[mode_key]) if mode_key else "",
             xmux_enabled=True if xmux_enabled_key else False,
-            xmux=dict(XHTTP_XMUX_RF) if xmux_enabled_key else None,
+            xmux=dict(XHTTP_XMUX_STANDARD) if xmux_enabled_key else None,
         )
 
     profiles = [
@@ -525,7 +532,8 @@ def overview() -> dict[str, Any]:
         "version_ready": version_ready,
         "xhttp_modes": XHTTP_MODES,
         "xhttp_mode_options": XHTTP_MODE_OPTIONS,
-        "xhttp_xmux_rf": dict(XHTTP_XMUX_RF),
+        "xhttp_xmux_standard": dict(XHTTP_XMUX_STANDARD),
+        "xhttp_xmux_reduced": dict(XHTTP_XMUX_REDUCED),
         "key_ready": key_ready,
         "vless_encryption_ready": encryption_ready,
         "vless_encryption_algorithm": (
