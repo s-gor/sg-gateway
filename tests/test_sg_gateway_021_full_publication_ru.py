@@ -16,8 +16,9 @@ def test_connections_uses_compact_xmux_and_full_width_mihomo():
         encoding="utf-8"
     )
 
-    assert "Xray Auto · рекомендуется" in template
-    assert "Показать пресеты и ручные параметры" in template
+    assert "Автоматически · рекомендуется" in template
+    assert "Экспертные настройки XMUX" in template
+    assert "Технические значения пресетов" in template
     assert "xps2-xmux-switch" not in template
     assert "client-only XMUX controls with native Xray Auto" in xray_css
     assert "Mihomo as a separate full-width Connections block" in layout_css

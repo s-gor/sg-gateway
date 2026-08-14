@@ -234,43 +234,56 @@
             <section class="xps2-xmux" data-xmux-shared>
               <div class="xps2-xmux-main">
                 <div class="xps2-xmux-copy">
-                  <span>Общий клиентский XMUX · XHTTP Reality + XHTTP TLS</span>
-                  <strong>{{ 'Xray Auto · рекомендуется' if xray_profiles.xhttp_xmux_mode == 'auto' else xray_profiles.xhttp_xmux_mode }}</strong>
-                  <small>В Xray Auto SG-Gateway не добавляет <code>extra.xmux</code>: используются штатные значения установленного Xray. Пресеты и ручной режим включаются только по выбору администратора.</small>
+                  <span>XMUX · XHTTP Reality + XHTTP TLS</span>
+                  {% if xray_profiles.xhttp_xmux_mode == 'auto' %}
+                  <strong>Автоматически · рекомендуется</strong>
+                  <small>Xray использует штатные настройки XMUX. Для обычной работы ничего менять не нужно.</small>
+                  {% else %}
+                  <strong>Экспертная настройка активна</strong>
+                  <small>Сейчас используется выбранный вручную режим XMUX. Откройте экспертные настройки, чтобы посмотреть или изменить его.</small>
+                  {% endif %}
                 </div>
+                <span class="xps2-xmux-badge {{ 'recommended' if xray_profiles.xhttp_xmux_mode == 'auto' else 'expert' }}">
+                  {{ 'Рекомендуется' if xray_profiles.xhttp_xmux_mode == 'auto' else 'Эксперт' }}
+                </span>
               </div>
 
-              <label>
-                <span>Режим XMUX</span>
-                <select name="xhttp_xmux_mode" data-xmux-mode>
-                  {% for item in xray_profiles.xhttp_xmux_mode_options %}
-                  <option value="{{ item.value }}" {% if item.value == xray_profiles.xhttp_xmux_mode %}selected{% endif %}>{{ item.title }} · {{ item.note }}</option>
-                  {% endfor %}
-                </select>
-                <small>Xray Auto — рекомендуемый режим. Standard и «Для РФ — уменьшенный» сохранены как опциональные пресеты SG-Panel.</small>
-              </label>
-
-              <details class="xps2-xmux-details" open>
+              <details class="xps2-xmux-details" {% if xray_profiles.xhttp_xmux_mode != 'auto' %}open{% endif %}>
                 <summary>
-                  <span class="xps2-xmux-show">Показать пресеты и ручные параметры</span>
-                  <span class="xps2-xmux-hide">Скрыть параметры</span>
+                  <span class="xps2-xmux-show">Экспертные настройки XMUX</span>
+                  <span class="xps2-xmux-hide">Скрыть экспертные настройки</span>
                 </summary>
 
-                <div class="xps2-xmux-grid">
-                  <div><span>Standard · SG-Panel</span><small>preset</small><strong>{{ xray_profiles.xhttp_xmux_standard | tojson }}</strong></div>
-                  <div><span>Для РФ — уменьшенный · SG-Panel</span><small>preset</small><strong>{{ xray_profiles.xhttp_xmux_reduced | tojson }}</strong></div>
-                  <div><span>Текущий effective XMUX</span><small>extra.xmux</small><strong>{{ xray_profiles.xhttp_xmux_effective | tojson if xray_profiles.xhttp_xmux_effective else 'не передаётся · native Xray' }}</strong></div>
-                </div>
+                <div class="xps2-xmux-expert">
+                  <label class="xps2-xmux-mode-field">
+                    <span>Режим XMUX</span>
+                    <select name="xhttp_xmux_mode" data-xmux-mode>
+                      {% for item in xray_profiles.xhttp_xmux_mode_options %}
+                      <option value="{{ item.value }}" {% if item.value == xray_profiles.xhttp_xmux_mode %}selected{% endif %}>{{ item.title }}</option>
+                      {% endfor %}
+                    </select>
+                    <small>Для большинства установок оставьте Xray Auto. Остальные варианты нужны только для точной настройки или совместимости.</small>
+                  </label>
 
-                <div class="xps2-xmux-grid" data-xmux-manual>
-                  <div><span>Максимальная параллельность</span><small>maxConcurrency</small><input type="text" name="xhttp_xmux_maxConcurrency" value="{{ xray_profiles.xhttp_xmux_expert.get('maxConcurrency', '') }}" placeholder="0 или 8-16"></div>
-                  <div><span>Максимум соединений</span><small>maxConnections</small><input type="text" name="xhttp_xmux_maxConnections" value="{{ xray_profiles.xhttp_xmux_expert.get('maxConnections', '') }}" placeholder="6 или 2-4"></div>
-                  <div><span>Повторное использование</span><small>cMaxReuseTimes</small><input type="text" name="xhttp_xmux_cMaxReuseTimes" value="{{ xray_profiles.xhttp_xmux_expert.get('cMaxReuseTimes', '') }}" placeholder="0 или 300-600"></div>
-                  <div><span>HTTP-запросов</span><small>hMaxRequestTimes</small><input type="text" name="xhttp_xmux_hMaxRequestTimes" value="{{ xray_profiles.xhttp_xmux_expert.get('hMaxRequestTimes', '') }}" placeholder="600-900"></div>
-                  <div><span>Время reuse, сек.</span><small>hMaxReusableSecs</small><input type="text" name="xhttp_xmux_hMaxReusableSecs" value="{{ xray_profiles.xhttp_xmux_expert.get('hMaxReusableSecs', '') }}" placeholder="1800-3000"></div>
-                  <div><span>Keep-Alive</span><small>hKeepAlivePeriod</small><input type="number" min="0" name="xhttp_xmux_hKeepAlivePeriod" value="{{ xray_profiles.xhttp_xmux_expert.get('hKeepAlivePeriod', '') }}" placeholder="0"></div>
+                  <details class="xps2-xmux-technical">
+                    <summary>Технические значения пресетов</summary>
+                    <div class="xps2-xmux-grid">
+                      <div><span>Standard · SG-Panel</span><small>preset</small><strong>{{ xray_profiles.xhttp_xmux_standard | tojson }}</strong></div>
+                      <div><span>Для РФ — уменьшенный · SG-Panel</span><small>preset</small><strong>{{ xray_profiles.xhttp_xmux_reduced | tojson }}</strong></div>
+                      <div><span>Текущий effective XMUX</span><small>extra.xmux</small><strong>{{ xray_profiles.xhttp_xmux_effective | tojson if xray_profiles.xhttp_xmux_effective else 'не передаётся · native Xray' }}</strong></div>
+                    </div>
+                  </details>
+
+                  <div class="xps2-xmux-grid" data-xmux-manual {% if xray_profiles.xhttp_xmux_mode != 'expert' %}hidden{% endif %}>
+                    <div><span>Максимальная параллельность</span><small>maxConcurrency</small><input type="text" name="xhttp_xmux_maxConcurrency" value="{{ xray_profiles.xhttp_xmux_expert.get('maxConcurrency', '') }}" placeholder="0 или 8-16"></div>
+                    <div><span>Максимум соединений</span><small>maxConnections</small><input type="text" name="xhttp_xmux_maxConnections" value="{{ xray_profiles.xhttp_xmux_expert.get('maxConnections', '') }}" placeholder="6 или 2-4"></div>
+                    <div><span>Повторное использование</span><small>cMaxReuseTimes</small><input type="text" name="xhttp_xmux_cMaxReuseTimes" value="{{ xray_profiles.xhttp_xmux_expert.get('cMaxReuseTimes', '') }}" placeholder="0 или 300-600"></div>
+                    <div><span>HTTP-запросов</span><small>hMaxRequestTimes</small><input type="text" name="xhttp_xmux_hMaxRequestTimes" value="{{ xray_profiles.xhttp_xmux_expert.get('hMaxRequestTimes', '') }}" placeholder="600-900"></div>
+                    <div><span>Время reuse, сек.</span><small>hMaxReusableSecs</small><input type="text" name="xhttp_xmux_hMaxReusableSecs" value="{{ xray_profiles.xhttp_xmux_expert.get('hMaxReusableSecs', '') }}" placeholder="1800-3000"></div>
+                    <div><span>Keep-Alive</span><small>hKeepAlivePeriod</small><input type="number" min="0" name="xhttp_xmux_hKeepAlivePeriod" value="{{ xray_profiles.xhttp_xmux_expert.get('hKeepAlivePeriod', '') }}" placeholder="0"></div>
+                  </div>
+                  <p class="xps2-xmux-expert-note">Ручной режим принимает число или диапазон <code>N-M</code>. Положительные <code>maxConnections</code> и <code>maxConcurrency</code> одновременно не используются.</p>
                 </div>
-                <p>Ручной режим принимает число или диапазон <code>N-M</code> для range-полей. Положительные <code>maxConnections</code> и <code>maxConcurrency</code> одновременно запрещены Xray. XMUX остаётся клиентским параметром; серверный inbound не меняется.</p>
               </details>
             </section>
           </section>
@@ -432,8 +445,8 @@
   const syncXmux = () => {
     if (!xmuxManual) return;
     const manual = xmuxMode?.value === 'expert';
+    xmuxManual.hidden = !manual;
     xmuxManual.querySelectorAll('input').forEach(input => { input.disabled = !manual; });
-    xmuxManual.style.opacity = manual ? '1' : '.55';
   };
 
   const syncConfirmation = () => {
