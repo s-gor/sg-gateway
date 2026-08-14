@@ -506,3 +506,21 @@ html[data-theme="light"] .xps2-salamander-warning {
 .xps2-xmux-grid input{grid-column:2;grid-row:1/3;width:min(180px,42vw);min-height:38px}
 .xps2-xmux-details>p{margin:11px 0 0;color:var(--muted);font-size:11px;line-height:1.45}
 @media(max-width:760px){.xps2-xmux-main{align-items:flex-start;flex-direction:column}.xps2-xmux-grid{grid-template-columns:1fr}}
+
+
+/* SG-Gateway 02114 · simplified XMUX summary and expert controls */
+.xps2-xmux-main{align-items:center}
+.xps2-xmux-badge{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-size:10px;font-weight:850;white-space:nowrap}
+.xps2-xmux-badge.recommended{color:var(--green)}
+.xps2-xmux-badge.expert{color:var(--yellow)}
+.xps2-xmux-details{padding:10px 14px 14px}
+.xps2-xmux-expert{display:grid;gap:12px;margin-top:12px}
+.xps2-xmux-mode-field{display:grid;gap:6px}
+.xps2-xmux-mode-field>span{color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.xps2-xmux-mode-field>small,.xps2-xmux-expert-note{margin:0;color:var(--muted);font-size:10px;line-height:1.45}
+.xps2-xmux-mode-field select{width:100%;min-height:40px;border-radius:9px}
+.xps2-xmux-technical{border:1px solid var(--line-soft);border-radius:10px;background:var(--panel);padding:9px 11px}
+.xps2-xmux-technical>summary{color:var(--muted);font-size:11px;font-weight:750;cursor:pointer}
+.xps2-xmux-technical[open]>summary{margin-bottom:10px;color:var(--text)}
+.xps2-xmux-grid[hidden]{display:none!important}
+@media (max-width:650px){.xps2-xmux-main{align-items:flex-start;flex-direction:column}.xps2-xmux-badge{align-self:flex-start}}
