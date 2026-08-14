@@ -55,7 +55,7 @@ def test_old_verify_formaction_is_migrated_to_restore_submit_action():
     assert "verify_full_backup_route" not in migrated
 
 
-def test_full_backup_verify_and_restore_actions_cannot_overflow_restore_card():
+def test_full_backup_verify_and_restore_actions_cannot_overflow_restore_area():
     css = FULL_BACKUP_CSS_PATH.read_text(encoding="utf-8")
 
     assert ".sg-full-restore-actions{" in css
@@ -65,6 +65,33 @@ def test_full_backup_verify_and_restore_actions_cannot_overflow_restore_card():
     assert "flex:1 0 100%;" in css
     assert "max-width:none;" in css
     assert ".sg-full-restore-actions .sg-full-restore-button{" in css
-    assert "flex:1 1 190px;" in css
+    assert "flex:1 1 168px;" in css
     assert "min-width:0;" in css
     assert "max-width:100%;" in css
+
+
+def test_full_backup_restore_area_matches_compact_action_zone_contract():
+    css = FULL_BACKUP_CSS_PATH.read_text(encoding="utf-8")
+
+    # No decorative state-like stripe on a static backup card.
+    assert ".sg-full-backup-card::before{display:none!important;content:none!important}" in css
+
+    # Right side behaves like an action zone rather than a second nested card.
+    assert ".sg-full-backup-grid{" in css
+    assert "align-items:start;" in css
+    assert ".sg-full-restore-box{" in css
+    assert "background:transparent!important;" in css
+    assert "border:0!important;" in css
+    assert "box-shadow:none!important;" in css
+
+    # Safe Verify stays cool; Restore gets an amber/brown warning treatment.
+    assert ".sg-full-restore-actions .sg-full-verify-button{" in css
+    assert "var(--sg-blue) 13%" in css
+    assert ".sg-full-restore-actions [data-sg-full-restore-button]{" in css
+    assert "var(--sg-yellow) 44%" in css
+    assert "#8a5b30" in css
+    assert "#6b4427" in css
+
+    # Narrow layouts retain a visible divider and mobile vertical actions.
+    assert "border-top:1px solid var(--sg-line-soft)!important;" in css
+    assert ".sg-full-restore-actions{align-items:stretch;flex-direction:column}" in css
