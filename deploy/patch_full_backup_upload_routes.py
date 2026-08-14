@@ -10,43 +10,43 @@ VERIFY = "/maintenance/full-backups/verify"
 
 def _patch_template(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
-    if f"location = {VERIFY} {{" in text:
-        return
-    if f"location = {RESTORE} {{" not in text:
+    restore_marker = f"location = {RESTORE} {{"
+    verify_marker = f"location = {VERIFY} {{"
+    restore_count = text.count(restore_marker)
+    if restore_count < 1:
         raise RuntimeError(f"{path}: restore upload location missing")
 
-    pattern = re.compile(
-        r"(?ms)^([ \t]*)# SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX1\n"
-        r"(?P<block>[ \t]*location = /maintenance/full-backups/restore \{\n"
+    # Each old restore block is a complete nginx location with the proven 1024m
+    # limit. Duplicate that exact block for Verify, preserving indentation and
+    # any shell/template variables inside it.
+    block_pattern = re.compile(
+        r"(?ms)^(?P<block>[ \t]*location = /maintenance/full-backups/restore \{\n"
+        r"[ \t]*client_max_body_size 1024m;\n"
         r".*?^[ \t]*\}\n)"
     )
-    match = pattern.search(text)
-    if match:
-        restore_block = match.group("block")
-        verify_block = restore_block.replace(RESTORE, VERIFY, 1)
-        replacement = (
-            f"{match.group(1)}# SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX2\n"
-            + restore_block
-            + verify_block
+    matches = list(block_pattern.finditer(text))
+    if len(matches) != restore_count:
+        raise RuntimeError(
+            f"{path}: found {restore_count} restore markers but only {len(matches)} exact 1024m blocks"
         )
-        text = text[: match.start()] + replacement + text[match.end() :]
-    else:
-        pattern = re.compile(
-            r"(?ms)^(?P<block>[ \t]*location = /maintenance/full-backups/restore \{\n"
-            r"[ \t]*client_max_body_size 1024m;\n"
-            r".*?^[ \t]*\}\n)"
-        )
-        match = pattern.search(text)
-        if not match:
-            raise RuntimeError(f"{path}: exact restore upload block missing")
+
+    # Rebuild from the end so offsets stay valid. Skip only when the same
+    # template already has a Verify block immediately following this Restore.
+    for match in reversed(matches):
         restore_block = match.group("block")
+        tail = text[match.end() :]
+        nearby = tail[: len(restore_block) + 256]
+        if verify_marker in nearby:
+            continue
         verify_block = restore_block.replace(RESTORE, VERIFY, 1)
         text = text[: match.end()] + verify_block + text[match.end() :]
 
-    if text.count(f"location = {RESTORE} {{") != 1:
-        raise RuntimeError(f"{path}: restore location count is not 1")
-    if text.count(f"location = {VERIFY} {{") != 1:
-        raise RuntimeError(f"{path}: verify location count is not 1")
+    final_restore = text.count(restore_marker)
+    final_verify = text.count(verify_marker)
+    if final_restore != final_verify or final_restore < 1:
+        raise RuntimeError(
+            f"{path}: upload contract mismatch restore={final_restore}, verify={final_verify}"
+        )
     path.write_text(text, encoding="utf-8", newline="\n")
 
 
