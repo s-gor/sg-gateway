@@ -3,10 +3,16 @@ from __future__ import annotations
 import io
 import json
 import sqlite3
+import sys
 import tarfile
 from pathlib import Path
 
 import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+HOSTD_ROOT = ROOT / "hostd"
+if str(HOSTD_ROOT) not in sys.path:
+    sys.path.insert(0, str(HOSTD_ROOT))
 
 from sg_hostd import full_backup_runtime as full_backup
 from sg_hostd.full_backup_verify_runtime import VERIFY_UPLOAD_NAME, verify_uploaded_full_backup
