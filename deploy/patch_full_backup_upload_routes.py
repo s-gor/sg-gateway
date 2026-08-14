@@ -56,7 +56,6 @@ def main() -> None:
     for relative in (
         "deploy/configure-panel-access.sh",
         "install.sh",
-        "build-run.sh",
     ):
         _patch_template(ROOT / relative)
     _patch_runtime(ROOT / "hostd/sg_hostd/full_backup_runtime.py")
@@ -64,7 +63,6 @@ def main() -> None:
     for relative in (
         "deploy/configure-panel-access.sh",
         "install.sh",
-        "build-run.sh",
         "hostd/sg_hostd/full_backup_runtime.py",
     ):
         text = (ROOT / relative).read_text(encoding="utf-8")
