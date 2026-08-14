@@ -12,8 +12,6 @@ import re
 from typing import Any
 from urllib.parse import quote
 
-from app.config import load_config
-
 REALITY_TCP_FLOW = "xtls-rprx-vision"
 VLESSENC_SERVER_MODE_DEFAULT = "auto"
 VLESSENC_CLIENT_MODE_DEFAULT = "stream-one"
@@ -25,20 +23,6 @@ FINGERPRINT_ALIASES = {
     "ff": "firefox",
     "google": "chrome",
 }
-
-
-def _direct_reality_host(fallback: str) -> str:
-    """Prefer the current server address for domain-free REALITY client links.
-
-    HTTPS readiness must not replace the endpoint of VLESS Reality TCP or
-    VLESS XHTTP Reality with the TLS domain.  Keep the explicit host as a
-    fallback for tests/development where SG_GATEWAY_PUBLIC_ADDRESS is empty.
-    """
-    try:
-        current_address = str(load_config().public_address or "").strip().rstrip(".")
-    except Exception:
-        current_address = ""
-    return current_address or str(fallback or "").strip().rstrip(".")
 
 
 def fingerprint_for_xray(value: str | None) -> str:
@@ -155,9 +139,8 @@ def reality_tcp_link(
         f"&sid={quote(str(short_id), safe='')}"
         f"&flow={REALITY_TCP_FLOW}&spx=%2F"
     )
-    endpoint_host = _direct_reality_host(host)
     return (
-        f"vless://{uuid}@{endpoint_host}:{int(port)}?{query}"
+        f"vless://{uuid}@{host}:{int(port)}?{query}"
         f"#{quote(str(title), safe='')}"
     )
 
@@ -197,8 +180,7 @@ def xhttp_reality_link(
         f"&mode={quote(str(client_mode or VLESSENC_CLIENT_MODE_DEFAULT), safe='-_')}"
         f"{extra}&spx=%2F"
     )
-    endpoint_host = _direct_reality_host(host)
     return (
-        f"vless://{uuid}@{endpoint_host}:{int(port)}?{query}"
+        f"vless://{uuid}@{host}:{int(port)}?{query}"
         f"#{quote(str(title), safe='')}"
     )

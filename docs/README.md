@@ -28,7 +28,7 @@
 - XTLS Vision;
 - VLESS Encryption;
 - XHTTP;
-- XMUX для XHTTP: Xray Auto, presets и ручной режим;
+- XMUX для РФ;
 - REALITY и TLS;
 - AmneziaWG;
 - Mihomo;

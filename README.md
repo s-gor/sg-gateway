@@ -487,8 +487,8 @@ SG-Gateway подходит, когда нужен:
 SG-Gateway поддерживает современные профили Xray:
 
 - **VLESS Reality TCP + XTLS Vision**;
-- **VLESS XHTTP Reality + XTLS Vision + VLESS Encryption + настраиваемый XMUX**;
-- **VLESS XHTTP TLS + XTLS Vision + VLESS Encryption + HTTPS + настраиваемый XMUX**;
+- **VLESS XHTTP Reality + XTLS Vision + VLESS Encryption + XMUX для РФ**;
+- **VLESS XHTTP TLS + XTLS Vision + VLESS Encryption + HTTPS + XMUX для РФ**;
 - **Hysteria 2 + TLS + Salamander FinalMask**.
 
 Панель сама создаёт серверные конфигурации, проверяет их перед применением и формирует клиентские ссылки. Ручное редактирование полного JSON не требуется.

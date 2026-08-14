@@ -480,95 +480,24 @@ html[data-theme="light"] .xps2-salamander-warning {
   }
 }
 
-
-/* SG-Gateway 02115 · restore polished Connections geometry. */
-@media (min-width: 1281px) {
-  .xps2-parameter-row.has-xhttp {
-    grid-template-columns: minmax(215px,1.05fr) minmax(120px,.38fr) minmax(210px,.72fr) minmax(175px,.58fr) minmax(205px,.72fr);
-    align-items: stretch;
-  }
-  .xps2-parameter-row.has-xhttp > .xps2-parameter-title { align-self:center; }
-  .xps2-parameter-row.has-xhttp > :is(.xps2-port-field,.xps2-flow-field,.xps2-encryption-field,.xps2-path-field) {
-    min-width:0;
-    align-self:stretch;
-  }
-  .xps2-parameter-row.has-xhttp > .xps2-flow-field { min-width:0; }
-}
-
-.xps2-xhttp-expert {
-  grid-column:1/-1;
-  margin-top:14px;
-  overflow:hidden;
-}
-.xps2-xhttp-expert > summary {
-  min-height:44px;
-  padding:0 14px;
-}
-.xps2-xhttp-expert-body {
-  display:grid;
-  gap:14px;
-  padding:14px;
-}
-.xps2-xhttp-mode-grid {
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:12px;
-}
-.xps2-xhttp-expert-body label,
-.xps2-xmux-mode-field,
-.xps2-xmux-manual-grid label {
-  display:grid;
-  gap:6px;
-  min-width:0;
-}
-.xps2-xhttp-expert-body label > span {
-  color:var(--sg-text);
-  font-size:11px;
-  font-weight:750;
-}
-.xps2-xhttp-expert-body label > small,
-.xps2-xmux-expert-note {
-  margin:0;
-  color:var(--sg-muted);
-  font-size:9px;
-  line-height:1.45;
-}
-.xps2-xhttp-expert-body select,
-.xps2-xhttp-expert-body input {
-  width:100%;
-  min-height:40px;
-}
-.xps2-xmux-expert-block {
-  display:grid;
-  gap:12px;
-  border-top:1px solid var(--sg-line-soft);
-  padding-top:14px;
-}
-.xps2-xmux-manual-grid {
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:10px;
-}
-.xps2-xmux-manual-grid[hidden] { display:none!important; }
-.xps2-xmux-manual-grid label {
-  border:1px solid var(--sg-line-soft);
-  border-radius:10px;
-  background:var(--sg-panel);
-  padding:10px;
-}
-.xps2-xmux-manual-grid label > small {
-  color:var(--sg-muted);
-  font-size:8px;
-  overflow-wrap:anywhere;
-}
-@media (max-width:1280px) {
-  .xps2-parameter-row.has-xhttp { grid-template-columns:1fr 1fr; }
-  .xps2-parameter-row.has-xhttp > .xps2-parameter-title { grid-column:1/-1; }
-}
-@media (max-width:900px) {
-  .xps2-xhttp-mode-grid,
-  .xps2-xmux-manual-grid { grid-template-columns:1fr; }
-}
-@media (max-width:650px) {
-  .xps2-parameter-row.has-xhttp { grid-template-columns:1fr; }
-}
+/* SG-Gateway 021 · compact client-only XMUX preset for Russian networks */
+.xps2-xmux{grid-column:1/-1;border:1px solid var(--line);border-radius:12px;background:var(--panel-soft);overflow:hidden}
+.xps2-xmux-main{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:13px 14px}
+.xps2-xmux-copy{display:grid;gap:3px;min-width:0}
+.xps2-xmux-copy>span{color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.xps2-xmux-copy>strong{color:var(--text);font-size:15px;line-height:1.25}
+.xps2-xmux-copy>small{color:var(--muted);font-size:11px;line-height:1.4}
+.xps2-xmux-details{border-top:1px solid var(--line);padding:10px 14px 14px}
+.xps2-xmux-details>summary{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:7px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);font-size:12px;font-weight:750;cursor:pointer;list-style:none;box-shadow:none}
+.xps2-xmux-details>summary::-webkit-details-marker{display:none}
+.xps2-xmux-details>summary:hover{border-color:var(--accent)}
+.xps2-xmux-hide{display:none}
+.xps2-xmux-details[open] .xps2-xmux-show{display:none}
+.xps2-xmux-details[open] .xps2-xmux-hide{display:inline}
+.xps2-xmux-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.xps2-xmux-grid>div{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 12px;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.xps2-xmux-grid span{min-width:0;color:var(--text);font-size:12px;font-weight:700;line-height:1.3}
+.xps2-xmux-grid small{grid-column:1;color:var(--muted);font-size:10px;line-height:1.25;overflow-wrap:anywhere}
+.xps2-xmux-grid strong{grid-column:2;grid-row:1/3;color:var(--text);font-size:14px;white-space:nowrap}
+.xps2-xmux-details>p{margin:11px 0 0;color:var(--muted);font-size:11px;line-height:1.45}
+@media(max-width:760px){.xps2-xmux-main{align-items:flex-start;flex-direction:column}.xps2-xmux-grid{grid-template-columns:1fr}}
