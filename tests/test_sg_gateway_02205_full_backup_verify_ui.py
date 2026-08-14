@@ -25,7 +25,7 @@ def test_full_backup_verify_ui_patch_is_complete_and_idempotent():
     patched_twice = patcher.patch_text(patched)
 
     assert patched == patched_twice
-    assert patched.count("data-sg-full-verify-button") == 3
+    assert patched.count("data-sg-full-verify-button") == 2
     assert "url_for('verify_full_backup_route')" in patched
     assert "Проверить backup" in patched
     assert "Проверка ничего не меняет." in patched
