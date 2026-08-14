@@ -208,15 +208,24 @@
 }
 .sg-full-restore-actions{
   display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:13px;
+  flex-wrap:wrap;
+  align-items:stretch;
+  justify-content:flex-start;
+  gap:10px 12px;
+  min-width:0;
 }
 .sg-full-restore-note{
+  flex:1 0 100%;
+  min-width:0;
+  max-width:none;
   color:var(--sg-muted);
   font-size:.76rem;
   line-height:1.38;
-  max-width:260px;
+}
+.sg-full-restore-actions .sg-full-restore-button{
+  flex:1 1 190px;
+  min-width:0;
+  max-width:100%;
 }
 .sg-full-restore-button:disabled{
   opacity:.46!important;
