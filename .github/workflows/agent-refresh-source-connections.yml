@@ -1,0 +1,47 @@
+name: Agent refresh Connections source integrity
+
+on:
+  push:
+    branches:
+      - agent/restore-connections-polish-20260814
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/restore-connections-polish-20260814
+          fetch-depth: 0
+
+      - name: Refresh final source inventory
+        run: |
+          git rm .github/workflows/agent-refresh-source-connections.yml
+          python3 - <<'PY'
+          import hashlib
+          import subprocess
+          from pathlib import Path
+
+          tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          rows = []
+          for relative in tracked:
+              if relative == "SOURCE-SHA256SUMS":
+                  continue
+              path = Path(relative)
+              if not path.is_file():
+                  continue
+              rows.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {relative}")
+          Path("SOURCE-SHA256SUMS").write_text("\n".join(rows) + "\n", encoding="utf-8")
+          PY
+          git add SOURCE-SHA256SUMS
+          git diff --cached --check
+
+      - name: Commit source inventory
+        run: |
+          git config user.name "SG-Gateway automation"
+          git config user.email "actions@users.noreply.github.com"
+          git commit -m "Refresh Connections source integrity"
+          git push origin HEAD:agent/restore-connections-polish-20260814
