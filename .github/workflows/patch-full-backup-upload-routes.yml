@@ -25,10 +25,11 @@ jobs:
       - name: Validate
         run: |
           bash -n deploy/configure-panel-access.sh
+          bash -n install.sh
           python -B -m py_compile hostd/sg_hostd/full_backup_runtime.py
           python - <<'PY'
           from pathlib import Path
-          for name in ('deploy/configure-panel-access.sh','hostd/sg_hostd/full_backup_runtime.py','install.sh','build-run.sh'):
+          for name in ('deploy/configure-panel-access.sh','hostd/sg_hostd/full_backup_runtime.py','install.sh'):
               text=Path(name).read_text(encoding='utf-8')
               assert '/maintenance/full-backups/restore' in text, name
               assert '/maintenance/full-backups/verify' in text, name
@@ -42,6 +43,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add deploy/configure-panel-access.sh hostd/sg_hostd/full_backup_runtime.py install.sh build-run.sh
+          git add deploy/configure-panel-access.sh hostd/sg_hostd/full_backup_runtime.py install.sh
           git commit -m "Fix Full Backup verify upload limit"
           git push origin HEAD:dev-02205
