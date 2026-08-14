@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PATCHER_PATH = ROOT / "deploy" / "patch_full_backup_verify_ui.py"
 TEMPLATE_PATH = ROOT / "app" / "web" / "templates" / "maintenance.html"
+FULL_BACKUP_CSS_PATH = ROOT / "app" / "web" / "static" / "sg-full-backup-v1.css"
 
 
 def _load_patcher():
@@ -52,3 +53,18 @@ def test_old_verify_formaction_is_migrated_to_restore_submit_action():
 
     assert 'name="backup_action" value="verify"' in migrated
     assert "verify_full_backup_route" not in migrated
+
+
+def test_full_backup_verify_and_restore_actions_cannot_overflow_restore_card():
+    css = FULL_BACKUP_CSS_PATH.read_text(encoding="utf-8")
+
+    assert ".sg-full-restore-actions{" in css
+    assert "flex-wrap:wrap;" in css
+    assert "justify-content:flex-start;" in css
+    assert ".sg-full-restore-note{" in css
+    assert "flex:1 0 100%;" in css
+    assert "max-width:none;" in css
+    assert ".sg-full-restore-actions .sg-full-restore-button{" in css
+    assert "flex:1 1 190px;" in css
+    assert "min-width:0;" in css
+    assert "max-width:100%;" in css
