@@ -96,8 +96,8 @@ nginx.service
 | Профиль | Транспорт | Защита | Flow | VLESS Encryption | XMUX | Домен |
 |---|---|---|---|---|---|---|
 | VLESS Reality TCP | TCP | REALITY | `xtls-rprx-vision` | Нет, `encryption=none` | Нет | Не требуется |
-| VLESS XHTTP Reality | XHTTP | REALITY | `xtls-rprx-vision` | Да | Да | Не требуется |
-| VLESS XHTTP TLS | XHTTP | TLS | `xtls-rprx-vision` | Да | Да | Требуется |
+| VLESS XHTTP Reality | XHTTP | REALITY | `xtls-rprx-vision` | Да | Опционально | Не требуется |
+| VLESS XHTTP TLS | XHTTP | TLS | `xtls-rprx-vision` | Да | Опционально | Требуется |
 | Hysteria 2 | QUIC/UDP | TLS | Не применяется | Не применяется | Не применяется | Требуется |
 
 ## 6. XTLS Vision
@@ -196,7 +196,7 @@ flow=xtls-rprx-vision
 encryption=<client VLESS Encryption>
 path=<profile path>
 mode=<client mode>
-extra={"xmux":{...}}
+[extra={"xmux":{...}}]  # только preset/manual; в Xray Auto отсутствует
 ```
 
 Дополнительно используются Reality Public Key, ShortID, SNI и fingerprint.
@@ -214,10 +214,12 @@ sni=<panel domain>
 alpn=h2
 path=<profile path>
 mode=<client mode>
-extra={"xmux":{...}}
+[extra={"xmux":{...}}]  # только preset/manual; в Xray Auto отсутствует
 ```
 
 Профиль доступен только при готовом HTTPS-состоянии.
+
+По умолчанию XMUX работает в режиме **Xray Auto**: `extra.xmux` не передаётся. Standard, уменьшенный и ручной режимы являются явным выбором администратора и применяются только к клиентским XHTTP-профилям.
 
 ## 9. XMUX для российских сетей
 

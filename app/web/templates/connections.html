@@ -157,30 +157,6 @@
                   <small>Сервер остаётся в auto и принимает все четыре режима. Выбор меняет клиентские ссылки, QR и SG Client subscription.</small>
                 </label>
 
-                <section class="xps2-xmux">
-                  <div class="xps2-xmux-main">
-                    <div class="xps2-xmux-copy">
-                      <span>Клиентский XMUX</span>
-                      <strong>XMUX для РФ</strong>
-                      <small>Постоянный клиентский профиль для XHTTP-ссылок, QR и SG Client subscription.</small>
-                    </div>
-                  </div>
-                  <details class="xps2-xmux-details">
-                    <summary>
-                      <span class="xps2-xmux-show">Показать параметры</span>
-                      <span class="xps2-xmux-hide">Скрыть параметры</span>
-                    </summary>
-                    <div class="xps2-xmux-grid">
-                      <div><span>Максимальная параллельность</span><small>maxConcurrency</small><strong>{{ profile.xmux.maxConcurrency }}</strong></div>
-                      <div><span>Максимум соединений</span><small>maxConnections</small><strong>{{ profile.xmux.maxConnections }}</strong></div>
-                      <div><span>Повторное использование соединения</span><small>cMaxReuseTimes</small><strong>{{ profile.xmux.cMaxReuseTimes }}</strong></div>
-                      <div><span>Запросов на HTTP-соединение</span><small>hMaxRequestTimes</small><strong>{{ profile.xmux.hMaxRequestTimes }}</strong></div>
-                      <div><span>Время повторного использования, сек.</span><small>hMaxReusableSecs</small><strong>{{ profile.xmux.hMaxReusableSecs }}</strong></div>
-                      <div><span>Интервал Keep-Alive</span><small>hKeepAlivePeriod</small><strong>{{ profile.xmux.hKeepAlivePeriod }}</strong></div>
-                    </div>
-                    <p>Рекомендуемый профиль для российских сетей. Серверный inbound не меняется.</p>
-                  </details>
-                </section>
                 {% endif %}
                 {% if profile.encryption_required %}
                 <div class="xps2-flow-field">
@@ -253,6 +229,50 @@
               {% endfor %}
             </div>
             <p class="xps2-empty-note" data-xps2-empty>Выберите хотя бы одну карточку Xray.</p>
+
+
+            <section class="xps2-xmux" data-xmux-shared>
+              <div class="xps2-xmux-main">
+                <div class="xps2-xmux-copy">
+                  <span>Общий клиентский XMUX · XHTTP Reality + XHTTP TLS</span>
+                  <strong>{{ 'Xray Auto · рекомендуется' if xray_profiles.xhttp_xmux_mode == 'auto' else xray_profiles.xhttp_xmux_mode }}</strong>
+                  <small>В Xray Auto SG-Gateway не добавляет <code>extra.xmux</code>: используются штатные значения установленного Xray. Пресеты и ручной режим включаются только по выбору администратора.</small>
+                </div>
+              </div>
+
+              <label>
+                <span>Режим XMUX</span>
+                <select name="xhttp_xmux_mode" data-xmux-mode>
+                  {% for item in xray_profiles.xhttp_xmux_mode_options %}
+                  <option value="{{ item.value }}" {% if item.value == xray_profiles.xhttp_xmux_mode %}selected{% endif %}>{{ item.title }} · {{ item.note }}</option>
+                  {% endfor %}
+                </select>
+                <small>Xray Auto — рекомендуемый режим. Standard и «Для РФ — уменьшенный» сохранены как опциональные пресеты SG-Panel.</small>
+              </label>
+
+              <details class="xps2-xmux-details" open>
+                <summary>
+                  <span class="xps2-xmux-show">Показать пресеты и ручные параметры</span>
+                  <span class="xps2-xmux-hide">Скрыть параметры</span>
+                </summary>
+
+                <div class="xps2-xmux-grid">
+                  <div><span>Standard · SG-Panel</span><small>preset</small><strong>{{ xray_profiles.xhttp_xmux_standard | tojson }}</strong></div>
+                  <div><span>Для РФ — уменьшенный · SG-Panel</span><small>preset</small><strong>{{ xray_profiles.xhttp_xmux_reduced | tojson }}</strong></div>
+                  <div><span>Текущий effective XMUX</span><small>extra.xmux</small><strong>{{ xray_profiles.xhttp_xmux_effective | tojson if xray_profiles.xhttp_xmux_effective else 'не передаётся · native Xray' }}</strong></div>
+                </div>
+
+                <div class="xps2-xmux-grid" data-xmux-manual>
+                  <div><span>Максимальная параллельность</span><small>maxConcurrency</small><input type="text" name="xhttp_xmux_maxConcurrency" value="{{ xray_profiles.xhttp_xmux_expert.get('maxConcurrency', '') }}" placeholder="0 или 8-16"></div>
+                  <div><span>Максимум соединений</span><small>maxConnections</small><input type="text" name="xhttp_xmux_maxConnections" value="{{ xray_profiles.xhttp_xmux_expert.get('maxConnections', '') }}" placeholder="6 или 2-4"></div>
+                  <div><span>Повторное использование</span><small>cMaxReuseTimes</small><input type="text" name="xhttp_xmux_cMaxReuseTimes" value="{{ xray_profiles.xhttp_xmux_expert.get('cMaxReuseTimes', '') }}" placeholder="0 или 300-600"></div>
+                  <div><span>HTTP-запросов</span><small>hMaxRequestTimes</small><input type="text" name="xhttp_xmux_hMaxRequestTimes" value="{{ xray_profiles.xhttp_xmux_expert.get('hMaxRequestTimes', '') }}" placeholder="600-900"></div>
+                  <div><span>Время reuse, сек.</span><small>hMaxReusableSecs</small><input type="text" name="xhttp_xmux_hMaxReusableSecs" value="{{ xray_profiles.xhttp_xmux_expert.get('hMaxReusableSecs', '') }}" placeholder="1800-3000"></div>
+                  <div><span>Keep-Alive</span><small>hKeepAlivePeriod</small><input type="number" min="0" name="xhttp_xmux_hKeepAlivePeriod" value="{{ xray_profiles.xhttp_xmux_expert.get('hKeepAlivePeriod', '') }}" placeholder="0"></div>
+                </div>
+                <p>Ручной режим принимает число или диапазон <code>N-M</code> для range-полей. Положительные <code>maxConnections</code> и <code>maxConcurrency</code> одновременно запрещены Xray. XMUX остаётся клиентским параметром; серверный inbound не меняется.</p>
+              </details>
+            </section>
           </section>
 
           <footer class="xps2-actions">
@@ -399,12 +419,21 @@
   const secretArea = form.querySelector('[data-salamander-secret]');
   const status = form.querySelector('[data-salamander-status]');
   const modes = [...form.querySelectorAll('input[name="hysteria2_obfs_mode"]')];
+  const xmuxMode = form.querySelector('[data-xmux-mode]');
+  const xmuxManual = form.querySelector('[data-xmux-manual]');
 
   const currentMode = () => modes.find(item => item.checked)?.value || 'none';
   const setStatus = (text, tone = '') => {
     if (!status) return;
     status.textContent = text;
     status.dataset.tone = tone;
+  };
+
+  const syncXmux = () => {
+    if (!xmuxManual) return;
+    const manual = xmuxMode?.value === 'expert';
+    xmuxManual.querySelectorAll('input').forEach(input => { input.disabled = !manual; });
+    xmuxManual.style.opacity = manual ? '1' : '.55';
   };
 
   const syncConfirmation = () => {
@@ -497,6 +526,7 @@
     syncConfirmation();
   });
   modes.forEach(item => item.addEventListener('change', syncSalamander));
+  xmuxMode?.addEventListener('change', syncXmux);
   topApplyButton?.addEventListener('click', () => {
     syncConfirmation();
     applyButton?.click();
@@ -524,6 +554,7 @@
     });
     if (empty) empty.hidden = selected > 0;
     syncSalamander();
+    syncXmux();
   };
 
   selectors.forEach(input => input.addEventListener('change', sync));
