@@ -1,0 +1,47 @@
+name: Patch Full Backup Upload Routes
+
+on:
+  push:
+    branches: [dev-02205]
+    paths:
+      - deploy/patch_full_backup_upload_routes.py
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev-02205
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Patch upload routes
+        run: python deploy/patch_full_backup_upload_routes.py
+      - name: Validate
+        run: |
+          bash -n deploy/configure-panel-access.sh
+          python -B -m py_compile hostd/sg_hostd/full_backup_runtime.py
+          python - <<'PY'
+          from pathlib import Path
+          for name in ('deploy/configure-panel-access.sh','hostd/sg_hostd/full_backup_runtime.py','install.sh','build-run.sh'):
+              text=Path(name).read_text(encoding='utf-8')
+              assert '/maintenance/full-backups/restore' in text, name
+              assert '/maintenance/full-backups/verify' in text, name
+          PY
+          git diff --check
+      - name: Commit generated source fix
+        run: |
+          if git diff --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/configure-panel-access.sh hostd/sg_hostd/full_backup_runtime.py install.sh build-run.sh
+          git commit -m "Fix Full Backup verify upload limit"
+          git push origin HEAD:dev-02205
