@@ -27,14 +27,6 @@ from app.xray.settings_transactions import (
     pending as pending_settings_transaction,
     rollback as rollback_settings_transaction,
 )
-from app.xray.xmux import (
-    XHTTP_XMUX_MODE_OPTIONS,
-    XHTTP_XMUX_REDUCED,
-    XHTTP_XMUX_STANDARD,
-    XmuxError,
-    from_form as xmux_from_form,
-    resolve as xmux_resolve,
-)
 
 
 REALITY_TCP_FLOW = "xtls-rprx-vision"
@@ -65,6 +57,18 @@ XHTTP_MODE_OPTIONS = (
     },
 )
 VLESS_ENCRYPTION_PLACEHOLDER = "PLACEHOLDER_VLESS_ENCRYPTION"
+
+# Client-only XHTTP XMUX preset confirmed for Russian networks.
+# maxConcurrency stays 0 because Xray forbids a positive maxConcurrency together
+# with a positive maxConnections.
+XHTTP_XMUX_RF = {
+    "maxConcurrency": 0,
+    "maxConnections": 6,
+    "cMaxReuseTimes": 0,
+    "hMaxRequestTimes": "600-900",
+    "hMaxReusableSecs": "1800-3000",
+    "hKeepAlivePeriod": 0,
+}
 
 
 class XrayProfilesError(RuntimeError):
@@ -207,7 +211,6 @@ def _values(config: dict[str, Any], legacy_port: int) -> dict[str, Any]:
     uri_scheme = str(config.get("hysteria2_uri_scheme") or "hysteria2").strip().lower()
     if uri_scheme not in {"hysteria2", "hy2"}:
         uri_scheme = "hysteria2"
-    xmux_mode, xmux_expert, xmux_effective = xmux_resolve(config)
     return {
         "reality_tcp_enabled": _bool(config.get("reality_tcp_enabled"), True),
         "reality_tcp_port": _port(config.get("reality_tcp_port"), legacy_port or 443),
@@ -221,9 +224,6 @@ def _values(config: dict[str, Any], legacy_port: int) -> dict[str, Any]:
         "xhttp_tls_path": _path(config.get("xhttp_tls_path"), "/sg-xhttp-tls"),
         "xhttp_tls_mode": _mode(config.get("xhttp_tls_mode"), "auto"),
         "xhttp_tls_xmux_enabled": True,
-        "xhttp_xmux_mode": xmux_mode,
-        "xhttp_xmux_expert": xmux_expert,
-        "xhttp_xmux_effective": xmux_effective,
         "hysteria2_enabled": _bool(config.get("hysteria2_enabled"), False),
         "hysteria2_port": _port(config.get("hysteria2_port"), 8446),
         "hysteria2_obfs_mode": salamander_mode,
@@ -276,13 +276,6 @@ def _prepare(form: Any) -> PreparedXraySettings:
         ),
     }
 
-    try:
-        xmux_mode, xmux_expert = xmux_from_form(form, config)
-    except XmuxError as exc:
-        raise XrayProfilesError(str(exc)) from exc
-    values["xhttp_xmux_mode"] = xmux_mode
-    values["xhttp_xmux_expert"] = xmux_expert
-
     if not any(
         values[key]
         for key in (
@@ -297,7 +290,7 @@ def _prepare(form: Any) -> PreparedXraySettings:
         raise XrayProfilesError("Сначала настройте HTTPS в Security")
     if (
         values["xhttp_reality_enabled"] or values["xhttp_tls_enabled"]
-    ) and not encryption_ready:
+    ) and not _vless_encryption_ready(config.get("vless_encryption")):
         raise XrayProfilesError(
             "VLESS Encryption не готов. Повторите установку текущей версии SG-Gateway."
         )
@@ -418,7 +411,6 @@ def overview() -> dict[str, Any]:
             "base_finalmask_present": bool(values["hysteria2_finalmask"]),
         }
     )
-    effective_xmux = values["xhttp_xmux_effective"]
 
     def profile(
         profile_id: str,
@@ -466,7 +458,6 @@ def overview() -> dict[str, Any]:
             status = "Готов к применению"
         else:
             status = "Требует настройки"
-        has_xmux = bool(xmux_enabled_key and effective_xmux)
         return XrayProfile(
             id=profile_id,
             title=title,
@@ -483,8 +474,8 @@ def overview() -> dict[str, Any]:
             encryption_required=encryption_required,
             encryption_ready=encryption_ready if encryption_required else False,
             mode=str(values[mode_key]) if mode_key else "",
-            xmux_enabled=has_xmux,
-            xmux=dict(effective_xmux) if has_xmux else None,
+            xmux_enabled=True if xmux_enabled_key else False,
+            xmux=dict(XHTTP_XMUX_RF) if xmux_enabled_key else None,
         )
 
     profiles = [
@@ -534,12 +525,7 @@ def overview() -> dict[str, Any]:
         "version_ready": version_ready,
         "xhttp_modes": XHTTP_MODES,
         "xhttp_mode_options": XHTTP_MODE_OPTIONS,
-        "xhttp_xmux_mode": values["xhttp_xmux_mode"],
-        "xhttp_xmux_mode_options": XHTTP_XMUX_MODE_OPTIONS,
-        "xhttp_xmux_expert": dict(values["xhttp_xmux_expert"]),
-        "xhttp_xmux_effective": dict(effective_xmux) if effective_xmux else None,
-        "xhttp_xmux_standard": dict(XHTTP_XMUX_STANDARD),
-        "xhttp_xmux_reduced": dict(XHTTP_XMUX_REDUCED),
+        "xhttp_xmux_rf": dict(XHTTP_XMUX_RF),
         "key_ready": key_ready,
         "vless_encryption_ready": encryption_ready,
         "vless_encryption_algorithm": (

@@ -16,13 +16,12 @@ def test_connections_uses_compact_xmux_and_full_width_mihomo():
         encoding="utf-8"
     )
 
-    assert "Экспертные настройки XHTTP" in template
-    assert "Xray Auto — рекомендуемый вариант" in template
-    assert "Технические значения пресетов" not in template
+    assert "<strong>XMUX для РФ</strong>" in template
+    assert "Показать параметры" in template
     assert "xps2-xmux-switch" not in template
-    assert "restore polished Connections geometry" in xray_css
-    assert "Mihomo as a separate full-width Connections block" not in layout_css
-    assert "grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)" in layout_css
+    assert "compact client-only XMUX preset for Russian networks" in xray_css
+    assert "Mihomo as a separate full-width Connections block" in layout_css
+    assert "grid-template-columns: minmax(0, 1fr) !important" in layout_css
 
 
 def test_client_detail_uses_routing_frame_and_title_size():
@@ -65,7 +64,7 @@ def test_russian_publication_has_user_and_technical_roads():
         "Матрица Xray-профилей",
         "XTLS Vision",
         "VLESS Encryption",
-        "XMUX для XHTTP",
+        "XMUX для российских сетей",
         "flow=xtls-rprx-vision",
         "ML-KEM-768",
         "127.0.0.1:18080",
