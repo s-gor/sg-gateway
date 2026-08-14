@@ -63,6 +63,25 @@ def patch_text(text: str) -> str:
             "upload selected state",
         )
 
+    # The same form owns the destructive Restore action and therefore carries
+    # data-sg-confirm. Verification must not show that dialog. Set the shared
+    # confirmation bypass immediately on the verify-button click; form submit
+    # happens synchronously afterwards and base.html consumes/removes it. The
+    # timeout removes it as a safety net if native validation prevents submit.
+    if "verifyButton.addEventListener(\"click\", () => {" not in text:
+        text = _replace_once(
+            text,
+            "      const reset = () => {\n",
+            "      verifyButton.addEventListener(\"click\", () => {\n"
+            "        form.dataset.sgConfirmBypass = \"1\";\n"
+            "        window.setTimeout(() => {\n"
+            "          if (form.dataset.sgConfirmBypass === \"1\") delete form.dataset.sgConfirmBypass;\n"
+            "        }, 0);\n"
+            "      });\n\n"
+            "      const reset = () => {\n",
+            "verification confirmation bypass",
+        )
+
     old_note = "Перед восстановлением автоматически создаётся страховочный Full Backup."
     new_note = "Проверка ничего не меняет. Перед восстановлением автоматически создаётся страховочный Full Backup."
     if old_note in text and new_note not in text:
@@ -72,6 +91,8 @@ def patch_text(text: str) -> str:
         VERIFY_MARKER,
         "verify_full_backup_route",
         "готов к проверке / восстановлению",
+        "verifyButton.addEventListener(\"click\", () => {",
+        "form.dataset.sgConfirmBypass = \"1\"",
         "'backup.full.verify': 'Проверен полный backup'",
     )
     missing = [item for item in required if item not in text]
