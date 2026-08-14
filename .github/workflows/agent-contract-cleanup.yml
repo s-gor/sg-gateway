@@ -1,0 +1,30 @@
+name: Agent contract cleanup
+
+on:
+  push:
+    branches:
+      - agent/vless-xmux-auto-manual-warp-optional-20260814
+    paths:
+      - .github/workflows/agent-contract-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/vless-xmux-auto-manual-warp-optional-20260814
+          fetch-depth: 0
+      - name: Apply cleanup
+        run: python3 tools/agent_contract_cleanup.py
+      - name: Commit cleanup
+        run: |
+          git config user.name "SG-Gateway automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Align tests and docs with user-controlled XMUX and optional WARP"
+          git push origin HEAD:agent/vless-xmux-auto-manual-warp-optional-20260814
