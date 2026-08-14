@@ -103,8 +103,10 @@ def test_dual_ui_partial_has_exact_two_subscription_formats():
     assert html.count("data-sg-subscription-format=") == 2
     assert "Универсальная подписка" in html
     assert "SG Client / SG Mobile" in html
-    assert "sg_subscription_v1_universal_qr" in html
-    assert "sg_subscription_v1_qr" in html
+    assert '/clients/{{ client.id }}/sg-subscription-v1/qr/universal' in html
+    assert '/clients/{{ client.id }}/sg-subscription-v1/qr' in html
+    assert "url_for('sg_subscription_v1" not in html
+    assert 'url_for("sg_subscription_v1' not in html
     assert "SG-CONFIG" in html
 
 

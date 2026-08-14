@@ -20,7 +20,7 @@
           <summary class="button">QR</summary>
           <div class="dv16-qr-popover">
             <button type="button" aria-label="Закрыть QR" onclick="this.closest('details').removeAttribute('open')">×</button>
-            <img src="{{ url_for('sg_subscription_v1_universal_qr', client_id=client.id) }}" alt="QR универсальной подписки {{ client.name }}">
+            <img src="/clients/{{ client.id }}/sg-subscription-v1/qr/universal" alt="QR универсальной подписки {{ client.name }}">
           </div>
         </details>
       </div>
@@ -37,7 +37,7 @@
           <summary class="button">QR</summary>
           <div class="dv16-qr-popover">
             <button type="button" aria-label="Закрыть QR" onclick="this.closest('details').removeAttribute('open')">×</button>
-            <img src="{{ url_for('sg_subscription_v1_qr', client_id=client.id) }}" alt="QR SG Subscription {{ client.name }}">
+            <img src="/clients/{{ client.id }}/sg-subscription-v1/qr" alt="QR SG Subscription {{ client.name }}">
           </div>
         </details>
       </div>
