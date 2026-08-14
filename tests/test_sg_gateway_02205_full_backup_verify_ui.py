@@ -30,5 +30,10 @@ def test_full_backup_verify_ui_patch_is_complete_and_idempotent():
     assert "Проверить backup" in patched
     assert "Проверка ничего не меняет." in patched
     assert "готов к проверке / восстановлению" in patched
+    assert 'verifyButton.addEventListener("click", () => {' in patched
+    assert 'form.dataset.sgConfirmBypass = "1"' in patched
+    assert 'delete form.dataset.sgConfirmBypass' in patched
     assert "'backup.full.verify': 'Проверен полный backup'" in patched
+    # Destructive restore confirmation remains on the form and is bypassed only
+    # for the non-destructive verification submitter.
     assert "data-sg-confirm-title=\"Полное восстановление SG-Gateway\"" in patched
