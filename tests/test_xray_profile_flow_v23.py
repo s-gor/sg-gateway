@@ -95,7 +95,7 @@ def test_connections_template_has_only_check_and_apply_actions():
     assert template.count('name="action" value="test"') == 1
     assert template.count('name="action" value="apply"') >= 1  # Mihomo has its own apply action.
     xray_start = template.index('id="xray-profiles"')
-    xray_end = template.index('<details class="cnv1-advanced', xray_start)
+    xray_end = template.index('</form>', xray_start)
     xray = template[xray_start:xray_end]
     assert xray.count('name="action" value="test"') == 1
     assert xray.count('name="action" value="apply"') == 1

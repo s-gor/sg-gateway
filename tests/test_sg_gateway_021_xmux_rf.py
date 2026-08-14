@@ -192,8 +192,11 @@ def test_xmux_ui_exposes_auto_presets_and_manual_without_forcing_rf():
     template = (ROOT / "app/web/templates/connections.html").read_text(encoding="utf-8")
     inbound = (ROOT / "app/xray/sg_panel_vless.py").read_text(encoding="utf-8")
 
+    xmux_model = (ROOT / "app/xray/xmux.py").read_text(encoding="utf-8")
+    assert 'name="xhttp_xmux_mode"' in template
+    assert "xhttp_xmux_mode_options" in template
     for label in ("Xray Auto", "Standard", "Для РФ — уменьшенный", "Ручной"):
-        assert label in template
+        assert label in xmux_model
     for key in (
         "maxConcurrency",
         "maxConnections",
