@@ -1,0 +1,49 @@
+name: Agent refresh Connections regressions
+
+on:
+  push:
+    branches:
+      - agent/restore-connections-polish-20260814
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/restore-connections-polish-20260814
+          fetch-depth: 0
+
+      - name: Refresh stale UI regressions
+        run: |
+          python3 .github/agent-refresh-connections-tests.py
+          git add tests/test_sg_gateway_021_xmux_rf.py tests/test_xray_profile_flow_v23.py
+          git rm .github/agent-refresh-connections-tests.py .github/workflows/agent-refresh-connections-tests.yml
+          python3 - <<'PY'
+          import hashlib
+          import subprocess
+          from pathlib import Path
+
+          tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          rows = []
+          for relative in tracked:
+              if relative == "SOURCE-SHA256SUMS":
+                  continue
+              path = Path(relative)
+              if not path.is_file():
+                  continue
+              rows.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {relative}")
+          Path("SOURCE-SHA256SUMS").write_text("\n".join(rows) + "\n", encoding="utf-8")
+          PY
+          git add SOURCE-SHA256SUMS
+          git diff --cached --check
+
+      - name: Commit refreshed regressions
+        run: |
+          git config user.name "SG-Gateway automation"
+          git config user.email "actions@users.noreply.github.com"
+          git commit -m "Refresh Connections UI regressions"
+          git push origin HEAD:agent/restore-connections-polish-20260814
