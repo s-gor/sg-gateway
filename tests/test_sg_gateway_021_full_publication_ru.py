@@ -16,13 +16,13 @@ def test_connections_uses_compact_xmux_and_full_width_mihomo():
         encoding="utf-8"
     )
 
-    assert "Автоматически · рекомендуется" in template
-    assert "Экспертные настройки XMUX" in template
-    assert "Технические значения пресетов" in template
+    assert "Экспертные настройки XHTTP" in template
+    assert "Xray Auto — рекомендуемый вариант" in template
+    assert "Технические значения пресетов" not in template
     assert "xps2-xmux-switch" not in template
-    assert "client-only XMUX controls with native Xray Auto" in xray_css
-    assert "Mihomo as a separate full-width Connections block" in layout_css
-    assert "grid-template-columns: minmax(0, 1fr) !important" in layout_css
+    assert "restore polished Connections geometry" in xray_css
+    assert "Mihomo as a separate full-width Connections block" not in layout_css
+    assert "grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)" in layout_css
 
 
 def test_client_detail_uses_routing_frame_and_title_size():
