@@ -95,7 +95,7 @@ def test_v4_has_separate_universal_and_native_qr_contracts(monkeypatch):
     assert rendered == base + "|" + base + "?format=sg"
 
 
-def test_dual_ui_partial_has_exact_two_subscription_formats():
+def test_dual_ui_partial_has_exact_two_subscription_formats_and_distinct_actions():
     html = PARTIAL.read_text(encoding="utf-8")
 
     assert 'data-sg-subscription-format="universal"' in html
@@ -103,6 +103,8 @@ def test_dual_ui_partial_has_exact_two_subscription_formats():
     assert html.count("data-sg-subscription-format=") == 2
     assert "Универсальная подписка" in html
     assert "SG Client / SG Mobile" in html
+    assert "sg-subscription-copy-universal" in html
+    assert "sg-subscription-copy-native" in html
     assert '/clients/{{ client.id }}/sg-subscription-v1/qr/universal' in html
     assert '/clients/{{ client.id }}/sg-subscription-v1/qr' in html
     assert "url_for('sg_subscription_v1" not in html
@@ -110,7 +112,7 @@ def test_dual_ui_partial_has_exact_two_subscription_formats():
     assert "SG-CONFIG" in html
 
 
-def test_live_ui_patcher_upgrades_old_single_sg_button(tmp_path):
+def test_live_ui_patcher_removes_old_large_single_block_even_when_dual_ui_already_exists(tmp_path):
     template_dir = tmp_path / "app" / "web" / "templates"
     template_dir.mkdir(parents=True)
     (template_dir / "_sg_subscription_dual.html").write_text(
@@ -122,8 +124,14 @@ def test_live_ui_patcher_upgrades_old_single_sg_button(tmp_path):
             '{% extends "base.html" %}\n'
             '  {% set client_sg_subscription = sg_subscription_url(client) %}\n'
             '  {% if client_sg_subscription %}\n'
-            '  <section data-sg-subscription-v1>old single native UI</section>\n'
+            '  <section class="dv16-subscription state-applied" data-sg-subscription-v1>\n'
+            '    <strong>SG Subscription</strong>\n'
+            '    <span>Одна подписка клиента для всех его устройств.</span>\n'
+            '    <button>Скопировать SG Subscription</button>\n'
+            '  </section>\n'
             '  {% endif %}\n\n'
+            '  <!-- SG_SUBSCRIPTION_DUAL_UI_V1 -->\n'
+            '  {% include "_sg_subscription_dual.html" %}\n\n'
             '  <section class="dv16-devices" aria-label="Устройства клиента">\n'
             '    <strong>Подписка устройства</strong>\n'
             '  </section>\n'
@@ -144,15 +152,21 @@ def test_live_ui_patcher_upgrades_old_single_sg_button(tmp_path):
 
     assert result.returncode == 0, result.stdout + result.stderr
     patched = template.read_text(encoding="utf-8")
-    assert "SG_SUBSCRIPTION_DUAL_UI_V1" in patched
-    assert '{% include "_sg_subscription_dual.html" %}' in patched
+    assert patched.count("SG_SUBSCRIPTION_DUAL_UI_V1") == 1
+    assert patched.count('{% include "_sg_subscription_dual.html" %}') == 1
     assert "client_sg_subscription = sg_subscription_url(client)" not in patched
+    assert "Скопировать SG Subscription" not in patched
+    assert "data-sg-subscription-v1" not in patched
     assert "Legacy SUB устройства" in patched
 
 
-def test_dual_subscription_css_is_responsive():
+def test_dual_subscription_css_is_responsive_and_actions_have_distinct_colors():
     css = CSS.read_text(encoding="utf-8")
     assert ".sg-subscription-dual" in css
     assert "grid-template-columns: repeat(2, minmax(0, 1fr));" in css
+    assert ".sg-subscription-copy-universal" in css
+    assert ".sg-subscription-copy-native" in css
+    assert "var(--sg-ok, #4f8f75)" in css
+    assert "var(--sg-blue, #5b82a8)" in css
     assert "@media (max-width: 980px)" in css
     assert "@media (max-width: 760px)" in css
