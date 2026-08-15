@@ -141,6 +141,10 @@ jobs:
             tests/test_preview29_xhttp_encryption.py \
             tests/test_xray_profile_flow_v23.py \
             tests/test_preview54_sgpanel_vless_port.py \
+            tests/test_sg_gateway_02110_cumulative.py \
+            tests/test_sg_gateway_021_xmux_rf.py \
+            tests/test_sg_gateway_021_xray_tls_material.py \
+            tests/test_sg_gateway_02206_full_backup_verify_unlimited.py \
             tests/test_sg_gateway_02206_development_identity.py \
             tests/test_sg_gateway_02206_update_channel_defaults.py
 
@@ -182,8 +186,12 @@ jobs:
               'hostd/sg_hostd/xhttp_tls_front.py',
               'install.sh',
               'release-manifest.json',
+              'tests/test_sg_gateway_02110_cumulative.py',
+              'tests/test_sg_gateway_021_xmux_rf.py',
+              'tests/test_sg_gateway_021_xray_tls_material.py',
               'tests/test_sg_gateway_02205_xmux_sgpanel_contract.py',
               'tests/test_sg_gateway_02206_development_identity.py',
+              'tests/test_sg_gateway_02206_full_backup_verify_unlimited.py',
               'tests/test_sg_gateway_02206_sgpanel_vless_parity.py',
           }
           unexpected = changed - allowed
