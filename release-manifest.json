@@ -10,7 +10,7 @@
   },
   "source_integrity": {
     "manifest": "SOURCE-SHA256SUMS",
-    "mode": "git-blob-sha256",
+    "mode": "sha256-file-inventory",
     "ci_verified": true,
     "build_run_verified": true
   },
@@ -34,7 +34,7 @@
       "path",
       "vless_client_encryption"
     ],
-    "sg_panel_transfer_status": "wait-for-real-sg-gateway-validation",
+    "sg_panel_transfer_status": "live-validated-2026-08-15",
     "simple_ui": true,
     "subscription_profile_title_without_extension": true,
     "tables": [
@@ -284,8 +284,11 @@
         "cores"
       ],
       "requirements_change_blocks_panel_only_update": true,
-      "source": "github-main-exact-commit",
-      "staging": true
+      "source": "github-channel-via-verified-shell-updater",
+      "staging": true,
+      "channel": "dev-02205",
+      "staged_import_data": "isolated-temp-data-log",
+      "state_backup": "full-shell-updater-safety-backup"
     }
   },
   "mieru_export": {
