@@ -92,6 +92,7 @@ jobs:
               'app/web/static/sg-controls-final-v1.css',
               'app/web/static/sg-xmux-settings-v1.css',
               'app/web/templates/_xray_xmux_settings.html',
+              'tests/test_sg_gateway_02205_xmux_sgpanel_contract.py',
               'tests/test_sg_gateway_02206_connections_ui_cleanup_r3.py',
           }
           assert changed == allowed, (changed, allowed)
@@ -149,6 +150,7 @@ jobs:
               'app/web/static/sg-controls-final-v1.css',
               'app/web/static/sg-xmux-settings-v1.css',
               'app/web/templates/_xray_xmux_settings.html',
+              'tests/test_sg_gateway_02205_xmux_sgpanel_contract.py',
               'tests/test_sg_gateway_02206_connections_ui_cleanup_r3.py',
           }
           assert changed == allowed, (changed, allowed)
