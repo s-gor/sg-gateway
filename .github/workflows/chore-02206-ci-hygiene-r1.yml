@@ -123,6 +123,7 @@ jobs:
               'deploy/patch_full_backup_upload_routes.py',
               'release-manifest.json',
               'tests/test_sg_gateway_02206_ci_hygiene.py',
+              'tests/test_sg_gateway_02206_connections_polish.py',
               'tests/test_sg_gateway_02206_development_identity.py',
           }
           unexpected = changed - allowed
