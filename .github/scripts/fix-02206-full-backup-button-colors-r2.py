@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[2]
 OLD_CSS = ROOT / "app/web/static/sg-full-backup-v1.css"
 NEW_CSS = ROOT / "app/web/static/sg-full-backup-button-colors-r2.css"
 BASE = ROOT / "app/web/templates/base.html"
+LEGACY_TEST = ROOT / "tests/test_sg_gateway_02205_full_backup_verify_ui.py"
 TEST = ROOT / "tests/test_sg_gateway_02206_full_backup_button_colors_r2.py"
 
 R1_MARKER = "/* SG-Gateway 022.06 · preserve historical Full Backup semantic button colors in Luxury Jade light theme. */"
@@ -14,6 +15,23 @@ old_css = OLD_CSS.read_text(encoding="utf-8")
 if R1_MARKER in old_css:
     old_css = old_css.split(R1_MARKER, 1)[0].rstrip() + "\n"
 OLD_CSS.write_text(old_css, encoding="utf-8", newline="\n")
+
+legacy_test = LEGACY_TEST.read_text(encoding="utf-8")
+r1_test_block = '''    # Luxury Jade uses generic light-theme button rules with !important. The
+    # historical Full Backup semantic colors must explicitly win that cascade.
+    assert 'html[data-theme="light"] .sg-full-restore-actions .sg-full-verify-button {' in css
+    assert "var(--sg-blue) 13%,var(--sg-panel)) !important" in css
+    assert 'html[data-theme="light"] .sg-full-restore-actions [data-sg-full-restore-button] {' in css
+    assert "var(--sg-yellow) 44%,#8a5b30)" in css
+    assert "var(--sg-yellow) 31%,#6b4427)) !important" in css
+    assert "color: #fff5df !important" in css
+    assert 'html[data-theme="light"] .sg-full-restore-actions .sg-full-restore-button:disabled {' in css
+    assert "opacity: .46 !important" in css
+
+'''
+if r1_test_block in legacy_test:
+    legacy_test = legacy_test.replace(r1_test_block, "", 1)
+LEGACY_TEST.write_text(legacy_test, encoding="utf-8", newline="\n")
 
 NEW_CSS.write_text(
     """/* SG-Gateway 0.1.0-022.06 · Full Backup button colors R2
