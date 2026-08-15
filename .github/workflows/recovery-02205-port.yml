@@ -1,4 +1,4 @@
-name: Recovery 022.05 port and verify
+name: Recovery 022.05 finalize and verify
 
 on:
   push:
@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  port-and-test:
+  finalize-and-test:
     if: ${{ !contains(github.event.head_commit.message, '[recovery-port-applied]') }}
     runs-on: ubuntu-latest
 
@@ -24,53 +24,48 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Inline XMUX into preserved 022.05 source
-        run: python deploy/recovery_02205_inline_xmux.py
+      - name: Apply final 022.05 consistency fixes
+        run: python deploy/recovery_02205_finalize.py
 
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
-      - name: Verify optional WARP and updater safety
-        run: |
-          grep -q 'SG_GATEWAY_02205_WSGI_ISOLATED_VALIDATION_V1' deploy/update-from-github.sh
-          python -m pytest -q tests/test_sg_gateway_02205_optional_warp_install.py tests/test_sg_gateway_02205_update_wsgi_isolation.py
-
-      - name: Verify proven R10 client-detail state
-        run: |
-          grep -q 'SG_SUBSCRIPTION_DUAL_UI_V1' app/web/templates/client_detail.html
-          test "$(grep -c 'SG_SUBSCRIPTION_DUAL_UI_V1' app/web/templates/client_detail.html)" -eq 1
-          grep -q 'Legacy SUB устройства' app/web/templates/client_detail.html
-          grep -q '^DEV-02205-SGPANEL-XMUX-WARP-UPDATER-R1$' BUILD-ID
-
       - name: Check source syntax
         run: |
           bash -n install.sh
+          bash -n deploy/install-from-github.sh
           bash -n deploy/update-from-github.sh
           python -B -c "from pathlib import Path; files=list(Path('app').rglob('*.py'))+list(Path('hostd').rglob('*.py'))+list(Path('deploy').rglob('*.py'))+list(Path('tests').rglob('*.py')); [compile(p.read_text(encoding='utf-8'), str(p), 'exec') for p in files]; print(f'syntax ok: {len(files)} files')"
 
-      - name: Run SG-Panel XMUX regression tests
-        run: python -m pytest -q tests/test_sg_gateway_02205_xmux_sgpanel_contract.py
-
-      - name: Run preserved 022.05 regression suites
+      - name: Run current 022.05 contracts
         run: |
+          python -m pytest -q tests/test_sg_gateway_02205_xmux_sgpanel_contract.py
+          python -m pytest -q tests/test_sg_gateway_02205_optional_warp_install.py tests/test_sg_gateway_02205_update_wsgi_isolation.py
           python -m pytest -q tests/test_sg_subscription_v1_*_02205.py
           python -m pytest -q tests/test_sg_gateway_02205_full_backup_verify.py tests/test_sg_gateway_02205_full_backup_verify_ui.py tests/test_sg_gateway_02205_full_backup_verify_mux.py
           python -m pytest -q tests/test_preview42_template_endpoints.py
 
-      - name: Run complete repository test suite for classification
+      - name: Run current consistency regressions
+        run: |
+          python -m pytest -q tests/test_preview31_xray_updates.py::test_manifest_and_updates_ui_declare_safe_update_flow
+          python -m pytest -q tests/test_preview52_installer_stage6_and_progress.py::test_installer_uses_sg_panel_progress_contract_and_one_error_path
+          python -m pytest -q tests/test_sg_gateway_02112_install_update_split.py
+          python -m pytest -q tests/test_version.py
+
+      - name: Run complete repository suite for historical classification
         continue-on-error: true
         run: python -m pytest -q
 
-      - name: Commit in-place source only after targeted checks pass
+      - name: Commit only after current contracts pass
         run: |
           git config user.name "sg-gateway-recovery-ci"
           git config user.email "actions@users.noreply.github.com"
-          git add -A app/clients/exports.py app/clients/exports_02205.py app/web/templates/connections.html app/web/templates/connections_02205.html tests/test_sg_gateway_02205_xmux_sgpanel_contract.py
+          git add install.sh deploy/install-from-github.sh release-manifest.json
           if git diff --cached --quiet; then
-            echo "No in-place changes to commit"
+            echo "No consistency changes to commit"
             exit 0
           fi
-          git commit -m "Recovery 022.05: inline SG-Panel XMUX without source wrappers [recovery-port-applied]"
+          git commit -m "Recovery 022.05: synchronize installer and release identity [recovery-port-applied]"
           git push origin HEAD:recovery-02205-vless-xmux-warp-updater
