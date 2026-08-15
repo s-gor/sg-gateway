@@ -1,5 +1,5 @@
 {
-  "build": "DEV-02206-CONNECTIONS-POLISH-R1",
+  "build": "DEV-02206-CI-HYGIENE-R1",
   "status": "DEVELOPMENT",
   "next_development_line": "0.1.0-022.07",
   "safe_update": {
@@ -572,5 +572,16 @@
       "sg-panel-xmux",
       "vpn-runtime"
     ]
+  },
+  "development_hygiene": {
+    "id": "ci-hygiene-r1",
+    "scope": "repository-workflows-only",
+    "runtime_changes": false,
+    "removed": [
+      ".github/workflows/ci-02205-dev.yml",
+      ".github/workflows/patch-full-backup-upload-routes.yml",
+      "deploy/patch_full_backup_upload_routes.py"
+    ],
+    "preserves_frozen_branch": "dev-02205"
   }
 }
