@@ -2687,10 +2687,9 @@ run_final_stage() {
   local started=$SECONDS
   run_hidden "Этап 9/9 · 1/5 · Запуск sg-hostd" stage9_start_hostd
   run_hidden "Этап 9/9 · 2/5 · Проверка команд hostd" stage9_verify_hostd
-  run_hidden "Этап 9/9 · 3/6 · Сохранение/применение Xray runtime" stage9_apply_runtime
-  run_hidden "Этап 9/9 · 4/6 · Создание и активация WARP" stage9_ensure_warp
-  run_hidden "Этап 9/9 · 5/6 · Запуск панели" stage9_start_panel
-  run_hidden "Этап 9/9 · 6/6 · Проверка Nginx и служб" stage9_verify_nginx
+  run_hidden "Этап 9/9 · 3/5 · Сохранение/применение Xray runtime" stage9_apply_runtime
+  run_hidden "Этап 9/9 · 4/5 · Запуск панели" stage9_start_panel
+  run_hidden "Этап 9/9 · 5/5 · Проверка Nginx и служб" stage9_verify_nginx
   local elapsed=$((SECONDS - started))
   printf "%s[OK]%s Этап 9/%s · Запуск и финальная проверка (%s сек.)\n" \
     "$GREEN" "$RESET" "$TOTAL_STAGES" "$elapsed"
