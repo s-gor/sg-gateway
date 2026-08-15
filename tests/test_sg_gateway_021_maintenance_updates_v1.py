@@ -8,7 +8,7 @@ from app.maintenance import core_updates, panel_updates
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_panel_update_overview_pins_exact_main_commit_but_blocks_unbound_baseline(monkeypatch, tmp_path):
+def test_panel_update_overview_pins_exact_channel_commit_but_blocks_unbound_baseline(monkeypatch, tmp_path):
     commit = "a" * 40
     monkeypatch.setattr(panel_updates, "STATE_FILE", tmp_path / "state.json")
     monkeypatch.setattr(panel_updates, "source_fingerprint", lambda: "f" * 64)
@@ -80,16 +80,16 @@ def test_hostd_allowlist_and_runners_include_panel_and_core_updates():
     assert "run_core_update" in runner
 
 
-def test_panel_runtime_blocks_dependency_changes_and_has_rollback():
+def test_panel_runtime_blocks_dependency_changes_and_delegates_full_state_rollback():
     runtime = (ROOT / "hostd/sg_hostd/panel_update_runtime.py").read_text(encoding="utf-8")
     assert "requirements.txt изменён" in runtime
-    assert "_backup_live" in runtime
-    assert "_deploy_source(backup)" in runtime
-    assert "commits/main" in runtime
-    assert "archive/{commit}.tar.gz" in runtime
-    assert ".venv" in runtime
     assert "_baseline_mode" in runtime
     assert "Автоматическое обновление сейчас недоступно." in runtime
+    assert 'validation_root = root.parent / "wsgi-validation"' in runtime
+    update = runtime[runtime.index("def update_panel() -> dict[str, Any]:"):]
+    assert 'deploy" / "update-from-github.sh"' in update
+    assert 'SG_GATEWAY_GITHUB_BRANCH' in update
+    assert '_deploy_source(backup)' not in update
     assert "локальный исходник не совпадает" not in runtime
 
 
@@ -122,7 +122,7 @@ def test_panel_update_bootstrap_allows_strictly_newer_version_without_state(monk
     monkeypatch.setattr(panel_updates, "STATE_FILE", tmp_path / "missing-state.json")
     monkeypatch.setattr(panel_updates, "source_fingerprint", lambda: "f" * 64)
     monkeypatch.setattr(panel_updates, "get_version", lambda: "0.1.0-021")
-    monkeypatch.setattr(panel_updates, "_latest_main", lambda: (commit, "2026-07-30T00:00:00Z", "https://example.invalid/commit"))
+    monkeypatch.setattr(panel_updates, "_latest_channel", lambda: (commit, "2026-07-30T00:00:00Z", "https://example.invalid/commit"))
     monkeypatch.setattr(panel_updates, "_remote_version", lambda sha: "0.1.0-021.4")
     panel_updates._CACHE = None
     result = panel_updates.overview(refresh=True)
@@ -140,7 +140,7 @@ def test_panel_update_bootstrap_does_not_allow_same_version(monkeypatch, tmp_pat
     monkeypatch.setattr(panel_updates, "STATE_FILE", tmp_path / "missing-state.json")
     monkeypatch.setattr(panel_updates, "source_fingerprint", lambda: "f" * 64)
     monkeypatch.setattr(panel_updates, "get_version", lambda: "0.1.0-021.4")
-    monkeypatch.setattr(panel_updates, "_latest_main", lambda: (commit, "", ""))
+    monkeypatch.setattr(panel_updates, "_latest_channel", lambda: (commit, "", ""))
     monkeypatch.setattr(panel_updates, "_remote_version", lambda sha: "0.1.0-021.4")
     panel_updates._CACHE = None
     result = panel_updates.overview(refresh=True)
@@ -149,10 +149,12 @@ def test_panel_update_bootstrap_does_not_allow_same_version(monkeypatch, tmp_pat
     assert result["state"] == "uninitialized"
 
 
-def test_panel_runtime_has_bootstrap_path_and_atom_fallback():
+def test_panel_update_has_bootstrap_gate_and_channel_atom_fallback():
+    overview = (ROOT / "app/maintenance/panel_updates.py").read_text(encoding="utf-8")
     runtime = (ROOT / "hostd/sg_hostd/panel_update_runtime.py").read_text(encoding="utf-8")
     assert "def _baseline_mode" in runtime
     assert 'return "bootstrap", {}' in runtime
-    assert "строго более новую VERSION" in runtime
     assert "updater-baseline" not in runtime
-    assert "commits/main.atom" in runtime
+    assert 'GITHUB_BRANCH = os.getenv("SG_GATEWAY_UPDATE_BRANCH", "dev-02205")' in overview
+    assert 'commits/{GITHUB_BRANCH}.atom' in overview
+    assert "commits/main.atom" not in overview
