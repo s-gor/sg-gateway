@@ -9,7 +9,7 @@
         <h2>XMUX для XHTTP</h2>
         <p>Общие клиентские параметры VLESS XHTTP Reality и VLESS XHTTP TLS. Серверный Xray XMUX не получает.</p>
       </div>
-      <span class="xmux1-chip">SG-Panel contract</span>
+      <span class="xmux1-chip">Xray upstream · RF 2026</span>
     </header>
 
     <form method="post" action="/connections/xmux" data-xmux-form>
@@ -17,15 +17,15 @@
         <label class="xmux1-mode">
           <input type="radio" name="xhttp_xmux_mode" value="auto" {% if xmux_mode == 'auto' %}checked{% endif %}>
           <span>
-            <strong>Стандартный</strong>
-            <small>Рекомендуется. maxConnections 2-4 · reuse 300-600 · requests 1000-2000 · lifetime 1200-2400 · keepalive 600.</small>
+            <strong>Стандартный · Xray upstream</strong>
+            <small>Актуальный default Xray 26.7.28+: maxConcurrency 0 · maxConnections 3 · reuse 0 · requests 600-900 · lifetime 1800-3000 · keepalive 0.</small>
           </span>
         </label>
         <label class="xmux1-mode">
           <input type="radio" name="xhttp_xmux_mode" value="reduced" {% if xmux_mode == 'reduced' %}checked{% endif %}>
           <span>
-            <strong>Для РФ — уменьшенный</strong>
-            <small>maxConcurrency 0 · maxConnections 6 · reuse 0 · requests 600-900 · lifetime 1800-3000 · keepalive 0.</small>
+            <strong>Для РФ · эксперимент 2026</strong>
+            <small>Полевой LTE/Wi-Fi профиль: maxConcurrency 5 · maxConnections 0 · reuse 0 · requests 300-600 · lifetime 900-1800 · keepalive 0. Это экспериментальный профиль, не upstream default.</small>
           </span>
         </label>
         <label class="xmux1-mode">
@@ -46,7 +46,7 @@
         <div>
           <span>VLESS XHTTP TLS</span>
           <strong>Client mode: из карточки профиля</strong>
-          <small>По умолчанию auto; серверный mode остаётся auto.</small>
+          <small>Выбранный mode синхронизирован с сервером по VLESS parity.</small>
         </div>
         <div>
           <span>Scope</span>
@@ -60,7 +60,7 @@
         <label>
           <span>Дополнительные клиентские поля</span>
           <textarea name="xhttp_extra_client_json" rows="12" spellcheck="false" data-xmux-json>{{ xmux_stored_json }}</textarea>
-          <small>В Стандартном/РФ режимах дополнительные поля сохраняются, а <code>xmux</code> заменяется выбранным пресетом. В Ручном режиме JSON используется как есть после проверки конфликта maxConnections/maxConcurrency.</small>
+          <small>В Стандартном/RF 2026 режимах дополнительные поля сохраняются, а <code>xmux</code> заменяется выбранным пресетом. В Ручном режиме JSON используется как есть после проверки конфликта maxConnections/maxConcurrency.</small>
         </label>
       </details>
 

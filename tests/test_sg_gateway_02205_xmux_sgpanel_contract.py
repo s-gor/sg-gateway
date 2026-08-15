@@ -13,27 +13,31 @@ from app.xray.sg_panel_vless import xhttp_reality_inbound
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_standard_preset_matches_current_sg_panel_contract() -> None:
+def test_standard_preset_tracks_xray_26728_upstream_default() -> None:
     extra = xmux.effective_client_extra({"xhttp_xmux_mode": "auto"})
     assert extra["xmux"] == {
-        "maxConnections": "2-4",
-        "cMaxReuseTimes": "300-600",
-        "hMaxRequestTimes": "1000-2000",
-        "hMaxReusableSecs": "1200-2400",
-        "hKeepAlivePeriod": 600,
-    }
-
-
-def test_reduced_preset_matches_current_sg_panel_contract() -> None:
-    extra = xmux.effective_client_extra({"xhttp_xmux_mode": "reduced"})
-    assert extra["xmux"] == {
         "maxConcurrency": 0,
-        "maxConnections": "6",
+        "maxConnections": 3,
         "cMaxReuseTimes": 0,
         "hMaxRequestTimes": "600-900",
         "hMaxReusableSecs": "1800-3000",
         "hKeepAlivePeriod": 0,
     }
+    xmux.validate_xmux_conflicts(extra)
+
+
+def test_rf2026_preset_uses_single_positive_controller_and_faster_rotation() -> None:
+    extra = xmux.effective_client_extra({"xhttp_xmux_mode": "reduced"})
+    assert extra["xmux"] == {
+        "maxConcurrency": 5,
+        "maxConnections": 0,
+        "cMaxReuseTimes": 0,
+        "hMaxRequestTimes": "300-600",
+        "hMaxReusableSecs": "900-1800",
+        "hKeepAlivePeriod": 0,
+    }
+    assert xmux.XMUX_REDUCED_PRESET is xmux.XMUX_RF2026_PRESET
+    assert xmux.XMUX_MODE_REDUCED == xmux.XMUX_MODE_RF2026 == "reduced"
     xmux.validate_xmux_conflicts(extra)
 
 
@@ -68,7 +72,10 @@ def test_only_two_positive_xmux_controllers_conflict() -> None:
             {"xmux": {"maxConcurrency": "2-4", "maxConnections": 6}}
         )
     xmux.validate_xmux_conflicts(
-        {"xmux": {"maxConcurrency": 0, "maxConnections": 6}}
+        {"xmux": {"maxConcurrency": 5, "maxConnections": 0}}
+    )
+    xmux.validate_xmux_conflicts(
+        {"xmux": {"maxConcurrency": 0, "maxConnections": 3}}
     )
 
 
@@ -105,7 +112,7 @@ def test_export_rewriter_forces_reality_stream_one_and_preserves_full_extra() ->
     assert extra["xmux"] == xmux.XMUX_STANDARD_PRESET
 
 
-def test_export_rewriter_keeps_tls_client_mode() -> None:
+def test_export_rewriter_keeps_tls_client_mode_and_rf2026_extra() -> None:
     from app.clients.exports import _rewrite_xhttp_link
 
     source = "vless://u@example.com:443?type=xhttp&security=tls&host=example.com&mode=packet-up#TLS"
@@ -113,7 +120,7 @@ def test_export_rewriter_keeps_tls_client_mode() -> None:
     query = parse_qs(urlsplit(rewritten).query)
     assert query["mode"] == ["packet-up"]
     assert query["host"] == ["example.com"]
-    assert json.loads(query["extra"][0])["xmux"] == xmux.XMUX_REDUCED_PRESET
+    assert json.loads(query["extra"][0])["xmux"] == xmux.XMUX_RF2026_PRESET
 
 
 def test_save_normalises_reality_mode_without_touching_server_runtime(monkeypatch) -> None:
@@ -146,7 +153,7 @@ def test_save_normalises_reality_mode_without_touching_server_runtime(monkeypatc
     assert config["xhttp_extra_client_json"] == {"headers": {"X-Test": "kept"}}
 
 
-def test_connections_ui_exposes_exact_sg_panel_modes_in_full_02205_template() -> None:
+def test_connections_ui_exposes_upstream_rf2026_and_manual_modes() -> None:
     template = (ROOT / "app/web/templates/connections.html").read_text(encoding="utf-8")
     partial = (ROOT / "app/web/templates/_xray_xmux_settings.html").read_text(encoding="utf-8")
     css = (ROOT / "app/web/static/sg-xmux-settings-v1.css").read_text(encoding="utf-8")
@@ -155,15 +162,17 @@ def test_connections_ui_exposes_exact_sg_panel_modes_in_full_02205_template() ->
     assert 'include "_xray_xmux_settings.html"' in template
     assert "sg-xmux-settings-v1.css" in template
     assert "sg-xmux-settings-v1.js" in template
-    # Historical 022.05 source markers stay in the real template; only the old
-    # fixed-RF presentation is hidden in favour of the SG-Panel mode selector.
+    # Historical 022.05 source markers stay in the real template; the active
+    # selector now carries the 022.06 upstream/RF-2026 presets.
     assert "xps2-xmux" in template
     assert "XMUX для XHTTP" in partial
-    assert "Стандартный" in partial
-    assert "Для РФ — уменьшенный" in partial
+    assert "Стандартный · Xray upstream" in partial
+    assert "Для РФ · эксперимент 2026" in partial
     assert "Ручной" in partial
-    assert "maxConnections 2-4" in partial
-    assert "maxConcurrency 0" in partial
+    assert "maxConnections 3" in partial
+    assert "maxConcurrency 5" in partial
+    assert "requests 300-600" in partial
+    assert "экспериментальный профиль, не upstream default" in partial
     assert ".xps2-xmux" in css and "display: none" in css
     assert "stream-one" in js
     assert "hidden.name = 'xhttp_reality_mode'" in js

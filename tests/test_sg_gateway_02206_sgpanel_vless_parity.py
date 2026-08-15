@@ -71,22 +71,28 @@ def test_reality_xhttp_contract_remains_panel_server_auto_client_stream_one() ->
     assert query["encryption"] == [ENCRYPTION]
 
 
-def test_xmux_presets_stay_exact_current_panel_contract() -> None:
+def test_xmux_02206_policy_is_upstream_standard_plus_rf2026_experiment() -> None:
+    # VLESS parity remains pinned to SG-Panel, while 022.06 intentionally follows
+    # newer Xray upstream XMUX defaults and a separate RF field-test profile.
     assert xmux.XMUX_STANDARD_PRESET == {
-        "maxConnections": "2-4",
-        "cMaxReuseTimes": "300-600",
-        "hMaxRequestTimes": "1000-2000",
-        "hMaxReusableSecs": "1200-2400",
-        "hKeepAlivePeriod": 600,
-    }
-    assert xmux.XMUX_REDUCED_PRESET == {
         "maxConcurrency": 0,
-        "maxConnections": "6",
+        "maxConnections": 3,
         "cMaxReuseTimes": 0,
         "hMaxRequestTimes": "600-900",
         "hMaxReusableSecs": "1800-3000",
         "hKeepAlivePeriod": 0,
     }
+    assert xmux.XMUX_RF2026_PRESET == {
+        "maxConcurrency": 5,
+        "maxConnections": 0,
+        "cMaxReuseTimes": 0,
+        "hMaxRequestTimes": "300-600",
+        "hMaxReusableSecs": "900-1800",
+        "hKeepAlivePeriod": 0,
+    }
+    assert xmux.XMUX_REDUCED_PRESET is xmux.XMUX_RF2026_PRESET
+    xmux.validate_xmux_conflicts({"xmux": xmux.XMUX_STANDARD_PRESET})
+    xmux.validate_xmux_conflicts({"xmux": xmux.XMUX_RF2026_PRESET})
 
 
 def _profiles_for_tls(mode: str = "stream-up") -> dict:
