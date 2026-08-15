@@ -34,6 +34,12 @@ def test_deployed_wsgi_import_uses_isolated_data_and_log_directories() -> None:
     assert 'os.environ["SG_GATEWAY_DATA_DIR"]' in block
     assert 'os.environ["SG_GATEWAY_LOG_DIR"]' in block
     assert "Panel WSGI import: OK" in block
+    assert 'chmod 0711 "$TEMP_DIR"' in block
+    assert 'chmod 0700 "$TEMP_DIR"' in block
+    chmod_open = block.index('chmod 0711 "$TEMP_DIR"')
+    wsgi_runuser = block.index('runuser -u sg-gateway', chmod_open)
+    chmod_close = block.index('chmod 0700 "$TEMP_DIR"', wsgi_runuser)
+    assert chmod_open < wsgi_runuser < chmod_close
 
 
 def test_wsgi_import_is_after_safety_backup_and_before_restart() -> None:

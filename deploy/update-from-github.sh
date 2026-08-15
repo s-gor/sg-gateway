@@ -434,6 +434,10 @@ validate_deployed_panel() {
   target="$(panel_wsgi_target)"
   validation_root="$TEMP_DIR/wsgi-validation"
   rm -rf "$validation_root"
+  # TEMP_DIR is created root:root 0700 by mktemp. The deployed WSGI import
+  # runs as sg-gateway, so allow traversal only for the duration of this
+  # isolated validation. Directory listing remains denied.
+  chmod 0711 "$TEMP_DIR"
   install -d -m 0750 -o sg-gateway -g sg-gateway \
     "$validation_root" "$validation_root/data" "$validation_root/log"
 
@@ -476,6 +480,7 @@ module = importlib.import_module(module_name)
 getattr(module, object_name)
 print(f"Panel WSGI import: OK ({target}) with isolated data/log")
 PYDEPLOYEDWSGI
+  chmod 0700 "$TEMP_DIR"
 }
 
 preflight() {
