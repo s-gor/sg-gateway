@@ -165,3 +165,5 @@ def test_connections_ui_exposes_exact_sg_panel_modes_in_full_02205_template() ->
     assert "maxConcurrency 0" in partial
     assert ".xps2-xmux" in css and "display: none" in css
     assert "stream-one" in js
+    assert "hidden.name = 'xhttp_reality_mode'" in js
+    assert "hidden.value = 'stream-one'" in js
