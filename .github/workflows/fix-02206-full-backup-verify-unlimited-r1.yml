@@ -29,7 +29,7 @@ jobs:
           python -m pip install -r requirements-dev.txt
 
       - name: Apply Full Backup product fix
-        run: python .github/scripts/fix-02206-full-backup-verify-unlimited-r5.py
+        run: python .github/scripts/fix-02206-full-backup-verify-unlimited-r6.py
 
       - name: Check syntax before candidate commit
         run: |
@@ -48,6 +48,7 @@ jobs:
           git rm .github/scripts/fix-02206-full-backup-verify-unlimited-r3.py
           git rm .github/scripts/fix-02206-full-backup-verify-unlimited-r4.py
           git rm .github/scripts/fix-02206-full-backup-verify-unlimited-r5.py
+          git rm .github/scripts/fix-02206-full-backup-verify-unlimited-r6.py
           rm -f data/system-activity.json
           git add -A
 
@@ -89,6 +90,7 @@ jobs:
             tests/test_sg_gateway_02205_full_backup_verify.py \
             tests/test_sg_gateway_02205_full_backup_verify_ui.py \
             tests/test_sg_gateway_02205_full_backup_verify_mux.py \
+            tests/test_sg_gateway_02111_backup_domain_release.py \
             tests/test_sg_gateway_02112_install_update_split.py \
             tests/test_sg_gateway_02205_update_wsgi_isolation.py \
             tests/test_sg_gateway_02205_panel_update_state_binding.py \
@@ -133,6 +135,7 @@ jobs:
               'hostd/sg_hostd/full_backup_runtime.py',
               'install.sh',
               'release-manifest.json',
+              'tests/test_sg_gateway_02111_backup_domain_release.py',
               'tests/test_sg_gateway_02205_full_backup_verify_ui.py',
               'tests/test_sg_gateway_02206_ci_hygiene.py',
               'tests/test_sg_gateway_02206_development_identity.py',
@@ -146,6 +149,7 @@ jobs:
               'deploy/update-from-github.sh',
               'hostd/sg_hostd/full_backup_runtime.py',
               'install.sh',
+              'tests/test_sg_gateway_02111_backup_domain_release.py',
               'tests/test_sg_gateway_02206_full_backup_verify_unlimited.py',
               'SOURCE-SHA256SUMS',
           }
