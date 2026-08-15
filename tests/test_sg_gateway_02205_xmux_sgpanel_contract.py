@@ -172,7 +172,7 @@ def test_connections_ui_exposes_upstream_rf2026_and_manual_modes() -> None:
     assert "maxConnections 3" in partial
     assert "maxConcurrency 5" in partial
     assert "requests 300-600" in partial
-    assert "экспериментальный профиль, не upstream default" in partial
+    assert "экспериментальный профиль, не upstream default" not in partial
     assert ".xps2-xmux" in css and "display: none" in css
     assert "stream-one" in js
     assert "hidden.name = 'xhttp_reality_mode'" in js
