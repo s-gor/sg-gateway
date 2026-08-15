@@ -79,10 +79,13 @@ jobs:
         run: |
           python -m pytest -q \
             tests/test_sg_gateway_02205_publication.py \
+            tests/test_sg_gateway_02205_publication_builder.py \
             tests/test_sg_gateway_02205_installer_identity.py \
             tests/test_sg_gateway_02205_panel_update_safety.py \
             tests/test_sg_gateway_02205_panel_update_state_binding.py \
             tests/test_sg_gateway_02205_update_channel_defaults.py \
+            tests/test_sg_gateway_02110_full_clean_retest.py \
+            tests/test_sg_gateway_02110_systemd_transient_regression.py \
             tests/test_sg_gateway_02112_final_cumulative_cleanup_r5.py
 
       - name: Full repository suite
@@ -119,14 +122,17 @@ jobs:
               'build-run-vendored.sh',
               'docs/INSTALLATION.md',
               'release-manifest.json',
+              'tests/test_sg_gateway_02110_full_clean_retest.py',
+              'tests/test_sg_gateway_02110_systemd_transient_regression.py',
               'tests/test_sg_gateway_02112_final_cumulative_cleanup_r5.py',
               'tests/test_sg_gateway_02205_publication.py',
+              'tests/test_sg_gateway_02205_publication_builder.py',
           }
           unexpected = changed - allowed
           missing = {
               'BUILD-ID', '.github/workflows/ci.yml', 'build-run.sh',
               'release-manifest.json', 'tests/test_sg_gateway_02205_publication.py',
-              'SOURCE-SHA256SUMS'
+              'tests/test_sg_gateway_02205_publication_builder.py', 'SOURCE-SHA256SUMS'
           } - changed
           assert not unexpected, sorted(unexpected)
           assert not missing, sorted(missing)
