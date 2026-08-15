@@ -1,6 +1,6 @@
 {
-  "build": "DEV-02205-SGPANEL-XMUX-WARP-UPDATER-R1",
-  "status": "DEVELOPMENT",
+  "build": "LIVE-02205-SGPANEL-XMUX-WARP-UPDATER-R4",
+  "status": "LIVE",
   "next_development_line": "0.1.0-022.06",
   "safe_update": {
     "mode": "light-runtime-whitelist",
@@ -550,5 +550,14 @@
       "tls_server_mode": "auto",
       "positive_max_connections_and_max_concurrency_conflict": true
     }
+  },
+  "publication": {
+    "published": "2026-08-15",
+    "live_validated_commit": "9fbf42aea2bde80a99229de5661a93b6dce4f6c1",
+    "live_validated_tree": "c482dc4f158dc1d61c2ba1d683a14e96d24dac68",
+    "runtime_changes_after_live_validation": false,
+    "release_branch": "release-02205-live",
+    "stable_branch": "stable-02205",
+    "next_development_branch": "dev-02206"
   }
 }

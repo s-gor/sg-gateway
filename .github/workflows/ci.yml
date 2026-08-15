@@ -8,13 +8,14 @@ on:
 
 jobs:
   panel:
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Verify FINAL source integrity
+      - name: Verify source integrity
         run: |
           python3 -B - <<'PY'
           import hashlib
@@ -24,7 +25,6 @@ jobs:
 
           rows = Path("SOURCE-SHA256SUMS").read_text(encoding="utf-8").splitlines()
           expected = {}
-
           for line_no, raw in enumerate(rows, 1):
               if not raw.strip():
                   continue
@@ -36,45 +36,24 @@ jobs:
                   raise SystemExit(f"duplicate checksum path: {path}")
               expected[path] = digest
 
-          tracked = set(
-              subprocess.check_output(
-                  ["git", "ls-files"],
-                  text=True,
-                  encoding="utf-8",
-              ).splitlines()
-          )
+          tracked = set(subprocess.check_output(["git", "ls-files"], text=True, encoding="utf-8").splitlines())
           tracked.discard("SOURCE-SHA256SUMS")
-
           listed = set(expected)
-          missing = sorted(tracked - listed)
-          extra = sorted(listed - tracked)
-          if missing or extra:
+          if tracked != listed:
               raise SystemExit(
-                  f"checksum inventory mismatch: missing={missing[:20]} extra={extra[:20]}"
+                  f"checksum inventory mismatch: missing={sorted(tracked-listed)[:20]} extra={sorted(listed-tracked)[:20]}"
               )
-
           for path in sorted(tracked):
-              proc = subprocess.Popen(
-                  ["git", "show", f"HEAD:{path}"],
-                  stdout=subprocess.PIPE,
-              )
+              proc = subprocess.Popen(["git", "show", f"HEAD:{path}"], stdout=subprocess.PIPE)
               assert proc.stdout is not None
               digest = hashlib.sha256()
-              while True:
-                  chunk = proc.stdout.read(1024 * 1024)
-                  if not chunk:
-                      break
+              for chunk in iter(lambda: proc.stdout.read(1024 * 1024), b""):
                   digest.update(chunk)
-              rc = proc.wait()
-              if rc != 0:
-                  raise SystemExit(f"git show failed for {path}: rc={rc}")
-              actual = digest.hexdigest()
-              if actual != expected[path]:
-                  raise SystemExit(
-                      f"source hash mismatch: {path}: expected={expected[path]} actual={actual}"
-                  )
-
-          print(f"Git-blob source integrity ok: {len(tracked)} tracked files verified")
+              if proc.wait() != 0:
+                  raise SystemExit(f"git show failed for {path}")
+              if digest.hexdigest() != expected[path]:
+                  raise SystemExit(f"source hash mismatch: {path}")
+          print(f"Git source integrity ok: {len(tracked)} tracked files verified")
           PY
 
       - name: Set up Python
@@ -87,20 +66,47 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
-      - name: Check Python syntax
+      - name: Check source syntax
         run: |
-          python -B -c "from pathlib import Path; files=list(Path('app').rglob('*.py'))+list(Path('engines').rglob('*.py'))+list(Path('tests').rglob('*.py')); [compile(p.read_text(encoding='utf-8'), str(p), 'exec') for p in files]; print(f'syntax ok: {len(files)} files')"
+          bash -n install.sh
+          bash -n build-run.sh
+          bash -n build-run-vendored.sh
+          bash -n deploy/install-from-github.sh
+          bash -n deploy/update-from-github.sh
+          python -B -c "from pathlib import Path; files=list(Path('app').rglob('*.py'))+list(Path('hostd').rglob('*.py'))+list(Path('engines').rglob('*.py'))+list(Path('deploy').rglob('*.py'))+list(Path('tests').rglob('*.py')); [compile(p.read_text(encoding='utf-8'), str(p), 'exec') for p in files]; print(f'syntax ok: {len(files)} files')"
 
       - name: Check release manifest
         run: |
-          python -B -c "import json, pathlib; manifest=json.loads(pathlib.Path('release-manifest.json').read_text(encoding='utf-8')); version=pathlib.Path('VERSION').read_text(encoding='utf-8').strip(); assert manifest['version']==version; assert manifest['status']=='FINAL-AWG2'; assert manifest['next_development_line']=='0.1.0-022.01'; assert manifest['source_integrity']['mode']=='git-blob-sha256'; assert manifest['safe_update']['preserve_local_assets'] is True; assert manifest['images']['panel']; assert manifest['images']['xray']; print('manifest ok')"
+          python -B - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("release-manifest.json").read_text(encoding="utf-8"))
+          version = Path("VERSION").read_text(encoding="utf-8").strip()
+          build_id = Path("BUILD-ID").read_text(encoding="utf-8").strip()
+          assert manifest["version"] == version
+          assert manifest["build"] == build_id
+          assert manifest["status"] == "LIVE"
+          assert manifest["next_development_line"] == "0.1.0-022.06"
+          assert manifest["source_integrity"]["mode"] == "sha256-file-inventory"
+          assert manifest["safe_update"]["preserve_local_assets"] is True
+          assert manifest["source_integrity"]["ci_verified"] is True
+          assert manifest["source_integrity"]["build_run_verified"] is True
+          assert manifest["images"]["panel"]
+          assert manifest["images"]["xray"]
+          print("manifest ok")
+          PY
 
-      - name: Run panel tests
-        run: python -m pytest tests
+      - name: Run full repository suite
+        run: python -m pytest -q
 
-      - name: Build and verify FINAL FULL CLEAN
+      - name: Build and verify current FULL package
         run: |
           command -v zip
           command -v unzip
-          bash build-run.sh /tmp/SG-Gateway-02112-FULL-CLEAN.run
-          bash /tmp/SG-Gateway-02112-FULL-CLEAN.run --verify-only
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          OUT="/tmp/SG-Gateway-${VERSION}-FULL.run"
+          bash build-run.sh "$OUT"
+          "$OUT" --verify-only
+          test -s "${OUT%.run}-SHA256.txt"
+          test -s "${OUT%.run}-TRANSFER.zip"
+          unzip -t "${OUT%.run}-TRANSFER.zip"

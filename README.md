@@ -4,7 +4,7 @@
 
 > **Один сервер. Одна панель. Семейный VPN без серверной акробатики.**
 
-![Версия](https://img.shields.io/badge/version-0.1.0--021.12-3b82f6)
+![Версия](https://img.shields.io/badge/version-0.1.0--022.05-3b82f6)
 ![Ubuntu](https://img.shields.io/badge/Ubuntu-native-E95420?logo=ubuntu&logoColor=white)
 ![Xray](https://img.shields.io/badge/Xray-supported-2563EB)
 ![AmneziaWG](https://img.shields.io/badge/AmneziaWG-supported-6D5BD0)
@@ -13,9 +13,9 @@
 ![WARP](https://img.shields.io/badge/WARP-supported-F38020?logo=cloudflare&logoColor=white)
 ![systemd](https://img.shields.io/badge/deploy-systemd-16A085)
 ![HTTPS](https://img.shields.io/badge/HTTPS-Let%27s_Encrypt-003A70?logo=letsencrypt&logoColor=white)
-![Status](https://img.shields.io/badge/status-FINAL--AWG2-16A34A)
+![Status](https://img.shields.io/badge/status-LIVE-16A34A)
 
-> **021.12 FINAL AWG2.** Эта линия feature-frozen: новые функции и AWG3 в `0.1.0-021.12` больше не добавляются. Только критические bug/security fixes. AWG3 начинается с `0.1.0-022.01`. Подробный freeze: [`SG-GATEWAY-02112-FINAL-AWG2.md`](SG-GATEWAY-02112-FINAL-AWG2.md).
+> **0.1.0-022.05 LIVE.** Текущая принятая линия SG-Gateway: SG-Panel XMUX, ручной WARP, безопасный Panel Update с rollback и точной привязкой установленного commit/fingerprint. Live-база подтверждена 15 августа 2026. Историческая 021.12 FINAL AWG2 сохранена отдельно.
 
 SG-Gateway устанавливается на **один самостоятельный Ubuntu-сервер** и превращает его в готовый VPN-шлюз с удобным веб-интерфейсом.
 
@@ -63,6 +63,21 @@ DELETE SG-GATEWAY
 
 ![System — ресурсы и состояние](docs/screenshots/0218-system-overview.png)
 
+
+## SG-Gateway 0.1.0-022.05
+
+`0.1.0-022.05` — текущая LIVE-линия. Она прошла реальный безопасный update на существующем SG-Gateway и закреплена как `stable-02205` / `release-02205-live`.
+
+Ключевые изменения линии:
+
+- VLESS Reality TCP и XHTTP Reality с актуальным XMUX-контрактом SG-Panel/Xray;
+- ручное создание WARP из панели без обязательной регистрации WARP во время clean install;
+- Panel Update через проверенный shell-updater с safety backup, rollback и финальной live-проверкой;
+- после успешного Update фиксируются точный source commit и fingerprint установленного дерева;
+- clean-installer identity приведена к 022.05;
+- полный repository CI и отдельные контракты XMUX/WARP/update сохранены.
+
+Следующая development-линия: `0.1.0-022.06` (`dev-02206`). Подробности публикации: [`PUBLICATION-02205.md`](PUBLICATION-02205.md).
 
 ## SG-Gateway 0.1.0-021.12
 

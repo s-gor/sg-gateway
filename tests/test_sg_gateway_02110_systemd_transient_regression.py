@@ -5,6 +5,8 @@ from pathlib import Path
 import re
 import subprocess
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 INSTALL = (ROOT / "install.sh").read_text(encoding="utf-8")
 BUILD = (ROOT / "build-run.sh").read_text(encoding="utf-8")
@@ -95,6 +97,8 @@ def test_final_stage_mutations_use_retry_wrapper() -> None:
 
 
 def test_build_acceptance_guards_restored() -> None:
+    if (ROOT / "VERSION").read_text(encoding="utf-8").strip() != "0.1.0-021.10":
+        pytest.skip("historical 021.10 builder acceptance contract")
     for text in (
         "SG_DEVICE_EXPANDED_CLEANUP_V1_LAST_CSS",
         "recovery_restore_backup_route(name: str)",

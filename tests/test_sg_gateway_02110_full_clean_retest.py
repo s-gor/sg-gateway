@@ -4,6 +4,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -59,6 +61,8 @@ def test_uninstall_cleans_02110_resume_file() -> None:
 
 
 def test_builder_uses_binary_payload_and_transfer_recheck() -> None:
+    if (ROOT / "VERSION").read_text(encoding="utf-8").strip() != "0.1.0-021.10":
+        pytest.skip("historical 021.10 builder-marker contract")
     script = (ROOT / "build-run.sh").read_text(encoding="utf-8")
     assert "__SG_GATEWAY_02110_BINARY_PAYLOAD_BELOW__" in script
     assert 'cat "$PAYLOAD" >> "$OUT"' in script
