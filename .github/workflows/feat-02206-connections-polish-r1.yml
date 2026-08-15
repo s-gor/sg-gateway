@@ -29,7 +29,7 @@ jobs:
           python -m pip install -r requirements-dev.txt
 
       - name: Apply Connections polish
-        run: python .github/scripts/feat-02206-connections-polish-r1.py
+        run: python .github/scripts/feat-02206-connections-polish-r2.py
 
       - name: Check syntax before candidate commit
         run: |
@@ -43,6 +43,7 @@ jobs:
         run: |
           git rm .github/workflows/feat-02206-connections-polish-r1.yml
           git rm .github/scripts/feat-02206-connections-polish-r1.py
+          git rm .github/scripts/feat-02206-connections-polish-r2.py
           rm -f data/system-activity.json
           git add -A
 
