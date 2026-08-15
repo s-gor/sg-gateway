@@ -162,6 +162,7 @@ jobs:
 
       - name: Verify exact UI-only scope before tests
         run: |
+          git add -N tests/test_sg_gateway_02206_connections_layout_r2.py
           git diff --name-only 555568ae8c4cfa58a1b20502a01ef04d20486f8d -- | sort > /tmp/changed.txt
           cat /tmp/changed.txt
           python - <<'PY'
@@ -206,6 +207,7 @@ jobs:
 
       - name: Verify final UI-only diff scope
         run: |
+          git add -N tests/test_sg_gateway_02206_connections_layout_r2.py
           git diff --name-only 555568ae8c4cfa58a1b20502a01ef04d20486f8d -- | sort > /tmp/final-changed.txt
           cat /tmp/final-changed.txt
           python - <<'PY'
