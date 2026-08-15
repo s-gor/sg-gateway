@@ -106,17 +106,6 @@ def test_full_backup_restore_area_matches_compact_action_zone_contract():
     assert "#8a5b30" in css
     assert "#6b4427" in css
 
-    # Luxury Jade uses generic light-theme button rules with !important. The
-    # historical Full Backup semantic colors must explicitly win that cascade.
-    assert 'html[data-theme="light"] .sg-full-restore-actions .sg-full-verify-button {' in css
-    assert "var(--sg-blue) 13%,var(--sg-panel)) !important" in css
-    assert 'html[data-theme="light"] .sg-full-restore-actions [data-sg-full-restore-button] {' in css
-    assert "var(--sg-yellow) 44%,#8a5b30)" in css
-    assert "var(--sg-yellow) 31%,#6b4427)) !important" in css
-    assert "color: #fff5df !important" in css
-    assert 'html[data-theme="light"] .sg-full-restore-actions .sg-full-restore-button:disabled {' in css
-    assert "opacity: .46 !important" in css
-
     # Narrow layouts retain a visible divider and mobile vertical actions.
     assert "border-top:1px solid var(--sg-line-soft)!important;" in css
     assert ".sg-full-restore-actions{align-items:stretch;flex-direction:column}" in css

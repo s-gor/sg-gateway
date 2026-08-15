@@ -331,31 +331,3 @@ html[data-theme="light"] .sg-full-backup-components em{
   .sg-full-download{width:100%}
   .sg-full-latest-main small{max-width:78vw}
 }
-
-
-/* SG-Gateway 022.06 · preserve historical Full Backup semantic button colors in Luxury Jade light theme. */
-html[data-theme="light"] .sg-full-restore-actions .sg-full-verify-button {
-  border-color: color-mix(in srgb,var(--sg-blue) 42%,var(--sg-line)) !important;
-  background: color-mix(in srgb,var(--sg-blue) 13%,var(--sg-panel)) !important;
-  color: color-mix(in srgb,var(--sg-blue) 88%,white) !important;
-}
-
-html[data-theme="light"] .sg-full-restore-actions [data-sg-full-restore-button] {
-  border-color: color-mix(in srgb,var(--sg-yellow) 58%,#6f4728) !important;
-  background: linear-gradient(180deg,
-    color-mix(in srgb,var(--sg-yellow) 44%,#8a5b30),
-    color-mix(in srgb,var(--sg-yellow) 31%,#6b4427)) !important;
-  color: #fff5df !important;
-  box-shadow: 0 8px 18px color-mix(in srgb,#4f321d 24%,transparent) !important;
-}
-
-html[data-theme="light"] .sg-full-restore-actions [data-sg-full-restore-button]:not(:disabled):hover {
-  border-color: color-mix(in srgb,var(--sg-yellow) 72%,#7a4c28) !important;
-  filter: brightness(1.06);
-}
-
-html[data-theme="light"] .sg-full-restore-actions .sg-full-restore-button:disabled {
-  opacity: .46 !important;
-  filter: saturate(.35) !important;
-  box-shadow: none !important;
-}
