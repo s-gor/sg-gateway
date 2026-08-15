@@ -38,6 +38,18 @@ identity = read("tests/test_sg_gateway_02206_development_identity.py")
 assert identity.count(OLD_BUILD) == 2
 write("tests/test_sg_gateway_02206_development_identity.py", identity.replace(OLD_BUILD, NEW_BUILD))
 
+# A feature contract must survive later 022.06 build IDs. Keep checking the
+# Connections feature manifest itself, not the global current build identity.
+connections_test_path = "tests/test_sg_gateway_02206_connections_polish.py"
+connections_test = read(connections_test_path)
+old_feature_header = '''def test_connections_polish_is_declared_ui_only() -> None:\n    assert _text("BUILD-ID").strip() == "DEV-02206-CONNECTIONS-POLISH-R1"\n    manifest = json.loads(_text("release-manifest.json"))\n    assert manifest["build"] == "DEV-02206-CONNECTIONS-POLISH-R1"\n    feature = manifest["development_feature"]\n'''
+new_feature_header = '''def test_connections_polish_is_declared_ui_only() -> None:\n    manifest = json.loads(_text("release-manifest.json"))\n    feature = manifest["development_feature"]\n'''
+assert connections_test.count(old_feature_header) == 1
+write(
+    connections_test_path,
+    connections_test.replace(old_feature_header, new_feature_header, 1),
+)
+
 manifest_path = ROOT / "release-manifest.json"
 manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 assert manifest["version"] == "0.1.0-022.06"
