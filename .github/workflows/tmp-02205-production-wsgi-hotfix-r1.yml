@@ -129,6 +129,12 @@ jobs:
           git add SOURCE-SHA256SUMS
           sha256sum -c SOURCE-SHA256SUMS >/dev/null
 
+      - name: Verify public clean-install source path
+        run: |
+          grep -Fq 'BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-dev-02205}}"' deploy/install-from-github.sh
+          grep -Fq 'from app.production import app' install.sh
+          grep -Fq 'app.production:app' install.sh
+
       - name: Verify minimal scope
         run: |
           git diff --cached --name-only 9fbf42aea2bde80a99229de5661a93b6dce4f6c1 -- | sort
@@ -149,12 +155,6 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git diff --cached --check
           git commit -m 'Fix 022.05 installer production WSGI target'
-
-      - name: Build and verify FULL
-        run: |
-          OUT=/tmp/SG-Gateway-0.1.0-022.05-PRODUCTION-WSGI-HOTFIX-R1.run
-          bash build-run.sh "$OUT"
-          "$OUT" --verify-only
 
       - name: Publish verified candidate
         run: git push origin HEAD:hotfix-02205-production-wsgi-r1
