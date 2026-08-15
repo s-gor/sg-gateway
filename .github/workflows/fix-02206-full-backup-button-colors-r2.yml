@@ -110,6 +110,7 @@ jobs:
               'app/web/static/sg-full-backup-v1.css',
               'app/web/static/sg-full-backup-button-colors-r2.css',
               'app/web/templates/base.html',
+              'tests/test_sg_gateway_02205_full_backup_verify_ui.py',
               'tests/test_sg_gateway_02206_full_backup_button_colors_r2.py',
           }
           assert changed == allowed, sorted(changed)
