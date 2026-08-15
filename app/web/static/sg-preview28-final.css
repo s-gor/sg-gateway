@@ -434,3 +434,96 @@ html[data-theme="light"] .mhv2-switch input:checked + span {
 
 /* Preview 28: Connections begins with Xray; the compact equal-height engine pair follows it. */
 .cnv1-page > .cnv1-xray-row { margin-top: 2px; }
+
+/* SG-Gateway 022.06 · Connections layout R2 — CSS only. */
+@media (min-width: 1281px) {
+  .xps2-parameter-row:not(.has-xhttp) {
+    grid-template-columns: minmax(260px, 1fr) 170px minmax(250px, .80fr) minmax(220px, .70fr);
+    align-items: center;
+  }
+
+  .xps2-parameter-row:not(.has-xhttp) > .xps2-parameter-note {
+    grid-column: 4;
+    justify-self: end;
+    text-align: right;
+  }
+
+  .xps2-parameter-row.has-xhttp {
+    grid-template-columns: minmax(240px, 1fr) 160px minmax(225px, .78fr) minmax(205px, .68fr) minmax(250px, .90fr);
+    align-items: center;
+  }
+
+  .xps2-parameter-row.has-xhttp > :is(.xps2-port-field, .xps2-flow-field, .xps2-encryption-field, .xps2-path-field) {
+    align-self: center;
+  }
+}
+
+.xps2-parameter-row :is(.xps2-port-field, .xps2-path-field) {
+  align-self: center;
+}
+
+.xps2-parameter-row :is(.xps2-port-field, .xps2-path-field) input {
+  min-height: 46px;
+}
+
+.xps2-parameter-row .xps2-flow-field,
+.xps2-parameter-row .xps2-encryption-field {
+  min-width: 0;
+  align-self: center;
+}
+
+/* AWG keeps its natural content height instead of stretching to Mihomo. */
+.cnv1-engine-pair {
+  align-items: start;
+}
+
+.cnv1-engine-pair > .cnv1-engine-card,
+.cnv1-engine-pair > .mhv2-panel {
+  align-self: start;
+}
+
+.cnv1-engine-awg .cnv1-engine-form-compact {
+  flex: 0 0 auto;
+}
+
+.cnv1-engine-awg .cnv1-form-actions {
+  margin-top: 14px;
+}
+
+/* Listener headers may wrap; status controls never push text out of the card. */
+.cnv1-engine-mihomo .mhv2-listener > header {
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.cnv1-engine-mihomo .mhv2-listener-title {
+  min-width: 0;
+}
+
+.cnv1-engine-mihomo .mhv2-listener-title p {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.cnv1-engine-mihomo .mhv2-switch {
+  margin-left: auto;
+}
+
+/* In the half-width engine card, Mieru gets a full row; AnyTLS and TUIC share the next row. */
+@media (min-width: 1280px) {
+  .cnv1-engine-mihomo .mhv2-listeners-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cnv1-engine-mihomo .mhv2-listener:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .cnv1-engine-mihomo .mhv2-listener:first-child .mhv2-basic-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cnv1-engine-mihomo .mhv2-listener:not(:first-child) .mhv2-basic-fields {
+    grid-template-columns: 1fr;
+  }
+}
