@@ -90,6 +90,32 @@ jobs:
       - name: Run complete repository suite
         run: python -m pytest -q
 
+      - name: Clean test runtime state and rebuild final source inventory
+        run: |
+          rm -f data/system-activity.json
+          find . -type f \
+            ! -path './.git/*' \
+            ! -path './SOURCE-SHA256SUMS' \
+            -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed 's#  \./#  #' > SOURCE-SHA256SUMS
+          sha256sum -c SOURCE-SHA256SUMS >/dev/null
+          git diff --name-only 6d13d0458ed93c47d4473ec865e9e2f262b79da3 -- | sort > /tmp/final-changed.txt
+          python - <<'PY'
+          from pathlib import Path
+          changed = {line.strip() for line in Path('/tmp/final-changed.txt').read_text().splitlines() if line.strip()}
+          allowed = {
+              'SOURCE-SHA256SUMS',
+              'app/xray/xmux.py',
+              'app/web/templates/_xray_xmux_settings.html',
+              'tests/test_sg_gateway_02205_xmux_sgpanel_contract.py',
+              'tests/test_sg_gateway_02206_connections_polish.py',
+              'tests/test_sg_gateway_02206_sgpanel_vless_parity.py',
+          }
+          assert changed == allowed, (changed, allowed)
+          PY
+
       - name: Create local finalized candidate HEAD
         run: |
           git config user.name 'github-actions[bot]'
@@ -98,6 +124,7 @@ jobs:
           git diff --cached --check
           git commit -m 'Finalize XMUX upstream and RF 2026 presets'
           test ! -e .github/workflows/tmp-02206-xmux-upstream-rf2026-r1.yml
+          test ! -e data/system-activity.json
           sha256sum -c SOURCE-SHA256SUMS >/dev/null
 
       - name: Build and verify FULL package from finalized HEAD
