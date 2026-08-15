@@ -90,7 +90,17 @@ jobs:
       - name: Run complete repository suite
         run: python -m pytest -q
 
-      - name: Build and verify FULL package
+      - name: Create local finalized candidate HEAD
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'Finalize XMUX upstream and RF 2026 presets'
+          test ! -e .github/workflows/tmp-02206-xmux-upstream-rf2026-r1.yml
+          sha256sum -c SOURCE-SHA256SUMS >/dev/null
+
+      - name: Build and verify FULL package from finalized HEAD
         run: |
           OUT=/tmp/SG-Gateway-0.1.0-022.06-XMUX-UPSTREAM-RF2026-R1.run
           bash build-run.sh "$OUT"
@@ -99,11 +109,5 @@ jobs:
           test -s /tmp/SG-Gateway-0.1.0-022.06-XMUX-UPSTREAM-RF2026-R1-TRANSFER.zip
           unzip -t /tmp/SG-Gateway-0.1.0-022.06-XMUX-UPSTREAM-RF2026-R1-TRANSFER.zip
 
-      - name: Commit verified inventory and remove temporary workflow
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add SOURCE-SHA256SUMS
-          git diff --cached --check
-          git commit -m 'Finalize XMUX upstream and RF 2026 presets'
-          git push origin HEAD:feature-02206-xmux-upstream-rf2026-r1
+      - name: Publish verified final candidate
+        run: git push origin HEAD:feature-02206-xmux-upstream-rf2026-r1
