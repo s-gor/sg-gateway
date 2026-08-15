@@ -37,7 +37,7 @@ jobs:
           chmod 0711 "$d"
           sudo -u nobody test -d "$d/wsgi-validation/data"
           chmod 0700 "$d"
-          rm -rf "$d"
+          sudo rm -rf "$d"
       - name: Full repository suite
         run: python -m pytest -q
       - name: Commit only verified code
