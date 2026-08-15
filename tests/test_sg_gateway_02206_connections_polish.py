@@ -47,7 +47,7 @@ def test_xhttp_mode_moves_to_single_collapsed_expert_section() -> None:
     assert "xps2-xhttp-mode-grid" in _text("app/web/static/sg-xray-profiles-v2.css")
 
 
-def test_current_gecko_and_sg_panel_xmux_contract_survive_polish() -> None:
+def test_current_gecko_and_xmux_selector_survive_polish() -> None:
     template = _text("app/web/templates/connections.html")
     js = _text("app/web/static/sg-xmux-settings-v1.js")
     partial = _text("app/web/templates/_xray_xmux_settings.html")
@@ -55,8 +55,8 @@ def test_current_gecko_and_sg_panel_xmux_contract_survive_polish() -> None:
     assert 'value="gecko"' in template
     assert "Gecko · рекомендуется" in template
     assert "XMUX для XHTTP" in partial
-    assert "Стандартный" in partial
-    assert "Для РФ — уменьшенный" in partial
+    assert "Стандартный · Xray upstream" in partial
+    assert "Для РФ · эксперимент 2026" in partial
     assert "Ручной" in partial
     assert "stream-one" in js
     assert "hidden.name = 'xhttp_reality_mode'" in js
