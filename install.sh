@@ -2765,7 +2765,7 @@ main() {
   umask 022
   prepare_log
   export DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8
-  printf '\n%sSG-Gateway 0.1.0-022.01%s\n' "$CYAN" "$RESET"
+  printf '\n%sSG-Gateway %s%s\n' "$CYAN" "$VERSION" "$RESET"
   printf '[SG-Gateway] Журнал: %s\n\n' "$INSTALL_LOG"
 
   run_stage 1 "Подготовка системы" bootstrap_packages
@@ -2804,7 +2804,7 @@ main() {
   # AmneziaWG has one canonical SG-Gateway transport port.
   AWG_PORT="$DEFAULT_AWG_PORT"
 
-  BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)-before-sg-gateway-02201"
+  BACKUP_DIR="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)-before-sg-gateway-02205"
   MUTATION_STARTED=1
   run_stage 2 "Резервная копия" stage_backup_and_prepare
   run_stage 3 "Системные пакеты" stage_system_packages
