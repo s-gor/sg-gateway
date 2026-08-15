@@ -17,7 +17,7 @@ updater.write_text(body, encoding="utf-8", newline="\n")
 test = Path("tests/test_sg_gateway_02205_update_wsgi_isolation.py")
 t = test.read_text(encoding="utf-8")
 anchor = '''    assert "Panel WSGI import: OK" in block\n'''
-insert = '''    assert "Panel WSGI import: OK" in block\n    assert 'chmod 0711 "$TEMP_DIR"' in block\n    assert 'chmod 0700 "$TEMP_DIR"' in block\n    assert block.index('chmod 0711 "$TEMP_DIR"') < block.index('runuser -u sg-gateway')\n    assert block.index('chmod 0700 "$TEMP_DIR"') > block.index('PYDEPLOYEDWSGI')\n'''
+insert = '''    assert "Panel WSGI import: OK" in block\n    assert 'chmod 0711 "$TEMP_DIR"' in block\n    assert 'chmod 0700 "$TEMP_DIR"' in block\n    chmod_open = block.index('chmod 0711 "$TEMP_DIR"')\n    wsgi_runuser = block.index('runuser -u sg-gateway', chmod_open)\n    chmod_close = block.index('chmod 0700 "$TEMP_DIR"', wsgi_runuser)\n    assert chmod_open < wsgi_runuser < chmod_close\n'''
 if t.count(anchor) != 1:
     raise SystemExit(f"expected one test anchor, found {t.count(anchor)}")
 t = t.replace(anchor, insert, 1)
