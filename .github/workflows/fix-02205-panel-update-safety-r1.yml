@@ -1,0 +1,367 @@
+name: Harden 022.05 panel update safety
+
+on:
+  push:
+    branches:
+      - fix-02205-panel-update-safety-r1
+
+permissions:
+  contents: write
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Patch panel update channel and safe delegation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # 1) Panel overview follows the 022.05 development channel, not main.
+          path = Path('app/maintenance/panel_updates.py')
+          body = path.read_text(encoding='utf-8')
+          anchor = 'GITHUB_REPO = os.getenv("SG_GATEWAY_UPDATE_REPO", "s-gor/sg-gateway").strip() or "s-gor/sg-gateway"\n'
+          assert body.count(anchor) == 1
+          body = body.replace(
+              anchor,
+              anchor + 'GITHUB_BRANCH = os.getenv("SG_GATEWAY_UPDATE_BRANCH", "dev-02205").strip() or "dev-02205"\n',
+          )
+          replacements = {
+              'def _latest_main() -> tuple[str, str, str]:': 'def _latest_channel() -> tuple[str, str, str]:',
+              'f"{GITHUB_API}/commits/main"': 'f"{GITHUB_API}/commits/{GITHUB_BRANCH}"',
+              'f"https://github.com/{GITHUB_REPO}/commits/main.atom"': 'f"https://github.com/{GITHUB_REPO}/commits/{GITHUB_BRANCH}.atom"',
+              'sha, latest_date, html_url = _latest_main()': 'sha, latest_date, html_url = _latest_channel()',
+              '"Локальная база уже соответствует проверенному GitHub main."': 'f"Локальная база уже соответствует проверенному GitHub {GITHUB_BRANCH}."',
+              '"GitHub main содержит новый commit. Можно выполнить безопасное обновление панели."': 'f"GitHub {GITHUB_BRANCH} содержит новый commit. Можно выполнить безопасное обновление панели."',
+              '"Проверка GitHub main не выполнена."': 'f"Проверка GitHub {GITHUB_BRANCH} не выполнена."',
+              '"GitHub не вернул commit main"': '"GitHub не вернул commit update-channel"',
+              '"GitHub main не удалось определить ни через API, ни через Atom feed"': 'f"GitHub {GITHUB_BRANCH} не удалось определить ни через API, ни через Atom feed"',
+              'f"Не удалось проверить GitHub main: {first_exc}; fallback: {second_exc}"': 'f"Не удалось проверить GitHub {GITHUB_BRANCH}: {first_exc}; fallback: {second_exc}"',
+          }
+          for old, new in replacements.items():
+              assert old in body, old
+              body = body.replace(old, new)
+          # Surface the exact channel in both success and error payloads.
+          body = body.replace(
+              '            "repo": GITHUB_REPO,\n',
+              '            "repo": GITHUB_REPO,\n            "channel": GITHUB_BRANCH,\n',
+          )
+          path.write_text(body, encoding='utf-8', newline='\n')
+
+          # 2) New panel update jobs directly call the already verified shell updater.
+          path = Path('hostd/sg_hostd/operation_jobs.py')
+          body = path.read_text(encoding='utf-8')
+          import_anchor = 'from typing import Any, Sequence\n'
+          assert body.count(import_anchor) == 1
+          body = body.replace(
+              import_anchor,
+              import_anchor + '\nfrom app.maintenance.panel_updates import GITHUB_BRANCH\n',
+          )
+          const_anchor = 'PANEL_ACCESS_SCRIPT = Path("/opt/sg-gateway/deploy/configure-panel-access.sh")\n'
+          assert body.count(const_anchor) == 1
+          body = body.replace(
+              const_anchor,
+              const_anchor + 'PANEL_UPDATE_SCRIPT = Path("/opt/sg-gateway/deploy/update-from-github.sh")\n',
+          )
+          old = '''def start_panel_update_job() -> dict[str, Any]:
+              return _start(
+                  "panel_update_main",
+                  "Безопасное обновление SG-Gateway из GitHub main",
+                  "/maintenance?tab=updates&refresh=1",
+                  "/maintenance?tab=updates",
+              )
+          '''.replace('          ', '')
+          new = '''def start_panel_update_job() -> dict[str, Any]:
+              if not PANEL_UPDATE_SCRIPT.is_file():
+                  raise RuntimeError(f"Не найден {PANEL_UPDATE_SCRIPT}")
+              return _start(
+                  "panel_update_channel",
+                  f"Безопасное обновление SG-Gateway из GitHub {GITHUB_BRANCH}",
+                  "/maintenance?tab=updates&refresh=1",
+                  "/maintenance?tab=updates",
+                  {"channel": GITHUB_BRANCH, "restart_expected": True},
+                  command=(
+                      "/usr/bin/env",
+                      f"SG_GATEWAY_GITHUB_BRANCH={GITHUB_BRANCH}",
+                      "/bin/bash",
+                      str(PANEL_UPDATE_SCRIPT),
+                  ),
+              )
+          '''.replace('          ', '')
+          assert body.count(old) == 1, 'start_panel_update_job anchor'
+          body = body.replace(old, new)
+          path.write_text(body, encoding='utf-8', newline='\n')
+
+          # 3) Legacy queued panel_update_main jobs also delegate to the safe shell updater.
+          path = Path('hostd/sg_hostd/operation_job_runner.py')
+          body = path.read_text(encoding='utf-8')
+          assert 'import subprocess\n' not in body
+          body = body.replace('import os\n', 'import os\nimport subprocess\n', 1)
+          old = '''def run_panel_update() -> int:
+              from sg_hostd.panel_update_runtime import update_panel
+
+              print("[SG-Gateway Update] Подготавливаю транзакционное обновление панели", flush=True)
+              _dump(update_panel())
+              return 0
+          '''.replace('          ', '')
+          new = '''def run_panel_update() -> int:
+              from app.maintenance.panel_updates import GITHUB_BRANCH
+
+              script = _PROJECT_ROOT / "deploy" / "update-from-github.sh"
+              if not script.is_file():
+                  raise RuntimeError(f"Не найден {script}")
+              env = dict(os.environ)
+              env["SG_GATEWAY_GITHUB_BRANCH"] = GITHUB_BRANCH
+              print(f"[SG-Gateway Update] Запускаю проверенный updater · channel {GITHUB_BRANCH}", flush=True)
+              completed = subprocess.run(
+                  ["/bin/bash", str(script)],
+                  cwd=str(_PROJECT_ROOT),
+                  env=env,
+                  check=False,
+              )
+              return int(completed.returncode)
+          '''.replace('          ', '')
+          assert body.count(old) == 1, 'legacy runner anchor'
+          body = body.replace(old, new)
+          path.write_text(body, encoding='utf-8', newline='\n')
+
+          # 4) Make the old Python runtime safe even if called directly.
+          path = Path('hostd/sg_hostd/panel_update_runtime.py')
+          body = path.read_text(encoding='utf-8')
+          old_import = 'from app.maintenance.panel_updates import GITHUB_API, GITHUB_REPO, STATE_FILE, source_fingerprint\n'
+          new_import = 'from app.maintenance.panel_updates import GITHUB_API, GITHUB_BRANCH, GITHUB_REPO, STATE_FILE, source_fingerprint\n'
+          assert body.count(old_import) == 1
+          body = body.replace(old_import, new_import)
+          old_env = '''    env["SG_GATEWAY_ENV"] = "production"
+              env["SG_GATEWAY_DATA_DIR"] = "/var/lib/sg-gateway"
+              env["SG_GATEWAY_LOG_DIR"] = "/var/log/sg-gateway"
+              check = subprocess.run(
+          '''.replace('          ', '')
+          new_env = '''    env["SG_GATEWAY_ENV"] = "production"
+              validation_root = root.parent / "wsgi-validation"
+              (validation_root / "data").mkdir(parents=True, exist_ok=True)
+              (validation_root / "log").mkdir(parents=True, exist_ok=True)
+              env["SG_GATEWAY_DATA_DIR"] = str(validation_root / "data")
+              env["SG_GATEWAY_LOG_DIR"] = str(validation_root / "log")
+              check = subprocess.run(
+          '''.replace('          ', '')
+          assert body.count(old_env) == 1, 'staged import env anchor'
+          body = body.replace(old_env, new_env)
+          start = body.index('def update_panel() -> dict[str, Any]:')
+          safe_update = '''def update_panel() -> dict[str, Any]:
+              """Compatibility entrypoint: delegate to the verified full-state shell updater."""
+              script = LIVE_ROOT / "deploy" / "update-from-github.sh"
+              if not script.is_file():
+                  raise PanelUpdateRuntimeError(f"Не найден безопасный updater: {script}")
+              env = dict(os.environ)
+              env["SG_GATEWAY_GITHUB_BRANCH"] = GITHUB_BRANCH
+              completed = subprocess.run(
+                  ["/bin/bash", str(script)],
+                  cwd=str(LIVE_ROOT),
+                  env=env,
+                  capture_output=True,
+                  text=True,
+                  timeout=1800,
+                  check=False,
+              )
+              output = "\\n".join(part.strip() for part in (completed.stdout, completed.stderr) if part and part.strip())
+              if output:
+                  print(output, flush=True)
+              if completed.returncode:
+                  raise PanelUpdateRuntimeError(
+                      output.splitlines()[-1] if output else f"safe updater failed: rc={completed.returncode}"
+                  )
+              version = (LIVE_ROOT / "VERSION").read_text(encoding="utf-8").strip()
+              return {
+                  "ok": True,
+                  "message": f"SG-Gateway безопасно обновлён из GitHub {GITHUB_BRANCH}; VERSION {version}",
+                  "channel": GITHUB_BRANCH,
+                  "version": version,
+              }
+          '''.replace('          ', '')
+          body = body[:start] + safe_update
+          path.write_text(body, encoding='utf-8', newline='\n')
+          PY
+
+      - name: Update release manifest safety contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('release-manifest.json')
+          data = json.loads(path.read_text(encoding='utf-8'))
+          data['client_access_model']['sg_panel_transfer_status'] = 'live-validated-2026-08-15'
+          panel = data['maintenance_updates']['panel']
+          panel['source'] = 'github-channel-via-verified-shell-updater'
+          panel['channel'] = 'dev-02205'
+          panel['staged_import_data'] = 'isolated-temp-data-log'
+          panel['state_backup'] = 'full-shell-updater-safety-backup'
+          data['source_integrity']['mode'] = 'sha256-file-inventory'
+          path.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + '\n', encoding='utf-8', newline='\n')
+          PY
+
+      - name: Add panel updater safety regression
+        shell: bash
+        run: |
+          cat > tests/test_sg_gateway_02205_panel_update_safety.py <<'PY'
+          from pathlib import Path
+
+          ROOT = Path(__file__).resolve().parents[1]
+
+
+          def _function_block(body: str, name: str) -> str:
+              start = body.index(f"def {name}(")
+              next_def = body.find("\ndef ", start + 5)
+              return body[start:] if next_def < 0 else body[start:next_def]
+
+
+          def test_panel_update_overview_uses_02205_channel_not_main() -> None:
+              body = (ROOT / "app/maintenance/panel_updates.py").read_text(encoding="utf-8")
+              assert 'GITHUB_BRANCH = os.getenv("SG_GATEWAY_UPDATE_BRANCH", "dev-02205")' in body
+              latest = _function_block(body, "_latest_channel")
+              assert 'commits/{GITHUB_BRANCH}' in latest
+              assert 'commits/main' not in latest
+
+
+          def test_panel_update_job_delegates_to_verified_shell_updater() -> None:
+              body = (ROOT / "hostd/sg_hostd/operation_jobs.py").read_text(encoding="utf-8")
+              block = _function_block(body, "start_panel_update_job")
+              assert 'PANEL_UPDATE_SCRIPT' in block
+              assert 'SG_GATEWAY_GITHUB_BRANCH={GITHUB_BRANCH}' in block
+              assert 'command=(' in block
+              assert 'panel_update_channel' in block
+
+
+          def test_legacy_panel_update_runner_is_also_safe() -> None:
+              body = (ROOT / "hostd/sg_hostd/operation_job_runner.py").read_text(encoding="utf-8")
+              block = _function_block(body, "run_panel_update")
+              assert 'update-from-github.sh' in block
+              assert 'SG_GATEWAY_GITHUB_BRANCH' in block
+              assert 'panel_update_runtime' not in block
+
+
+          def test_old_python_staging_import_cannot_touch_production_db() -> None:
+              body = (ROOT / "hostd/sg_hostd/panel_update_runtime.py").read_text(encoding="utf-8")
+              block = _function_block(body, "_validate_snapshot")
+              assert 'validation_root = root.parent / "wsgi-validation"' in block
+              assert 'env["SG_GATEWAY_DATA_DIR"] = str(validation_root / "data")' in block
+              assert 'env["SG_GATEWAY_LOG_DIR"] = str(validation_root / "log")' in block
+              assert 'env["SG_GATEWAY_DATA_DIR"] = "/var/lib/sg-gateway"' not in block
+
+
+          def test_python_update_entrypoint_delegates_instead_of_mutating_source_itself() -> None:
+              body = (ROOT / "hostd/sg_hostd/panel_update_runtime.py").read_text(encoding="utf-8")
+              block = _function_block(body, "update_panel")
+              assert 'deploy" / "update-from-github.sh"' in block
+              assert 'SG_GATEWAY_GITHUB_BRANCH' in block
+              assert '_backup_live(' not in block
+              assert '_deploy_source(' not in block
+          PY
+
+      - name: Python and shell syntax
+        shell: bash
+        run: |
+          python -m compileall -q app hostd/sg_hostd
+          bash -n deploy/update-from-github.sh
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+
+      - name: Focused safety regression
+        run: |
+          pytest -q \
+            tests/test_sg_gateway_02205_panel_update_safety.py \
+            tests/test_sg_gateway_02205_update_wsgi_isolation.py \
+            tests/test_sg_gateway_02205_installer_identity.py \
+            tests/test_sg_gateway_02205_optional_warp_install.py \
+            tests/test_sg_gateway_02205_xmux_sgpanel_contract.py
+
+      - name: Remove CI scaffolding and generated runtime data
+        shell: bash
+        run: |
+          git rm .github/workflows/fix-02205-panel-update-safety-r1.yml
+          rm -f data/system-activity.json
+          git add \
+            app/maintenance/panel_updates.py \
+            hostd/sg_hostd/operation_jobs.py \
+            hostd/sg_hostd/operation_job_runner.py \
+            hostd/sg_hostd/panel_update_runtime.py \
+            release-manifest.json \
+            tests/test_sg_gateway_02205_panel_update_safety.py
+
+      - name: Rebuild strict source checksum inventory
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import subprocess
+          from pathlib import Path
+
+          tracked = subprocess.check_output(['git', 'ls-files', '-z']).split(b'\0')
+          paths = sorted(p.decode('utf-8') for p in tracked if p and p.decode('utf-8') != 'SOURCE-SHA256SUMS')
+          lines = []
+          for raw in paths:
+              path = Path(raw)
+              if path.is_file():
+                  lines.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {raw}")
+          Path('SOURCE-SHA256SUMS').write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
+          print(f'SOURCE-SHA256SUMS entries={len(lines)}')
+          PY
+
+      - name: Full repository suite
+        run: pytest -q
+
+      - name: Remove post-test generated runtime data
+        run: rm -f data/system-activity.json
+
+      - name: Verify final diff scope
+        shell: bash
+        run: |
+          git status --short
+          python - <<'PY'
+          import subprocess
+
+          changed = set(subprocess.check_output(['git', 'diff', '--name-only', 'HEAD']).decode().splitlines())
+          staged = set(subprocess.check_output(['git', 'diff', '--cached', '--name-only', 'HEAD']).decode().splitlines())
+          all_changed = changed | staged
+          allowed = {
+              'app/maintenance/panel_updates.py',
+              'hostd/sg_hostd/operation_jobs.py',
+              'hostd/sg_hostd/operation_job_runner.py',
+              'hostd/sg_hostd/panel_update_runtime.py',
+              'release-manifest.json',
+              'tests/test_sg_gateway_02205_panel_update_safety.py',
+              'SOURCE-SHA256SUMS',
+              '.github/workflows/fix-02205-panel-update-safety-r1.yml',
+          }
+          unexpected = all_changed - allowed
+          assert not unexpected, sorted(unexpected)
+          required = allowed - {'.github/workflows/fix-02205-panel-update-safety-r1.yml'}
+          assert required <= all_changed, sorted(required - all_changed)
+          print('Final diff scope: OK')
+          PY
+
+      - name: Commit verified safety fix
+        shell: bash
+        run: |
+          git config user.name 'sg-gateway-panel-update-ci'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'Harden 022.05 built-in panel updater'
+          git push origin HEAD:fix-02205-panel-update-safety-r1
