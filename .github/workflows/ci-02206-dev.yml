@@ -1,0 +1,61 @@
+name: CI 022.06 Development
+
+on:
+  push:
+    branches: [dev-02206]
+  pull_request:
+    branches: [dev-02206]
+
+jobs:
+  development-contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Verify 022.06 identity and source integrity
+        run: |
+          test "$(tr -d '[:space:]' < VERSION)" = "0.1.0-022.06"
+          test "$(tr -d '\r\n' < BUILD-ID)" = "DEV-02206-BASE-R1"
+          bash -n install.sh
+          bash -n build-run.sh
+          bash -n build-run-vendored.sh
+          bash -n deploy/install-from-github.sh
+          bash -n deploy/update-from-github.sh
+          python -m pytest -q tests/test_sg_gateway_02206_development_identity.py tests/test_sg_gateway_02206_update_channel_defaults.py tests/test_version.py
+          python -m pytest -q tests/test_sg_gateway_02112_final_cumulative_cleanup_r5.py::test_source_checksum_inventory_is_strict_and_complete
+
+      - name: Preserve inherited 022.05 runtime contracts
+        run: |
+          python -m pytest -q tests/test_sg_gateway_02205_xmux_sgpanel_contract.py
+          python -m pytest -q tests/test_sg_gateway_02205_optional_warp_install.py
+          python -m pytest -q tests/test_sg_gateway_02205_update_wsgi_isolation.py
+          python -m pytest -q tests/test_sg_gateway_02205_panel_update_state_binding.py
+          python -m pytest -q tests/test_sg_subscription_v1_*_02205.py
+          python -m pytest -q tests/test_sg_gateway_02205_full_backup_verify.py tests/test_sg_gateway_02205_full_backup_verify_ui.py tests/test_sg_gateway_02205_full_backup_verify_mux.py
+
+      - name: Run complete repository suite
+        run: python -m pytest -q
+
+      - name: Build and verify development FULL package
+        run: |
+          command -v zip
+          command -v unzip
+          OUT=/tmp/SG-Gateway-0.1.0-022.06-FULL.run
+          bash build-run.sh "$OUT"
+          "$OUT" --verify-only
+          test -s /tmp/SG-Gateway-0.1.0-022.06-FULL-SHA256.txt
+          test -s /tmp/SG-Gateway-0.1.0-022.06-FULL-TRANSFER.zip
+          unzip -t /tmp/SG-Gateway-0.1.0-022.06-FULL-TRANSFER.zip

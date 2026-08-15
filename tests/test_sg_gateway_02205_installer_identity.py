@@ -1,6 +1,10 @@
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
+CURRENT_VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+pytestmark = pytest.mark.skipif(CURRENT_VERSION != "0.1.0-022.05", reason="historical 022.05 installer identity contract")
 
 
 def _main_block(body: str) -> str:

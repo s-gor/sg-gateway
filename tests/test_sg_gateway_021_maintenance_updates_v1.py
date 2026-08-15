@@ -155,6 +155,6 @@ def test_panel_update_has_bootstrap_gate_and_channel_atom_fallback():
     assert "def _baseline_mode" in runtime
     assert 'return "bootstrap", {}' in runtime
     assert "updater-baseline" not in runtime
-    assert 'GITHUB_BRANCH = os.getenv("SG_GATEWAY_UPDATE_BRANCH", "dev-02205")' in overview
+    assert 'GITHUB_BRANCH = os.getenv("SG_GATEWAY_UPDATE_BRANCH", "dev-02206")' in overview
     assert 'commits/{GITHUB_BRANCH}.atom' in overview
     assert "commits/main.atom" not in overview

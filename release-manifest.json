@@ -1,7 +1,7 @@
 {
-  "build": "LIVE-02205-SGPANEL-XMUX-WARP-UPDATER-R4",
-  "status": "LIVE",
-  "next_development_line": "0.1.0-022.06",
+  "build": "DEV-02206-BASE-R1",
+  "status": "DEVELOPMENT",
+  "next_development_line": "0.1.0-022.07",
   "safe_update": {
     "mode": "light-runtime-whitelist",
     "download_assets": false,
@@ -14,7 +14,7 @@
     "ci_verified": true,
     "build_run_verified": true
   },
-  "channel": "dev-02205",
+  "channel": "dev-02206",
   "client_access_model": {
     "hysteria_auth_per_device": true,
     "independent_enable_disable": true,
@@ -242,7 +242,7 @@
     "sg_admin_enter_defaults_to_yes": true,
     "stage9_exact_failure_logging": true,
     "template_endpoint_audit": true,
-    "version": "02205-recovery-r1",
+    "version": "02206-base-r1",
     "warp_panel_port_v017": true,
     "xhttp_reality_stream_one_migration": true
   },
@@ -286,7 +286,7 @@
       "requirements_change_blocks_panel_only_update": true,
       "source": "github-channel-via-verified-shell-updater",
       "staging": true,
-      "channel": "dev-02205",
+      "channel": "dev-02206",
       "staged_import_data": "isolated-temp-data-log",
       "state_backup": "full-shell-updater-safety-backup"
     }
@@ -436,7 +436,7 @@
     ],
     "xray_status_cards_theme_fixed": true
   },
-  "version": "0.1.0-022.05",
+  "version": "0.1.0-022.06",
   "vless_sg_panel_port": {
     "client_contract": {
       "fingerprint_normalized": true,
@@ -551,13 +551,14 @@
       "positive_max_connections_and_max_concurrency_conflict": true
     }
   },
-  "publication": {
-    "published": "2026-08-15",
+  "development_base": {
+    "version": "0.1.0-022.05",
+    "publication_commit": "a0c2537b6c55d1fd974afe3aab586a7d41777cd8",
+    "publication_tree": "044d3c166015f8250a1d800584c898ca927da33f",
     "live_validated_commit": "9fbf42aea2bde80a99229de5661a93b6dce4f6c1",
     "live_validated_tree": "c482dc4f158dc1d61c2ba1d683a14e96d24dac68",
-    "runtime_changes_after_live_validation": false,
-    "release_branch": "release-02205-live",
     "stable_branch": "stable-02205",
-    "next_development_branch": "dev-02206"
+    "release_branch": "release-02205-live",
+    "frozen_update_channel": "dev-02205"
   }
 }
