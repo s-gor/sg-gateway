@@ -183,6 +183,23 @@ jobs:
             tests/test_connections_layout_v24.py \
             tests/test_preview28_balanced_engine_cards.py
 
+      - name: Refresh strict source inventory before full suite
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import subprocess
+
+          raw = subprocess.check_output(['git', 'ls-files', '-co', '--exclude-standard', '-z'])
+          files = sorted(x.decode() for x in raw.split(b'\0') if x and x.decode() != 'SOURCE-SHA256SUMS')
+          lines = []
+          for name in files:
+              data = Path(name).read_bytes()
+              lines.append(f"{hashlib.sha256(data).hexdigest()}  {name}\n")
+          Path('SOURCE-SHA256SUMS').write_text(''.join(lines), encoding='utf-8')
+          PY
+          sha256sum -c SOURCE-SHA256SUMS >/dev/null
+
       - name: Run complete repository suite
         run: python -m pytest -q
 
