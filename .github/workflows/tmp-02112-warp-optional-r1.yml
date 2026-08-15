@@ -74,8 +74,10 @@ jobs:
               assert 'stage9_ensure_warp()' in text
           PY
 
-      - name: Remove temporary workflow
-        run: git rm .github/workflows/tmp-02112-warp-optional-r1.yml
+      - name: Remove temporary workflow and stage candidate files
+        run: |
+          git rm .github/workflows/tmp-02112-warp-optional-r1.yml
+          git add install.sh tests/test_sg_gateway_02112_warp_optional_hotfix.py
 
       - name: Syntax and focused tests
         run: |
@@ -88,7 +90,7 @@ jobs:
             python - <<'PY'
           from pathlib import Path
           import hashlib, subprocess
-          raw = subprocess.check_output(['git','ls-files','-co','--exclude-standard','-z'])
+          raw = subprocess.check_output(['git','ls-files','-z'])
           names = sorted(x.decode() for x in raw.split(b'\0') if x and x.decode() != 'SOURCE-SHA256SUMS')
           Path('SOURCE-SHA256SUMS').write_text(''.join(f"{hashlib.sha256(Path(n).read_bytes()).hexdigest()}  {n}\n" for n in names), encoding='utf-8')
           PY
@@ -106,7 +108,7 @@ jobs:
             python - <<'PY'
           from pathlib import Path
           import hashlib, subprocess
-          raw = subprocess.check_output(['git','ls-files','-co','--exclude-standard','-z'])
+          raw = subprocess.check_output(['git','ls-files','-z'])
           names = sorted(x.decode() for x in raw.split(b'\0') if x and x.decode() != 'SOURCE-SHA256SUMS')
           Path('SOURCE-SHA256SUMS').write_text(''.join(f"{hashlib.sha256(Path(n).read_bytes()).hexdigest()}  {n}\n" for n in names), encoding='utf-8')
           PY
@@ -115,10 +117,10 @@ jobs:
 
       - name: Verify minimal scope
         run: |
-          git diff --name-only 5a7cc066e402026aeb33b144675045a7011c7e27 -- | sort
+          git diff 5a7cc066e402026aeb33b144675045a7011c7e27 --name-only -- | sort
           python - <<'PY'
           import subprocess
-          changed = set(subprocess.check_output(['git','diff','--name-only','5a7cc066e402026aeb33b144675045a7011c7e27','--']).decode().splitlines())
+          changed = set(subprocess.check_output(['git','diff','5a7cc066e402026aeb33b144675045a7011c7e27','--name-only','--']).decode().splitlines())
           allowed = {'install.sh','tests/test_sg_gateway_02112_warp_optional_hotfix.py'}
           if 'SOURCE-SHA256SUMS' in changed:
               allowed.add('SOURCE-SHA256SUMS')
