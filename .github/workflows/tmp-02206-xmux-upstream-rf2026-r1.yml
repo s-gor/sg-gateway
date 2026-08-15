@@ -1,0 +1,104 @@
+name: TEMP 022.06 XMUX Upstream RF2026 R1
+
+on:
+  push:
+    branches: [feature-02206-xmux-upstream-rf2026-r1]
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: feature-02206-xmux-upstream-rf2026-r1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Remove temporary workflow and regenerate strict source inventory
+        run: |
+          git rm .github/workflows/tmp-02206-xmux-upstream-rf2026-r1.yml
+          find . -type f \
+            ! -path './.git/*' \
+            ! -path './SOURCE-SHA256SUMS' \
+            -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed 's#  \./#  #' > SOURCE-SHA256SUMS
+          test -s SOURCE-SHA256SUMS
+          sha256sum -c SOURCE-SHA256SUMS >/dev/null
+
+      - name: Verify exact XMUX contract
+        run: |
+          python -m pytest -q tests/test_sg_gateway_02205_xmux_sgpanel_contract.py
+          python - <<'PY'
+          from app.xray import xmux
+          assert xmux.XMUX_STANDARD_PRESET == {
+              'maxConcurrency': 0,
+              'maxConnections': 3,
+              'cMaxReuseTimes': 0,
+              'hMaxRequestTimes': '600-900',
+              'hMaxReusableSecs': '1800-3000',
+              'hKeepAlivePeriod': 0,
+          }
+          assert xmux.XMUX_RF2026_PRESET == {
+              'maxConcurrency': 5,
+              'maxConnections': 0,
+              'cMaxReuseTimes': 0,
+              'hMaxRequestTimes': '300-600',
+              'hMaxReusableSecs': '900-1800',
+              'hKeepAlivePeriod': 0,
+          }
+          assert xmux.XMUX_REDUCED_PRESET is xmux.XMUX_RF2026_PRESET
+          PY
+
+      - name: Verify no unrelated functional scope
+        run: |
+          git diff --name-only 6d13d0458ed93c47d4473ec865e9e2f262b79da3 -- \
+            | sort > /tmp/changed.txt
+          cat /tmp/changed.txt
+          python - <<'PY'
+          from pathlib import Path
+          changed = {line.strip() for line in Path('/tmp/changed.txt').read_text().splitlines() if line.strip()}
+          allowed = {
+              'SOURCE-SHA256SUMS',
+              'app/xray/xmux.py',
+              'app/web/templates/_xray_xmux_settings.html',
+              'tests/test_sg_gateway_02205_xmux_sgpanel_contract.py',
+          }
+          assert changed == allowed, (changed, allowed)
+          PY
+
+      - name: Run complete repository suite
+        run: python -m pytest -q
+
+      - name: Build and verify FULL package
+        run: |
+          OUT=/tmp/SG-Gateway-0.1.0-022.06-XMUX-UPSTREAM-RF2026-R1.run
+          bash build-run.sh "$OUT"
+          "$OUT" --verify-only
+          test -s /tmp/SG-Gateway-0.1.0-022.06-XMUX-UPSTREAM-RF2026-R1-SHA256.txt
+          test -s /tmp/SG-Gateway-0.1.0-022.06-XMUX-UPSTREAM-RF2026-R1-TRANSFER.zip
+          unzip -t /tmp/SG-Gateway-0.1.0-022.06-XMUX-UPSTREAM-RF2026-R1-TRANSFER.zip
+
+      - name: Commit verified inventory and remove temporary workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add SOURCE-SHA256SUMS
+          git diff --cached --check
+          git commit -m 'Finalize XMUX upstream and RF 2026 presets'
+          git push origin HEAD:feature-02206-xmux-upstream-rf2026-r1
