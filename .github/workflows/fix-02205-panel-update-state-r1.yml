@@ -24,7 +24,9 @@ jobs:
           python-version: '3.12'
 
       - name: Patch updater and add regression
-        run: python .github/scripts/fix-02205-panel-update-state-r1.py
+        run: |
+          python .github/scripts/fix-02205-panel-update-state-r1.py
+          sed -i 's/COMPATIBILITY (commit-pinned GitHub archive)/COMPATIBILITY (full GitHub archive)/' deploy/update-from-github.sh
 
       - name: Shell syntax
         run: bash -n deploy/update-from-github.sh
