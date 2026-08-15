@@ -396,3 +396,46 @@ html[data-theme="light"] {
     flex-direction: column !important;
   }
 }
+
+/* SG-Gateway 022.06 · Connections action sizing R3. */
+.sg-body.page-connections :is(
+  .cnv1-heading-actions,
+  .xps2-top-actions,
+  .xps2-actions,
+  .xmux1-actions,
+  .cnv1-form-actions,
+  .mhv2-actions,
+  .mhv2-service-tools,
+  .cnv1-note-panel
+) .button {
+  width: 180px !important;
+  min-width: 180px !important;
+  min-height: 42px !important;
+  box-sizing: border-box !important;
+  padding: 9px 16px !important;
+}
+
+.sg-body.page-connections :is(
+  .cnv1-heading-actions,
+  .xps2-actions > div,
+  .mhv2-actions
+) {
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+}
+
+@media (max-width: 680px) {
+  .sg-body.page-connections :is(
+    .cnv1-heading-actions,
+    .xps2-top-actions,
+    .xps2-actions,
+    .xmux1-actions,
+    .cnv1-form-actions,
+    .mhv2-actions,
+    .mhv2-service-tools,
+    .cnv1-note-panel
+  ) .button {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
