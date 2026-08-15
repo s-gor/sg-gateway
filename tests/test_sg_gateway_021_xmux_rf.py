@@ -69,7 +69,8 @@ def test_xmux_is_client_only_and_visible_in_connections():
         assert key in template
         assert key in profiles
     assert '"xmux": dict(xmux)' in inbound
-    assert 'query_values["extra"]' in exports
+    assert 'xhttp_tls_link' in exports
+    assert 'xmux=(' in exports
     server_function = inbound.split("def xhttp_reality_inbound", 1)[1].split(
         "def reality_tcp_link", 1
     )[0]

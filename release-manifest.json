@@ -1,5 +1,5 @@
 {
-  "build": "DEV-02206-FULL-BACKUP-VERIFY-UNLIMITED-R1",
+  "build": "DEV-02206-SGPANEL-VLESS-PARITY-R1",
   "status": "DEVELOPMENT",
   "next_development_line": "0.1.0-022.07",
   "safe_update": {
@@ -591,5 +591,22 @@
     "upload_size_limit": "unlimited",
     "legacy_upload_limit_migration": true,
     "panel_update_migration_scope": "full-backup-upload-contract-only"
+  },
+  "development_vless_parity": {
+    "id": "sgpanel-vless-parity-r1",
+    "reference_repository": "s-gor/sg-panel",
+    "reference_commit": "31f1e137d83c02c64bf1039ebbdaf2b02bbfbeae",
+    "unchanged": [
+      "vless-reality-tcp",
+      "vless-xhttp-reality",
+      "xmux-presets"
+    ],
+    "aligned": [
+      "vless-xhttp-tls-local-xray",
+      "vless-xhttp-tls-nginx-termination",
+      "vless-xhttp-tls-mode",
+      "vless-xhttp-tls-client-uri"
+    ],
+    "other_protocols_changed": false
   }
 }

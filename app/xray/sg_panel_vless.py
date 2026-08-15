@@ -184,3 +184,43 @@ def xhttp_reality_link(
         f"vless://{uuid}@{host}:{int(port)}?{query}"
         f"#{quote(str(title), safe='')}"
     )
+
+
+
+def xhttp_tls_link(
+    *,
+    uuid: str,
+    host: str,
+    port: int,
+    title: str,
+    fingerprint: str,
+    server_name: str,
+    path: str,
+    encryption: str,
+    client_mode: str = "auto",
+    xmux: dict[str, Any] | None = None,
+) -> str:
+    """Build the current SG-Panel XHTTP-TLS client contract."""
+    fp = quote(fingerprint_for_xray(fingerprint), safe="")
+    encrypted = quote(str(encryption), safe="-._~")
+    extra = ""
+    if xmux:
+        extra_json = json.dumps(
+            {"xmux": dict(xmux)},
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        extra = f"&extra={quote(extra_json, safe='')}"
+    query = (
+        f"encryption={encrypted}&flow={REALITY_TCP_FLOW}"
+        "&type=xhttp&security=tls"
+        f"&fp={fp}&sni={quote(str(server_name), safe='')}"
+        f"&host={quote(str(server_name), safe='')}"
+        f"&path={quote(str(path), safe='')}"
+        f"&mode={quote(str(client_mode or 'auto'), safe='-_')}"
+        f"{extra}"
+    )
+    return (
+        f"vless://{uuid}@{host}:{int(port)}?{query}"
+        f"#{quote(str(title), safe='')}"
+    )

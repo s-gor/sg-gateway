@@ -108,10 +108,11 @@ def test_export_rewriter_forces_reality_stream_one_and_preserves_full_extra() ->
 def test_export_rewriter_keeps_tls_client_mode() -> None:
     from app.clients.exports import _rewrite_xhttp_link
 
-    source = "vless://u@example.com:8445?type=xhttp&security=tls&mode=packet-up#TLS"
+    source = "vless://u@example.com:443?type=xhttp&security=tls&host=example.com&mode=packet-up#TLS"
     rewritten = _rewrite_xhttp_link(source, "xhttp_tls", {"xhttp_xmux_mode": "reduced"})
     query = parse_qs(urlsplit(rewritten).query)
     assert query["mode"] == ["packet-up"]
+    assert query["host"] == ["example.com"]
     assert json.loads(query["extra"][0])["xmux"] == xmux.XMUX_REDUCED_PRESET
 
 

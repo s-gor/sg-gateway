@@ -22,7 +22,7 @@ from app.mihomo.service import build_device_yaml
 from app.security.tls import overview as tls_overview
 from app.xray.profiles import REALITY_TCP_FLOW, overview as xray_profiles_overview
 from app.xray.xmux import XmuxError, effective_client_extra
-from app.xray.sg_panel_vless import reality_tcp_link, xhttp_reality_link
+from app.xray.sg_panel_vless import reality_tcp_link, xhttp_reality_link, xhttp_tls_link
 from app.xray.settings_transactions import pending as pending_settings_transaction
 
 
@@ -376,28 +376,29 @@ def build_xray_profile_link(
             )
     elif profile_id == "xhttp_tls":
         domain = _working_tls_domain() or str(state.get("tls_domain") or "")
-        if not vless_encryption or "PLACEHOLDER" in vless_encryption.upper():
+        if (
+            not domain
+            or not vless_encryption
+            or "PLACEHOLDER" in vless_encryption.upper()
+        ):
             body = ""
         else:
-            query_values = {
-                    "type": "xhttp",
-                    "security": "tls",
-                    "flow": REALITY_TCP_FLOW,
-                    "encryption": vless_encryption,
-                    "fp": fingerprint,
-                    "sni": domain,
-                    "alpn": "h2",
-                    "path": profile.path,
-                    "mode": getattr(profile, "mode", "") or "auto",
-                }
-            if getattr(profile, "xmux_enabled", False) and getattr(profile, "xmux", None):
-                query_values["extra"] = json.dumps(
-                    {"xmux": dict(profile.xmux)},
-                    ensure_ascii=False,
-                    separators=(",", ":"),
-                )
-            query = urlencode(query_values)
-            body = f"vless://{user_id}@{host}:{profile.port}?{query}#{safe_name}"
+            body = xhttp_tls_link(
+                uuid=user_id,
+                host=domain,
+                port=443,
+                title=f"{_label(client, device)} · {profile.title}",
+                fingerprint=fingerprint,
+                server_name=domain,
+                path=profile.path,
+                encryption=vless_encryption,
+                client_mode=getattr(profile, "mode", "") or "auto",
+                xmux=(
+                    getattr(profile, "xmux", None)
+                    if getattr(profile, "xmux_enabled", False)
+                    else None
+                ),
+            )
     elif profile_id == "hysteria2":
         domain = _working_tls_domain() or str(state.get("tls_domain") or "")
         auth = str(config.get("hysteria_auth") or user_id)
