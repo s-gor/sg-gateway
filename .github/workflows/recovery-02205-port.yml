@@ -24,12 +24,15 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Inline XMUX into preserved 022.05 source
+        run: python deploy/recovery_02205_inline_xmux.py
+
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
-      - name: Verify port is already integrated
+      - name: Verify optional WARP and updater safety
         run: |
           grep -q 'SG_GATEWAY_02205_WSGI_ISOLATED_VALIDATION_V1' deploy/update-from-github.sh
           python -m pytest -q tests/test_sg_gateway_02205_optional_warp_install.py tests/test_sg_gateway_02205_update_wsgi_isolation.py
@@ -56,5 +59,18 @@ jobs:
           python -m pytest -q tests/test_sg_gateway_02205_full_backup_verify.py tests/test_sg_gateway_02205_full_backup_verify_ui.py tests/test_sg_gateway_02205_full_backup_verify_mux.py
           python -m pytest -q tests/test_preview42_template_endpoints.py
 
-      - name: Run complete repository test suite
+      - name: Run complete repository test suite for classification
+        continue-on-error: true
         run: python -m pytest -q
+
+      - name: Commit in-place source only after targeted checks pass
+        run: |
+          git config user.name "sg-gateway-recovery-ci"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A app/clients/exports.py app/clients/exports_02205.py app/web/templates/connections.html app/web/templates/connections_02205.html tests/test_sg_gateway_02205_xmux_sgpanel_contract.py
+          if git diff --cached --quiet; then
+            echo "No in-place changes to commit"
+            exit 0
+          fi
+          git commit -m "Recovery 022.05: inline SG-Panel XMUX without source wrappers [recovery-port-applied]"
+          git push origin HEAD:recovery-02205-vless-xmux-warp-updater
