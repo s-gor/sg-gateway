@@ -12,10 +12,10 @@ def _text(path: str) -> str:
 
 def test_02206_development_identity_is_consistent() -> None:
     assert _text("VERSION").strip() == "0.1.0-022.06"
-    assert _text("BUILD-ID").strip() == "DEV-02206-CI-HYGIENE-R1"
+    assert _text("BUILD-ID").strip() == "DEV-02206-FULL-BACKUP-VERIFY-UNLIMITED-R1"
     manifest = json.loads(_text("release-manifest.json"))
     assert manifest["version"] == "0.1.0-022.06"
-    assert manifest["build"] == "DEV-02206-CI-HYGIENE-R1"
+    assert manifest["build"] == "DEV-02206-FULL-BACKUP-VERIFY-UNLIMITED-R1"
     assert manifest["status"] == "DEVELOPMENT"
     assert manifest["next_development_line"] == "0.1.0-022.07"
     assert manifest["channel"] == "dev-02206"

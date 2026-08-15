@@ -18,6 +18,20 @@ def _load_patcher():
     return module
 
 
+
+def test_full_backup_verify_button_is_integrated_in_product_template():
+    template = TEMPLATE_PATH.read_text(encoding="utf-8")
+
+    assert template.count("data-sg-full-verify-button") == 2
+    assert 'name="backup_action" value="verify"' in template
+    assert "Проверить backup" in template
+    assert "Проверка ничего не меняет." in template
+    assert "готов к проверке / восстановлению" in template
+    assert 'verifyButton.addEventListener("click", () => {' in template
+    assert 'form.dataset.sgConfirmBypass = "1"' in template
+    assert "максимум 512 MiB" not in template
+    assert "без ограничения размера" in template
+
 def test_full_backup_verify_ui_patch_is_complete_and_idempotent():
     patcher = _load_patcher()
     original = TEMPLATE_PATH.read_text(encoding="utf-8")

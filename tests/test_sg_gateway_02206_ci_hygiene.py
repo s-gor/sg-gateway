@@ -29,13 +29,11 @@ def test_completed_full_backup_patch_generator_is_not_shipped() -> None:
         assert marker in runtime
         assert marker in install
         assert marker in panel_access
-    assert "SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX2" in runtime
+    assert "SG_GATEWAY_FULL_BACKUP_UPLOAD_UNLIMITED_V1" in runtime
 
 
 def test_ci_hygiene_is_declared_non_runtime() -> None:
-    assert _text("BUILD-ID").strip() == "DEV-02206-CI-HYGIENE-R1"
     manifest = json.loads(_text("release-manifest.json"))
-    assert manifest["build"] == "DEV-02206-CI-HYGIENE-R1"
     hygiene = manifest["development_hygiene"]
     assert hygiene["id"] == "ci-hygiene-r1"
     assert hygiene["scope"] == "repository-workflows-only"

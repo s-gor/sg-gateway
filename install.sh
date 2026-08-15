@@ -2146,7 +2146,7 @@ else:
 block = (
     f"{indent}# {marker}\n"
     f"{indent}location = /maintenance/full-backups/restore {{\n"
-    f"{indent}    client_max_body_size 1024m;\n"
+    f"{indent}    client_max_body_size 0;\n"
     f"{indent}    client_body_timeout 300s;\n"
     f"{indent}    proxy_pass http://127.0.0.1:{backend_port};\n"
     f"{indent}    proxy_http_version 1.1;\n"
@@ -2344,7 +2344,7 @@ server {
 
     # SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX1
     location = /maintenance/full-backups/restore {
-        client_max_body_size 1024m;
+        client_max_body_size 0;
         client_body_timeout 300s;
         proxy_pass http://127.0.0.1:${BACKEND_PORT};
         proxy_http_version 1.1;
@@ -2356,7 +2356,7 @@ server {
         proxy_send_timeout 300s;
     }
     location = /maintenance/full-backups/verify {
-        client_max_body_size 1024m;
+        client_max_body_size 0;
         client_body_timeout 300s;
         proxy_pass http://127.0.0.1:${BACKEND_PORT};
         proxy_http_version 1.1;
