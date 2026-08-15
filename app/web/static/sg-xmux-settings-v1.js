@@ -26,6 +26,15 @@
         fixed.className = 'xps2-flow-field xmux1-fixed-mode';
         fixed.dataset.xmuxRealityFixed = '1';
         fixed.innerHTML = '<span>XHTTP mode клиента</span><strong>Stream One · stream-one</strong><small>Фиксировано как в SG-Panel. Серверный XHTTP mode остаётся auto.</small>';
+
+        // Replacing the visible select must not remove the value from the main
+        // Xray Apply form. Keep the fixed client mode in the POST payload.
+        const hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'xhttp_reality_mode';
+        hidden.value = 'stream-one';
+        fixed.appendChild(hidden);
+
         label.replaceWith(fixed);
       } else {
         realityMode.disabled = true;
