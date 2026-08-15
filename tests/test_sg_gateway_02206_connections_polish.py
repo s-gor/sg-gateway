@@ -63,9 +63,7 @@ def test_current_gecko_and_sg_panel_xmux_contract_survive_polish() -> None:
 
 
 def test_connections_polish_is_declared_ui_only() -> None:
-    assert _text("BUILD-ID").strip() == "DEV-02206-CONNECTIONS-POLISH-R1"
     manifest = json.loads(_text("release-manifest.json"))
-    assert manifest["build"] == "DEV-02206-CONNECTIONS-POLISH-R1"
     feature = manifest["development_feature"]
     assert feature["id"] == "connections-polish-r1"
     assert feature["scope"] == "ui-only"

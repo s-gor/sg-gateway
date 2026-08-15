@@ -6,6 +6,7 @@
 - Initial 022.06 commit changes development identity/channel/CI only; no new VPN/runtime behavior is introduced.
 - Frozen 022.05 updater channel remains `dev-02205`.
 - Connections polish R1 restores the previously CI-verified balanced AmneziaWG/Mihomo layout and compact XHTTP rows as a UI-only change; Gecko, SG-Panel XMUX and VPN runtime are preserved.
+- CI hygiene R1 removes the inherited 022.05 development workflow and the completed Full Backup patch generator/workflow from dev-02206; runtime behavior is unchanged.
 
 # SG-Gateway 0.1.0-022.05 — LIVE
 
