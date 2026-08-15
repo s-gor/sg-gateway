@@ -74,6 +74,8 @@ jobs:
           git config user.name 'sg-gateway-publication-ci'
           git config user.email 'actions@users.noreply.github.com'
           git commit -m 'Publish SG-Gateway 0.1.0-022.05 LIVE'
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)"
+          echo "CANDIDATE_TREE=$(git rev-parse HEAD^{tree})"
 
       - name: Focused publication regressions
         run: |
@@ -105,6 +107,7 @@ jobs:
 
       - name: Verify final publication diff scope
         run: |
+          rm -f data/system-activity.json
           git status --short
           python - <<'PY'
           import subprocess
@@ -149,5 +152,24 @@ jobs:
             /tmp/SG-Gateway-0.1.0-022.05-FULL-TRANSFER.zip
           if-no-files-found: error
 
-      - name: Push verified candidate
-        run: git push origin HEAD:fix-02205-publication-build-r1
+      - name: Push non-workflow transport tree
+        run: |
+          candidate_sha="$(git rev-parse HEAD)"
+          candidate_tree="$(git rev-parse HEAD^{tree})"
+          printf 'VERIFIED_CANDIDATE_SHA=%s\n' "$candidate_sha"
+          printf 'VERIFIED_CANDIDATE_TREE=%s\n' "$candidate_tree"
+
+          git reset --soft "$GITHUB_SHA"
+          git restore --source="$GITHUB_SHA" --staged --worktree \
+            .github/workflows/ci.yml \
+            .github/workflows/fix-02205-publication-build-r1.yml \
+            .github/scripts/fix-02205-publication-build-r1.py
+          rm -f data/system-activity.json
+          git add -A
+          git commit -m 'Stage verified 022.05 publication payload'
+
+          if git diff --name-only "$GITHUB_SHA..HEAD" | grep -q '^\.github/workflows/'; then
+            echo 'transport commit unexpectedly changes workflow files' >&2
+            exit 1
+          fi
+          git push --force origin HEAD:publish-02205-transport-r1
