@@ -62,6 +62,8 @@ def test_light_update_preserves_local_assets_without_downloading_them() -> None:
 
 
 def test_build_run_uses_committed_git_archive_and_checks_both_resume_generations() -> None:
+    if _text(ROOT / "VERSION").strip() != "0.1.0-021.12":
+        pytest.skip("historical 021.12 release-freeze contract")
     text = _text(BUILD_RUN)
     assert "SG_GATEWAY_02112_CANONICAL_GIT_ARCHIVE_FIX11" in text
     assert 'git -C "$ROOT" archive --format=tar HEAD' in text
@@ -116,6 +118,8 @@ def test_source_checksum_inventory_is_strict_and_complete() -> None:
 
 
 def test_ci_checks_canonical_integrity_and_full_clean() -> None:
+    if _text(ROOT / "VERSION").strip() != "0.1.0-021.12":
+        pytest.skip("historical 021.12 release-freeze contract")
     workflow = _text(ROOT / ".github" / "workflows" / "ci.yml")
     assert "Verify FINAL source integrity" in workflow
     assert '["git", "show", f"HEAD:{path}"]' in workflow

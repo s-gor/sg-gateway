@@ -1,3 +1,12 @@
+# SG-Gateway 0.1.0-022.05 — LIVE
+
+- Live-validated baseline: `9fbf42aea2bde80a99229de5661a93b6dce4f6c1` / tree `c482dc4f158dc1d61c2ba1d683a14e96d24dac68`.
+- SG-Panel XMUX + manual WARP + safe Panel Update accepted on a real SG-Gateway.
+- Panel Update binds exact deployed commit/fingerprint only after final live verification.
+- Clean installer identity is 022.05; automatic WARP registration remains outside clean install.
+- Publication tooling is version-driven; the old 021.12-only `.run` builder and main CI contract are retired from the active release path.
+- Next development line: `0.1.0-022.06`.
+
 # SG-Gateway 0.1.0-021.12 — Full Backup / Full Restore / Recovery
 
 - R5-R3 PS1 archive EOL: `SOURCE-SHA256SUMS` hashes canonical LF Git blobs; four tracked `scripts/*.ps1` files previously had `eol=crlf`, so `git archive` exported different bytes and FULL CLEAN reported exactly four checksum mismatches. PS1 export is now fixed to LF; runtime code is unchanged.
