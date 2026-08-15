@@ -4,6 +4,8 @@ from __future__ import annotations
 from app.main import app
 from app.clients.sg_subscription_http_v4 import register_sg_subscription
 from app.maintenance.full_backup_verify_http import register_full_backup_verify
+from app.xray.xmux_http import register_xmux_http
 
 register_sg_subscription(app)
 register_full_backup_verify(app)
+register_xmux_http(app)

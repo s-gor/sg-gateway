@@ -10,10 +10,10 @@ def text(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 
-def test_02111_scope_is_backup_and_domain_only() -> None:
-    assert text("VERSION").strip() == "0.1.0-021.12"
+def test_backup_and_domain_contract_is_current() -> None:
+    version = text("VERSION").strip()
     manifest = json.loads(text("release-manifest.json"))
-    assert manifest["version"] == "0.1.0-021.12"
+    assert manifest["version"] == version
     assert manifest["portable_full_backup"]["single_file"] is True
     assert manifest["portable_full_backup"]["includes_https_certificates"] is True
     assert manifest["portable_full_backup"]["restore_live_terminal"] is True

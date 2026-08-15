@@ -1,7 +1,7 @@
 {
-  "build": "full-clean-ec2-02112-full-backup-domain-endpoint",
-  "status": "FINAL-AWG2",
-  "next_development_line": "0.1.0-022.01",
+  "build": "DEV-02205-SGPANEL-XMUX-WARP-UPDATER-R1",
+  "status": "DEVELOPMENT",
+  "next_development_line": "0.1.0-022.06",
   "safe_update": {
     "mode": "light-runtime-whitelist",
     "download_assets": false,
@@ -14,7 +14,7 @@
     "ci_verified": true,
     "build_run_verified": true
   },
-  "channel": "main-02112",
+  "channel": "dev-02205",
   "client_access_model": {
     "hysteria_auth_per_device": true,
     "independent_enable_disable": true,
@@ -242,7 +242,7 @@
     "sg_admin_enter_defaults_to_yes": true,
     "stage9_exact_failure_logging": true,
     "template_endpoint_audit": true,
-    "version": "021-rebuilt",
+    "version": "02205-recovery-r1",
     "warp_panel_port_v017": true,
     "xhttp_reality_stream_one_migration": true
   },
@@ -433,7 +433,7 @@
     ],
     "xray_status_cards_theme_fixed": true
   },
-  "version": "0.1.0-021.12",
+  "version": "0.1.0-022.05",
   "vless_sg_panel_port": {
     "client_contract": {
       "fingerprint_normalized": true,
@@ -463,10 +463,10 @@
       "recreate",
       "remove"
     ],
-    "automatic_on_full_install": true,
+    "automatic_on_full_install": false,
     "candidate_before_live": true,
     "changes_system_routes": false,
-    "default_state": "active",
+    "default_state": "preserve-existing-or-absent",
     "fail_closed": true,
     "generation": "register + generate --xray",
     "ipv4_endpoint": "162.159.192.1:2408",
@@ -479,7 +479,8 @@
     "source": "SG-Panel FIX40 verified WARP contract",
     "tag": "warp",
     "trace_verification": "cloudflare-cdn-cgi-trace",
-    "xray_outbound": "native-wireguard"
+    "xray_outbound": "native-wireguard",
+    "manual_creation_location": "Outbounds"
   },
   "xray": {
     "bootstrap_version": "v26.6.27",
@@ -531,6 +532,20 @@
       "stream-up",
       "packet-up"
     ],
-    "xhttp_vision": true
+    "xhttp_vision": true,
+    "xmux": {
+      "client_only": true,
+      "internal_modes": [
+        "auto",
+        "reduced",
+        "expert"
+      ],
+      "standard_max_connections": "2-4",
+      "reduced_max_connections": "6",
+      "reality_client_mode": "stream-one",
+      "reality_server_mode": "auto",
+      "tls_server_mode": "auto",
+      "positive_max_connections_and_max_concurrency_conflict": true
+    }
   }
 }

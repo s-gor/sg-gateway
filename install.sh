@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="0.1.0-022.02"
-INSTALLER_BUILD="02202-dual-awg"
+VERSION="0.1.0-022.05"
+INSTALLER_BUILD="02205-sgpanel-xmux-warp-updater-r1"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
 LOG_DIR="/var/log/sg-gateway"
-INSTALL_LOG="/var/log/sg-gateway-installer-02202.log"
+INSTALL_LOG="/var/log/sg-gateway-installer-02205.log"
 BACKUP_ROOT="/root/sg-gateway-backups"
-RESUME_FILE="/root/sg-gateway-02202-installer-resume.env"
+RESUME_FILE="/root/sg-gateway-02205-installer-resume.env"
 MIHOMO_VERSION="v1.19.29"
 SING_BOX_VERSION="1.13.14"
 WGCF_CLI_VERSION="v0.3.6"
@@ -22,7 +22,7 @@ PANEL_GROUP="sg-gateway"
 XRAY_REQUIRED_VERSION="v26.6.27"
 XRAY_MINIMUM_VERSION="v26.6.27"
 
-# SG-Gateway 021 vendor bundle. Clean installation does not download these
+# SG-Gateway 022 vendor bundle. Clean installation does not download these
 # runtimes from upstream projects. The files are committed with the source.
 VENDOR_CORES_DIR="${SG_GATEWAY_VENDOR_CORES_DIR:-$SOURCE_DIR/vendor/cores}"
 VENDOR_CORES_MANIFEST="$VENDOR_CORES_DIR/SHA256SUMS"
@@ -466,15 +466,18 @@ run_stage() {
   local label="$2"
   local function_name="$3"
   CURRENT_STAGE="$number"
-  CURRENT_LABEL="[${number}/${TOTAL_STAGES}] ${label}"
-  run_quiet "$CURRENT_LABEL" "$function_name"
+  CURRENT_LABEL="Этап ${number}/${TOTAL_STAGES} · ${label}"
+  if [[ "$number" == "1" ]]; then
+    run_live "$CURRENT_LABEL" "$function_name"
+  else
+    run_quiet "$CURRENT_LABEL" "$function_name"
+  fi
 }
 
 stage10_start_and_verify() {
   stage9_start_hostd
   stage9_verify_hostd
   stage9_apply_runtime
-  stage9_ensure_warp
   stage9_start_panel
   stage9_verify_nginx
   verify_client_identities_after_update
@@ -2721,10 +2724,9 @@ run_final_stage() {
   local started=$SECONDS
   run_hidden "Этап 9/9 · 1/5 · Запуск sg-hostd" stage9_start_hostd
   run_hidden "Этап 9/9 · 2/5 · Проверка команд hostd" stage9_verify_hostd
-  run_hidden "Этап 9/9 · 3/6 · Сохранение/применение Xray runtime" stage9_apply_runtime
-  run_hidden "Этап 9/9 · 4/6 · Создание и активация WARP" stage9_ensure_warp
-  run_hidden "Этап 9/9 · 5/6 · Запуск панели" stage9_start_panel
-  run_hidden "Этап 9/9 · 6/6 · Проверка Nginx и служб" stage9_verify_nginx
+  run_hidden "Этап 9/9 · 3/5 · Сохранение/применение Xray runtime" stage9_apply_runtime
+  run_hidden "Этап 9/9 · 4/5 · Запуск панели" stage9_start_panel
+  run_hidden "Этап 9/9 · 5/5 · Проверка Nginx и служб" stage9_verify_nginx
   local elapsed=$((SECONDS - started))
   printf "%s[OK]%s Этап 9/%s · Запуск и финальная проверка (%s сек.)\n" \
     "$GREEN" "$RESET" "$TOTAL_STAGES" "$elapsed"
@@ -2853,7 +2855,11 @@ main() {
   printf '[SG-Gateway] Backup:       %s\n' "$BACKUP_DIR"
   printf '[SG-Gateway] SSH hostname станет виден после нового подключения: %s\n' "$SERVER_NAME"
   print_sg_admin_status
-  printf '[SG-Gateway] WARP:         создан и активен\n'
+  if [[ -s "$DATA_DIR/warp/wgcf.xray.json" || -s "$DATA_DIR/warp/wgcf-profile.conf" ]]; then
+    printf '[SG-Gateway] WARP:         существующий профиль сохранён\n'
+  else
+    printf '[SG-Gateway] WARP:         helper установлен; создаётся при необходимости в Outbounds\n'
+  fi
 
 }
 

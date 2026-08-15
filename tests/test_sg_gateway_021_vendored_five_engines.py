@@ -33,8 +33,8 @@ def test_all_six_vendor_files_are_required():
         "mihomo-linux-amd64-v1.19.29.gz",
         "sing-box-1.13.14-linux-amd64.tar.gz",
         "wgcf-cli-linux-64.tar.zstd",
-        "amneziawg-tools-1.0.20260618-2.tar.gz",
-        "amneziawg-linux-kernel-module-1.0.20260329-2.tar.gz",
+        "amneziawg-tools-3.0.20260805.tar.gz",
+        "amneziawg-linux-kernel-module-3.0.20260805.tar.gz",
     ):
         assert name in installer
         assert (ROOT / "vendor" / "cores" / name).is_file()
