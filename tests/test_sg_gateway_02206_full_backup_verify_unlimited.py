@@ -82,7 +82,6 @@ def test_safe_updater_applies_and_verifies_only_upload_contract_migration() -> N
 
 def test_02206_manifest_declares_integrated_verify_and_unlimited_upload() -> None:
     manifest = json.loads(_text("release-manifest.json"))
-    assert manifest["build"] == "DEV-02206-FULL-BACKUP-VERIFY-UNLIMITED-R1"
     full = manifest["portable_full_backup"]
     assert "max_upload_mib" not in full
     assert full["upload_size_limit"] == "unlimited"

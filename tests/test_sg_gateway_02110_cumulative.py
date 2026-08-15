@@ -37,7 +37,8 @@ def test_https_workflow_switches_default_sni_to_placeholder() -> None:
     assert 'XRAY_INTERNAL_PORT="7443"' in script
     assert 'PLACEHOLDER_TLS_INTERNAL_PORT="7444"' in script
     assert 'default 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT;' in script
-    assert 'listen 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT ssl;' in script
+    assert 'listen 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT ssl http2;' in script
+    assert 'include /etc/nginx/snippets/sg-gateway-xhttp-tls.conf;' in script
     assert 'listen $PUBLIC_PORT ssl;' in script
     assert 'verify_https_contract' in script
 

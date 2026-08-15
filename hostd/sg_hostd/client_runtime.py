@@ -23,6 +23,7 @@ from app.xray.profiles import REALITY_TCP_FLOW, XRAY_MINIMUM_VERSION, overview a
 from app.xray.salamander import SalamanderError, merge_finalmask
 from app.xray.settings_transactions import commit as commit_settings_transaction, pending as pending_settings_transaction, rollback as rollback_settings_transaction, update_candidate_config as update_settings_candidate_config
 from app.xray.sg_panel_vless import reality_tcp_inbound, xhttp_reality_inbound
+from .xhttp_tls_front import prepare as prepare_xhttp_tls_front, reload_nginx as reload_xhttp_tls_front, restore as restore_xhttp_tls_front
 
 
 class ClientRuntimeError(RuntimeError):
@@ -970,11 +971,38 @@ def _render_xray_config(rows) -> str:
         inbound["sniffing"] = sniffing
         inbounds.append(inbound)
 
-    tls_needed = bool({"xhttp_tls", "hysteria2"} & enabled_profiles)
-    if tls_needed:
+    if "xhttp_tls" in enabled_profiles:
         if not profiles.get("tls_ready") or not profiles.get("tls_domain"):
             raise ClientRuntimeError(
-                "Xray TLS-профили выбраны, но HTTPS в Security не готов"
+                "XHTTP-TLS выбран, но HTTPS в Security не готов"
+            )
+        profile = by_id["xhttp_tls"]
+        xhttp_settings: dict[str, Any] = {"path": profile.path}
+        mode = str(getattr(profile, "mode", "") or "auto")
+        if mode != "auto":
+            xhttp_settings["mode"] = mode
+        inbounds.append({
+            "tag": "sg-vless-xhttp-tls",
+            "listen": "127.0.0.1",
+            "port": profile.port,
+            "protocol": "vless",
+            "settings": {
+                "clients": grouped["xhttp_tls"],
+                "decryption": vless_decryption,
+            },
+            "streamSettings": {
+                "network": "xhttp",
+                "security": "none",
+                "xhttpSettings": xhttp_settings,
+                "sockopt": {"trustedXForwardedFor": ["127.0.0.1"]},
+            },
+            "sniffing": sniffing,
+        })
+
+    if "hysteria2" in enabled_profiles:
+        if not profiles.get("tls_ready") or not profiles.get("tls_domain"):
+            raise ClientRuntimeError(
+                "Hysteria 2 выбран, но HTTPS в Security не готов"
             )
         domain = str(profiles["tls_domain"])
         cert, key = _sync_xray_tls_material(domain)
@@ -986,60 +1014,40 @@ def _render_xray_config(rows) -> str:
                 {"certificateFile": cert, "keyFile": key}
             ],
         }
-        if "xhttp_tls" in enabled_profiles:
-            profile = by_id["xhttp_tls"]
-            inbounds.append({
-                "tag": "sg-vless-xhttp-tls",
-                "listen": "0.0.0.0",
-                "port": profile.port,
-                "protocol": "vless",
-                "settings": {
-                    "clients": grouped["xhttp_tls"],
-                    "decryption": vless_decryption,
-                },
-                "streamSettings": {
-                    "network": "xhttp",
-                    "security": "tls",
-                    "tlsSettings": tls_settings,
-                    "xhttpSettings": {"path": profile.path, "mode": "auto"},
-                },
-                "sniffing": sniffing,
-            })
-        if "hysteria2" in enabled_profiles:
-            profile = by_id["hysteria2"]
-            hysteria_tls = dict(tls_settings)
-            hysteria_tls["alpn"] = ["h3"]
-            hysteria_stream = {
-                "network": "hysteria",
-                "security": "tls",
-                "tlsSettings": hysteria_tls,
-                "hysteriaSettings": {
-                    "version": 2,
-                    "udpIdleTimeout": 60,
-                },
-            }
-            try:
-                finalmask = merge_finalmask(
-                    settings_config.get("hysteria2_finalmask") or {},
-                    settings_config.get("hysteria2_obfs_mode") or "none",
-                    settings_config.get("hysteria2_obfs_password") or "",
-                )
-            except SalamanderError as exc:
-                raise ClientRuntimeError(str(exc)) from exc
-            if finalmask:
-                hysteria_stream["finalmask"] = finalmask
-            inbounds.append({
-                "tag": "sg-hysteria2",
-                "listen": "0.0.0.0",
-                "port": profile.port,
-                "protocol": "hysteria",
-                "settings": {
-                    "version": 2,
-                    "users": grouped["hysteria2"],
-                },
-                "streamSettings": hysteria_stream,
-                "sniffing": sniffing,
-            })
+        profile = by_id["hysteria2"]
+        hysteria_tls = dict(tls_settings)
+        hysteria_tls["alpn"] = ["h3"]
+        hysteria_stream = {
+            "network": "hysteria",
+            "security": "tls",
+            "tlsSettings": hysteria_tls,
+            "hysteriaSettings": {
+                "version": 2,
+                "udpIdleTimeout": 60,
+            },
+        }
+        try:
+            finalmask = merge_finalmask(
+                settings_config.get("hysteria2_finalmask") or {},
+                settings_config.get("hysteria2_obfs_mode") or "none",
+                settings_config.get("hysteria2_obfs_password") or "",
+            )
+        except SalamanderError as exc:
+            raise ClientRuntimeError(str(exc)) from exc
+        if finalmask:
+            hysteria_stream["finalmask"] = finalmask
+        inbounds.append({
+            "tag": "sg-hysteria2",
+            "listen": "0.0.0.0",
+            "port": profile.port,
+            "protocol": "hysteria",
+            "settings": {
+                "version": 2,
+                "users": grouped["hysteria2"],
+            },
+            "streamSettings": hysteria_stream,
+            "sniffing": sniffing,
+        })
 
     if not inbounds:
         raise ClientRuntimeError("У активных клиентов не выбран ни один Xray-профиль")
@@ -1064,6 +1072,22 @@ def _render_xray_config(rows) -> str:
         "routing": _load_managed_routing(),
     }
     return json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+
+
+def _xhttp_tls_front_spec(body: str) -> tuple[bool, str, int]:
+    try:
+        payload = json.loads(body)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ClientRuntimeError("Xray candidate JSON повреждён") from exc
+    for inbound in payload.get("inbounds", []):
+        if not isinstance(inbound, dict) or inbound.get("tag") != "sg-vless-xhttp-tls":
+            continue
+        stream = inbound.get("streamSettings")
+        xhttp = stream.get("xhttpSettings") if isinstance(stream, dict) else None
+        if not isinstance(xhttp, dict):
+            raise ClientRuntimeError("XHTTP-TLS candidate не содержит xhttpSettings")
+        return True, str(xhttp.get("path") or "/"), int(inbound.get("port") or 0)
+    return False, "/", 1
 
 
 def test_xray_candidate() -> dict[str, Any]:
@@ -1158,6 +1182,7 @@ def _apply_xray(*, force_profiles: bool = False) -> EngineResult:
     candidate = CANDIDATE_DIR / "xray-config.json"
     backup = XRAY_CONFIG.with_suffix(".json.previous")
     had_live_config = XRAY_CONFIG.is_file()
+    front_backup = None
     try:
         _require_xray_version()
         _set_engine_status(engine, ids, "checking")
@@ -1173,6 +1198,10 @@ def _apply_xray(*, force_profiles: bool = False) -> EngineResult:
             ],
             timeout=60,
         )
+        front_enabled, front_path, front_port = _xhttp_tls_front_spec(body)
+        front_backup = prepare_xhttp_tls_front(
+            enabled=front_enabled, path=front_path, port=front_port
+        )
         _set_engine_status(engine, ids, "applying")
 
         XRAY_CONFIG.parent.mkdir(parents=True, exist_ok=True)
@@ -1187,6 +1216,8 @@ def _apply_xray(*, force_profiles: bool = False) -> EngineResult:
         _run(["systemctl", "enable", "xray.service"])
         _run(["systemctl", "restart", "xray.service"], timeout=90)
         _run(["systemctl", "is-active", "--quiet", "xray.service"])
+        if front_backup is not None:
+            reload_xhttp_tls_front()
 
         current_profiles = xray_profiles_overview()
         hysteria_profile = next(
@@ -1237,6 +1268,12 @@ def _apply_xray(*, force_profiles: bool = False) -> EngineResult:
                 text=True,
                 check=False,
             )
+        front_restore_error = ""
+        if front_backup is not None:
+            try:
+                restore_xhttp_tls_front(front_backup)
+            except Exception as front_exc:
+                front_restore_error = f"; Nginx rollback: {front_exc}"
         if settings_transaction is not None:
             rollback_settings_transaction(settings_transaction.id, status="rolled_back_runtime_error")
         restored = _xray_runtime_valid()
@@ -1246,7 +1283,7 @@ def _apply_xray(*, force_profiles: bool = False) -> EngineResult:
             previous,
             runtime_restored=restored,
         )
-        return EngineResult(engine, False, f"Xray Reality: {exc}", len(rows))
+        return EngineResult(engine, False, f"Xray Reality: {exc}{front_restore_error}", len(rows))
 
 
 def _apply_mihomo() -> EngineResult:

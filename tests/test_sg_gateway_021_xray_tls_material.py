@@ -47,8 +47,12 @@ def test_xray_tls_material_is_copied_for_service_group(monkeypatch, tmp_path):
 def test_xray_config_uses_private_runtime_tls_copy():
     source = Path("hostd/sg_hostd/client_runtime.py").read_text(encoding="utf-8")
     assert 'cert, key = _sync_xray_tls_material(domain)' in source
-    tls_block = source.split("tls_needed =", 1)[1].split("if \"xhttp_tls\"", 1)[0]
-    assert "/etc/letsencrypt/live/" not in tls_block
+    hysteria_block = source.split('if "hysteria2" in enabled_profiles:', 1)[1].split("if not inbounds:", 1)[0]
+    assert 'cert, key = _sync_xray_tls_material(domain)' in hysteria_block
+    assert "/etc/letsencrypt/live/" not in hysteria_block
+    xhttp_block = source.split('if "xhttp_tls" in enabled_profiles:', 1)[1].split('if "hysteria2" in enabled_profiles:', 1)[0]
+    assert '_sync_xray_tls_material' not in xhttp_block
+    assert '"security": "none"' in xhttp_block
     assert 'XRAY_TLS_DIR = Path("/usr/local/etc/xray/tls")' in source
 
 

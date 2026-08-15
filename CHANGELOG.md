@@ -8,6 +8,8 @@
 - Connections polish R1 restores the previously CI-verified balanced AmneziaWG/Mihomo layout and compact XHTTP rows as a UI-only change; Gecko, SG-Panel XMUX and VPN runtime are preserved.
 - CI hygiene R1 removes the inherited 022.05 development workflow and the completed Full Backup patch generator/workflow from dev-02206; runtime behavior is unchanged.
 - Full Backup Verify/Unlimited R1 integrates the Verify button into Maintenance and removes the artificial .sgbackup upload-size cap, including migration of the previous upload contract on safe panel update.
+- SG-Panel VLESS parity R1 pins the current SG-Panel VLESS contract and aligns XHTTP-TLS to the same Nginx-terminated local-Xray dataplane, selected server/client XHTTP mode, and client URI fields; Reality TCP, XHTTP Reality, XMUX presets and non-Xray protocols are unchanged.
+- Panel Update now leaves a replaceable working directory before source-tree replacement, preventing stale-cwd getcwd failures after rollback/update.
 
 # SG-Gateway 0.1.0-022.05 — LIVE
 

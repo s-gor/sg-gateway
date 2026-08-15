@@ -103,6 +103,7 @@ MANAGED_PATHS=(
   etc/nginx/stream-conf.d/sg-gateway-443.conf
   etc/nginx/sites-available/sg-gateway-acme
   etc/nginx/sites-enabled/sg-gateway-acme
+  etc/nginx/snippets/sg-gateway-xhttp-tls.conf
   var/www/sg-gateway-placeholder
   var/www/sg-gateway-acme
   etc/nginx/sites-available/sg-gateway

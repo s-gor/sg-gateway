@@ -20,6 +20,7 @@ RESTART_SOURCE="$APP_ROOT/assets/placeholder/restarting.html"
 RENEW_HOOK="/etc/letsencrypt/renewal-hooks/deploy/reload-sg-gateway-nginx.sh"
 PANEL_USER="sg-gateway"; PANEL_GROUP="sg-gateway"
 XRAY_INTERNAL_PORT="7443"; PLACEHOLDER_TLS_INTERNAL_PORT="7444"
+XHTTP_TLS_SNIPPET="/etc/nginx/snippets/sg-gateway-xhttp-tls.conf"
 SG_HTTPS_BACKUP_DIR=""
 SG_HTTPS_COMMITTED=0
 log(){ printf '[SG-Gateway HTTPS] %s\n' "$*"; }
@@ -44,9 +45,13 @@ case "$PUBLIC_PORT" in 22|80|443|585|7443|7444|8090|18080) fail "порт $PUBLI
 for command in nginx certbot openssl getent curl python3 systemctl cmp; do command -v "$command" >/dev/null 2>&1 || fail "не найден $command"; done
 install -d -m 0750 -o "$PANEL_USER" -g "$PANEL_GROUP" "$STATE_DIR"
 install -d -m 0750 -o root -g "$PANEL_GROUP" "$BACKUP_ROOT"
-install -d -m 0755 "$ACME_ROOT/.well-known/acme-challenge" "$PLACEHOLDER_ROOT" /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/stream-conf.d /etc/letsencrypt/renewal-hooks/deploy
+install -d -m 0755 "$ACME_ROOT/.well-known/acme-challenge" "$PLACEHOLDER_ROOT" /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/stream-conf.d /etc/nginx/snippets /etc/letsencrypt/renewal-hooks/deploy
 install -m 0644 "$PLACEHOLDER_SOURCE" "$PLACEHOLDER_ROOT/index.html"
 install -m 0644 "$RESTART_SOURCE" "$PLACEHOLDER_ROOT/restarting.html"
+if [[ ! -f "$XHTTP_TLS_SNIPPET" ]]; then
+  printf '%s\n' '# SG_GATEWAY_XHTTP_TLS_SGPANEL_PARITY_R1' '# XHTTP-TLS disabled until Xray Apply.' > "$XHTTP_TLS_SNIPPET"
+  chmod 0644 "$XHTTP_TLS_SNIPPET"
+fi
 read_state_value(){ python3 - "$STATE_FILE" "$1" <<'PY'
 import json,sys
 from pathlib import Path
@@ -78,8 +83,8 @@ PY
 }
 backup_path(){ local src="$1" name="$2" dir="$3"; [[ -e "$src" || -L "$src" ]] && cp -a "$src" "$dir/$name" || true; }
 restore_path(){ local src="$1" dst="$2"; rm -rf "$dst"; if [[ -e "$src" || -L "$src" ]]; then mkdir -p "$(dirname "$dst")"; cp -a "$src" "$dst"; fi; }
-create_backup(){ local dir="$BACKUP_ROOT/$(date -u +%Y%m%d-%H%M%S)-panel-access"; install -d -m 0750 -o root -g "$PANEL_GROUP" "$dir"; backup_path "$NGINX_MAIN" nginx.conf "$dir"; backup_path "$NGINX_CONF" nginx-site "$dir"; backup_path "$NGINX_LINK" nginx-link "$dir"; backup_path "$ACME_CONF" acme-site "$dir"; backup_path "$ACME_LINK" acme-link "$dir"; backup_path "$STREAM_CONF" stream-conf "$dir"; backup_path "$STATE_FILE" tls-state.json "$dir"; backup_path "$RENEW_HOOK" renewal-hook "$dir"; printf '%s' "$dir"; }
-restore_backup(){ local dir="$1"; restore_path "$dir/nginx.conf" "$NGINX_MAIN"; restore_path "$dir/nginx-site" "$NGINX_CONF"; restore_path "$dir/nginx-link" "$NGINX_LINK"; restore_path "$dir/acme-site" "$ACME_CONF"; restore_path "$dir/acme-link" "$ACME_LINK"; restore_path "$dir/stream-conf" "$STREAM_CONF"; restore_path "$dir/tls-state.json" "$STATE_FILE"; restore_path "$dir/renewal-hook" "$RENEW_HOOK"; }
+create_backup(){ local dir="$BACKUP_ROOT/$(date -u +%Y%m%d-%H%M%S)-panel-access"; install -d -m 0750 -o root -g "$PANEL_GROUP" "$dir"; backup_path "$NGINX_MAIN" nginx.conf "$dir"; backup_path "$NGINX_CONF" nginx-site "$dir"; backup_path "$NGINX_LINK" nginx-link "$dir"; backup_path "$ACME_CONF" acme-site "$dir"; backup_path "$ACME_LINK" acme-link "$dir"; backup_path "$STREAM_CONF" stream-conf "$dir"; backup_path "$STATE_FILE" tls-state.json "$dir"; backup_path "$RENEW_HOOK" renewal-hook "$dir"; backup_path "$XHTTP_TLS_SNIPPET" xhttp-tls-snippet "$dir"; printf '%s' "$dir"; }
+restore_backup(){ local dir="$1"; restore_path "$dir/nginx.conf" "$NGINX_MAIN"; restore_path "$dir/nginx-site" "$NGINX_CONF"; restore_path "$dir/nginx-link" "$NGINX_LINK"; restore_path "$dir/acme-site" "$ACME_CONF"; restore_path "$dir/acme-link" "$ACME_LINK"; restore_path "$dir/stream-conf" "$STREAM_CONF"; restore_path "$dir/tls-state.json" "$STATE_FILE"; restore_path "$dir/renewal-hook" "$RENEW_HOOK"; restore_path "$dir/xhttp-tls-snippet" "$XHTTP_TLS_SNIPPET"; }
 ensure_stream_include(){ python3 - "$NGINX_MAIN" <<'PY'
 from pathlib import Path
 import re
@@ -135,7 +140,7 @@ server {
     location / { return 404; }
 }
 server {
-    listen 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT ssl;
+    listen 127.0.0.1:$PLACEHOLDER_TLS_INTERNAL_PORT ssl http2;
     server_name $domain;
     ssl_certificate $cert;
     ssl_certificate_key $key;
@@ -143,6 +148,7 @@ server {
     ssl_session_cache shared:SG_GATEWAY_PLACEHOLDER_TLS:5m;
     ssl_session_timeout 1d;
     ssl_session_tickets off;
+    include /etc/nginx/snippets/sg-gateway-xhttp-tls.conf;
     root $PLACEHOLDER_ROOT;
     index index.html;
     location = / { try_files /index.html =404; add_header Cache-Control "no-cache" always; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; add_header Referrer-Policy "strict-origin-when-cross-origin" always; }
