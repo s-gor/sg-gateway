@@ -17,6 +17,7 @@ WGCF_CLI_VERSION="v0.3.6"
 AMNEZIAWG_TOOLS_VERSION="3.0.20260805"
 AMNEZIAWG_KMOD_VERSION="3.0.20260805"
 AMNEZIAWG_DKMS_VERSION="1.0.0"
+AWG3_GO_VERSION="v3.0.0"
 PANEL_USER="sg-gateway"
 PANEL_GROUP="sg-gateway"
 XRAY_REQUIRED_VERSION="v26.6.27"
@@ -32,6 +33,7 @@ SINGBOX_VENDOR_FILE="sing-box-1.13.14-linux-amd64.tar.gz"
 WGCF_VENDOR_FILE="wgcf-cli-linux-64.tar.zstd"
 AWG_TOOLS_VENDOR_FILE="amneziawg-tools-3.0.20260805.tar.gz"
 AWG_KMOD_VENDOR_FILE="amneziawg-linux-kernel-module-3.0.20260805.tar.gz"
+AWG3_GO_VENDOR_FILE="amneziawg-go-linux-amd64-v3.0.0"
 
 DEFAULT_PANEL_PORT="63443"
 DEFAULT_XRAY_PORT="443"
@@ -1159,7 +1161,8 @@ verify_vendor_core_set() {
     "$SINGBOX_VENDOR_FILE" \
     "$WGCF_VENDOR_FILE" \
     "$AWG_TOOLS_VENDOR_FILE" \
-    "$AWG_KMOD_VENDOR_FILE"; do
+    "$AWG_KMOD_VENDOR_FILE" \
+    "$AWG3_GO_VENDOR_FILE"; do
     [[ -s "$VENDOR_CORES_DIR/$required" ]] || {
       echo "Vendor core file missing or empty: $required" >&2
       return 1
@@ -1175,7 +1178,8 @@ verify_vendor_core_set() {
   zstd -tq "$VENDOR_CORES_DIR/$WGCF_VENDOR_FILE"
   tar -tzf "$VENDOR_CORES_DIR/$AWG_TOOLS_VENDOR_FILE" >/dev/null
   tar -tzf "$VENDOR_CORES_DIR/$AWG_KMOD_VENDOR_FILE" >/dev/null
-  echo "[SG-Gateway] Vendor core set: OK (6/6, linux/amd64)"
+  [[ -x "$VENDOR_CORES_DIR/$AWG3_GO_VENDOR_FILE" ]] || { echo "AWG3 userspace vendor binary is not executable" >&2; return 1; }
+  echo "[SG-Gateway] Vendor core set: OK (7/7, linux/amd64)"
 }
 
 install_xray_from_vendor() {
@@ -1336,6 +1340,16 @@ install_amneziawg_from_vendor() {
     PLATFORM=linux WITH_WGQUICK=yes WITH_BASHCOMPLETION=no WITH_SYSTEMDUNITS=no \
     PREFIX=/usr install
   awg --version
+
+  # SG_GATEWAY_02205_AWG3_VENDOR_RUNTIME_FIX1
+  install -d -m 0755 "$PREFIX/awg3/bin"
+  install -m 0755 /usr/bin/awg "$PREFIX/awg3/bin/awg"
+  install -m 0755 /usr/bin/awg-quick "$PREFIX/awg3/bin/awg-quick"
+  install -m 0755 "$VENDOR_CORES_DIR/$AWG3_GO_VENDOR_FILE" "$PREFIX/awg3/bin/amneziawg-go"
+  [[ -x "$PREFIX/awg3/bin/awg" ]]
+  [[ -x "$PREFIX/awg3/bin/awg-quick" ]]
+  [[ -x "$PREFIX/awg3/bin/amneziawg-go" ]]
+  echo "AmneziaWG 3 userspace ${AWG3_GO_VERSION}: vendored runtime ready"
 
   echo "AmneziaWG kernel module ${AMNEZIAWG_KMOD_VERSION}: DKMS из локального source"
   local dkms_existing=""
