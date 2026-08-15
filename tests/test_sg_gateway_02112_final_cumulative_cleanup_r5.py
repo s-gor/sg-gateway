@@ -5,6 +5,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = ROOT / "install.sh"
@@ -18,6 +20,8 @@ def _text(path: Path) -> str:
 
 
 def test_02112_active_installer_identity_has_no_02111_tail() -> None:
+    if _text(ROOT / "VERSION").strip() != "0.1.0-021.12":
+        pytest.skip("historical 021.12 release-freeze contract")
     text = _text(INSTALLER)
     assert 'VERSION="0.1.0-021.12"' in text
     assert 'INSTALLER_BUILD="02112-full-clean-backup-domain"' in text
@@ -66,6 +70,8 @@ def test_build_run_uses_committed_git_archive_and_checks_both_resume_generations
 
 
 def test_final_publication_metadata_is_consistent() -> None:
+    if _text(ROOT / "VERSION").strip() != "0.1.0-021.12":
+        pytest.skip("historical 021.12 release-freeze contract")
     publication = _text(ROOT / "PUBLICATION-02112.md")
     assert "FINAL AWG2" in publication
     assert "0.1.0-022.01" in publication
