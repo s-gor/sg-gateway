@@ -1,0 +1,122 @@
+name: Verify 022.05 update-channel defaults
+
+on:
+  push:
+    branches:
+      - fix-02205-update-channel-default-r1
+
+permissions:
+  contents: write
+
+env:
+  PYTHONPATH: .
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply exact channel-default patch
+        run: python .github/patchers/fix_02205_update_channel_defaults.py
+
+      - name: Shell and Python syntax
+        run: |
+          bash -n deploy/update-from-github.sh
+          bash -n deploy/install-from-github.sh
+          python -m compileall -q app hostd/sg_hostd
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Focused channel safety tests
+        run: |
+          python -m pytest -q \
+            tests/test_sg_gateway_02205_update_channel_defaults.py \
+            tests/test_sg_gateway_02205_panel_update_safety.py \
+            tests/test_sg_gateway_02205_update_wsgi_isolation.py \
+            tests/test_sg_gateway_02112_install_update_split.py
+
+      - name: Remove temporary CI scaffolding
+        run: |
+          git rm .github/workflows/fix-02205-update-channel-default-r1.yml
+          git rm .github/patchers/fix_02205_update_channel_defaults.py
+          rm -f data/system-activity.json
+          git add \
+            deploy/update-from-github.sh \
+            deploy/install-from-github.sh \
+            tests/test_sg_gateway_02205_update_channel_defaults.py
+
+      - name: Rebuild strict source checksum inventory
+        run: |
+          python - <<'PY'
+          import hashlib
+          import subprocess
+          from pathlib import Path
+
+          tracked = subprocess.check_output(['git', 'ls-files', '-z']).split(b'\0')
+          paths = sorted(
+              p.decode('utf-8') for p in tracked
+              if p and p.decode('utf-8') != 'SOURCE-SHA256SUMS'
+          )
+          lines = []
+          for raw in paths:
+              path = Path(raw)
+              if path.is_file():
+                  lines.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {raw}")
+          Path('SOURCE-SHA256SUMS').write_text(
+              '\n'.join(lines) + '\n', encoding='utf-8', newline='\n'
+          )
+          print(f'SOURCE-SHA256SUMS entries={len(lines)}')
+          PY
+
+      - name: Full repository suite
+        run: python -m pytest -q
+
+      - name: Remove post-test generated runtime data
+        run: rm -f data/system-activity.json
+
+      - name: Verify final diff scope
+        run: |
+          git status --short
+          python - <<'PY'
+          import subprocess
+
+          changed = set(subprocess.check_output(['git', 'diff', '--name-only', 'HEAD']).decode().splitlines())
+          staged = set(subprocess.check_output(['git', 'diff', '--cached', '--name-only', 'HEAD']).decode().splitlines())
+          all_changed = changed | staged
+          allowed = {
+              'deploy/update-from-github.sh',
+              'deploy/install-from-github.sh',
+              'tests/test_sg_gateway_02205_update_channel_defaults.py',
+              'SOURCE-SHA256SUMS',
+              '.github/workflows/fix-02205-update-channel-default-r1.yml',
+              '.github/patchers/fix_02205_update_channel_defaults.py',
+          }
+          unexpected = all_changed - allowed
+          assert not unexpected, sorted(unexpected)
+          required = {
+              'deploy/update-from-github.sh',
+              'deploy/install-from-github.sh',
+              'tests/test_sg_gateway_02205_update_channel_defaults.py',
+              'SOURCE-SHA256SUMS',
+          }
+          assert required <= all_changed, sorted(required - all_changed)
+          print('Final diff scope: OK')
+          PY
+
+      - name: Commit verified channel-default fix
+        run: |
+          git config user.name 'sg-gateway-channel-ci'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'Pin 022.05 updater defaults to dev channel'
+          git push origin HEAD:fix-02205-update-channel-default-r1
