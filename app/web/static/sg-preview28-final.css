@@ -434,3 +434,48 @@ html[data-theme="light"] .mhv2-switch input:checked + span {
 
 /* Preview 28: Connections begins with Xray; the compact equal-height engine pair follows it. */
 .cnv1-page > .cnv1-xray-row { margin-top: 2px; }
+
+/* SG-Gateway 021 · Mihomo as a separate full-width Connections block */
+.cnv1-engine-pair {
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: start !important;
+}
+
+.cnv1-engine-pair > .cnv1-engine-card,
+.cnv1-engine-pair > .mhv2-panel {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  align-self: start !important;
+}
+
+.cnv1-engine-awg .cnv1-engine-form-compact {
+  flex: 0 0 auto !important;
+}
+
+.cnv1-engine-awg .cnv1-form-actions {
+  margin-top: 14px !important;
+}
+
+.cnv1-engine-mihomo .mhv2-listeners-compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.cnv1-engine-mihomo .mhv2-form-compact {
+  display: flex;
+  flex-direction: column;
+}
+
+.cnv1-engine-mihomo .mhv2-actions {
+  padding-right: 18px;
+}
+
+.cnv1-engine-mihomo .mhv2-service-tools {
+  margin-left: 18px;
+}
+
+@media (max-width: 1180px) {
+  .cnv1-engine-mihomo .mhv2-listeners-compact {
+    grid-template-columns: 1fr !important;
+  }
+}
