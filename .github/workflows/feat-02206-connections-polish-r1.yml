@@ -29,7 +29,7 @@ jobs:
           python -m pip install -r requirements-dev.txt
 
       - name: Apply Connections polish
-        run: python .github/scripts/feat-02206-connections-polish-r2.py
+        run: python .github/scripts/feat-02206-connections-polish-r3.py
 
       - name: Check syntax before candidate commit
         run: |
@@ -44,6 +44,7 @@ jobs:
           git rm .github/workflows/feat-02206-connections-polish-r1.yml
           git rm .github/scripts/feat-02206-connections-polish-r1.py
           git rm .github/scripts/feat-02206-connections-polish-r2.py
+          git rm .github/scripts/feat-02206-connections-polish-r3.py
           rm -f data/system-activity.json
           git add -A
 
@@ -87,7 +88,9 @@ jobs:
             tests/test_sg_gateway_02205_xmux_sgpanel_contract.py \
             tests/test_sg_gateway_02205_panel_update_state_binding.py \
             tests/test_hysteria2_gecko_db_init_02204.py \
-            tests/test_hysteria2_uri_cleanup_02204.py
+            tests/test_hysteria2_uri_cleanup_02204.py \
+            tests/test_sg_gateway_021_full_publication_ru.py \
+            tests/test_xray_profile_flow_v23.py
 
       - name: Full repository suite
         run: python -m pytest -q
@@ -123,8 +126,10 @@ jobs:
               'app/web/templates/connections.html',
               'docs/CONNECTIONS.md',
               'release-manifest.json',
+              'tests/test_sg_gateway_021_full_publication_ru.py',
               'tests/test_sg_gateway_02206_connections_polish.py',
               'tests/test_sg_gateway_02206_development_identity.py',
+              'tests/test_xray_profile_flow_v23.py',
           }
           unexpected = changed - allowed
           missing = {
@@ -133,6 +138,8 @@ jobs:
               'app/web/static/sg-xray-profiles-v2.css',
               'app/web/templates/connections.html',
               'tests/test_sg_gateway_02206_connections_polish.py',
+              'tests/test_sg_gateway_021_full_publication_ru.py',
+              'tests/test_xray_profile_flow_v23.py',
           } - changed
           assert not unexpected, sorted(unexpected)
           assert not missing, sorted(missing)
