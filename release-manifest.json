@@ -1,5 +1,5 @@
 {
-  "build": "DEV-02206-BASE-R1",
+  "build": "DEV-02206-CONNECTIONS-POLISH-R1",
   "status": "DEVELOPMENT",
   "next_development_line": "0.1.0-022.07",
   "safe_update": {
@@ -560,5 +560,17 @@
     "stable_branch": "stable-02205",
     "release_branch": "release-02205-live",
     "frozen_update_channel": "dev-02205"
+  },
+  "development_feature": {
+    "id": "connections-polish-r1",
+    "scope": "ui-only",
+    "runtime_changes": false,
+    "source_branch": "agent/restore-connections-polish-20260814",
+    "source_ci_run": 31818719737,
+    "preserves": [
+      "gecko",
+      "sg-panel-xmux",
+      "vpn-runtime"
+    ]
   }
 }

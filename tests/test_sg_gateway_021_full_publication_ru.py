@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,8 +21,14 @@ def test_connections_uses_compact_xmux_and_full_width_mihomo():
     assert "Показать параметры" in template
     assert "xps2-xmux-switch" not in template
     assert "compact client-only XMUX preset for Russian networks" in xray_css
-    assert "Mihomo as a separate full-width Connections block" in layout_css
-    assert "grid-template-columns: minmax(0, 1fr) !important" in layout_css
+    manifest = json.loads((ROOT / "release-manifest.json").read_text(encoding="utf-8"))
+    feature = manifest.get("development_feature", {})
+    if feature.get("id") == "connections-polish-r1":
+        assert "Mihomo as a separate full-width Connections block" not in layout_css
+        assert "grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);" in layout_css
+    else:
+        assert "Mihomo as a separate full-width Connections block" in layout_css
+        assert "grid-template-columns: minmax(0, 1fr) !important" in layout_css
 
 
 def test_client_detail_uses_routing_frame_and_title_size():
