@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  PYTHONPATH: .
+
 jobs:
   patch-test-commit:
     runs-on: ubuntu-24.04
@@ -115,7 +118,6 @@ jobs:
           for lineno, line in enumerate(body.splitlines(), 1):
               if re.search(r'(SG-Gateway 0\.1\.0-022\.0[0-4]|before-sg-gateway-0220[0-4]|installer-0220[0-4]\.log|sg-gateway-0220[0-4]-installer-resume)', line):
                   current_identity_hits.append((lineno, line))
-          # Historical cleanup/migration paths are allowed, but active current identity is not.
           forbidden = [(n, l) for n, l in current_identity_hits if n >= body[:body.index('main() {')].count('\n') + 1 and ('printf' in l or 'BACKUP_DIR=' in l)]
           assert not forbidden, forbidden
           print('Installer identity audit: OK')
@@ -142,6 +144,7 @@ jobs:
         run: |
           git rm .github/workflows/fix-02205-installer-identity-r1.yml
           rm -f data/system-activity.json
+          git add install.sh tests/test_sg_gateway_02205_installer_identity.py
 
       - name: Rebuild strict source checksum inventory
         shell: bash
@@ -169,6 +172,9 @@ jobs:
 
       - name: Full repository suite
         run: pytest -q
+
+      - name: Remove post-test generated runtime data
+        run: rm -f data/system-activity.json
 
       - name: Verify final diff scope
         shell: bash
