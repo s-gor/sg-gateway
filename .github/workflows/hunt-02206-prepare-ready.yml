@@ -1,0 +1,67 @@
+name: Prepare 022.06 pre-Connections Polish hunt point
+
+on:
+  push:
+    branches:
+      - hunt-02206-pre-connections-polish-compatible
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify hunt UI blobs are exactly pre-polish
+        run: |
+          test "$(git hash-object app/web/templates/connections.html)" = "b7229d2d6f0e9dbaabf1581d35243f3c18f223d6"
+          test "$(git hash-object app/web/static/sg-xray-profiles-v2.css)" = "4823d480bb0d5e9d9953cfa686e6768b0dfda00a"
+          test "$(git hash-object app/web/static/sg-preview28-final.css)" = "f32af5320fb4a19446300f363ea7dc37914ef58d"
+          echo "Connections UI blobs: exact f5f7 pre-polish versions"
+
+      - name: Rebuild strict source checksum inventory
+        run: |
+          python - <<'PY'
+          import hashlib
+          import subprocess
+          from pathlib import Path
+
+          tracked = subprocess.check_output(['git', 'ls-files', '-z']).split(b'\0')
+          paths = sorted(
+              p.decode('utf-8') for p in tracked
+              if p and p.decode('utf-8') != 'SOURCE-SHA256SUMS'
+          )
+          lines = []
+          for raw in paths:
+              path = Path(raw)
+              if not path.is_file():
+                  continue
+              lines.append(f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {raw}')
+          Path('SOURCE-SHA256SUMS').write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
+          print(f'SOURCE-SHA256SUMS entries={len(lines)}')
+          PY
+
+      - name: Verify updater/runtime compatibility is current
+        run: |
+          grep -q '_normalize_full_backup_upload_nginx_text' hostd/sg_hostd/full_backup_runtime.py
+          grep -q '_normalize_full_backup_upload_nginx_text' deploy/update-from-github.sh
+          bash -n deploy/update-from-github.sh
+          python -m py_compile hostd/sg_hostd/full_backup_runtime.py
+
+      - name: Publish ready hunt branch
+        run: |
+          git config user.name 'sg-gateway-hunt-ci'
+          git config user.email 'actions@users.noreply.github.com'
+          git add SOURCE-SHA256SUMS
+          git commit -m 'Hunt: rebuild checksum inventory for pre-Connections UI point'
+          echo "READY_SHA=$(git rev-parse HEAD)"
+          echo "READY_TREE=$(git rev-parse HEAD^{tree})"
+          git push --force origin HEAD:hunt-02206-pre-connections-polish-compatible-ready
