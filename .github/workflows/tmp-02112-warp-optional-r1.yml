@@ -34,22 +34,19 @@ jobs:
           from pathlib import Path
           path = Path('install.sh')
           text = path.read_text(encoding='utf-8')
-          old = '''  run_hidden "Этап 9/9 · 1/5 · Запуск sg-hostd" stage9_start_hostd
-  run_hidden "Этап 9/9 · 2/5 · Проверка команд hostd" stage9_verify_hostd
-  run_hidden "Этап 9/9 · 3/6 · Сохранение/применение Xray runtime" stage9_apply_runtime
-  run_hidden "Этап 9/9 · 4/6 · Создание и активация WARP" stage9_ensure_warp
-  run_hidden "Этап 9/9 · 5/6 · Запуск панели" stage9_start_panel
-  run_hidden "Этап 9/9 · 6/6 · Проверка Nginx и служб" stage9_verify_nginx
-'''
-          new = '''  run_hidden "Этап 9/9 · 1/5 · Запуск sg-hostd" stage9_start_hostd
-  run_hidden "Этап 9/9 · 2/5 · Проверка команд hostd" stage9_verify_hostd
-  run_hidden "Этап 9/9 · 3/5 · Сохранение/применение Xray runtime" stage9_apply_runtime
-  run_hidden "Этап 9/9 · 4/5 · Запуск панели" stage9_start_panel
-  run_hidden "Этап 9/9 · 5/5 · Проверка Nginx и служб" stage9_verify_nginx
-'''
-          if old not in text:
-              raise SystemExit('021.12 final stage block not found')
-          text = text.replace(old, new, 1)
+          replacements = {
+              '  run_hidden "Этап 9/9 · 3/6 · Сохранение/применение Xray runtime" stage9_apply_runtime\n': '  run_hidden "Этап 9/9 · 3/5 · Сохранение/применение Xray runtime" stage9_apply_runtime\n',
+              '  run_hidden "Этап 9/9 · 5/6 · Запуск панели" stage9_start_panel\n': '  run_hidden "Этап 9/9 · 4/5 · Запуск панели" stage9_start_panel\n',
+              '  run_hidden "Этап 9/9 · 6/6 · Проверка Nginx и служб" stage9_verify_nginx\n': '  run_hidden "Этап 9/9 · 5/5 · Проверка Nginx и служб" stage9_verify_nginx\n',
+          }
+          warp = '  run_hidden "Этап 9/9 · 4/6 · Создание и активация WARP" stage9_ensure_warp\n'
+          if warp not in text:
+              raise SystemExit('021.12 automatic WARP stage not found')
+          text = text.replace(warp, '', 1)
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'expected stage line not found: {old.strip()}')
+              text = text.replace(old, new, 1)
           path.write_text(text, encoding='utf-8')
           PY
 
