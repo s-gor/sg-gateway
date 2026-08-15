@@ -24,13 +24,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Port optional WARP and isolated WSGI updater safety
-        run: python deploy/recovery_02205_port.py
-
-      - name: Integrate proven R10 client-detail state
+      - name: Verify port is already integrated
         run: |
-          SG_GATEWAY_ROOT="$GITHUB_WORKSPACE" bash deploy/sg-gateway-sg-subscription-native-ui.sh
-          printf '%s\n' 'DEV-02205-SGPANEL-XMUX-WARP-UPDATER-R1' > BUILD-ID
+          grep -q 'SG_GATEWAY_02205_WSGI_ISOLATED_VALIDATION_V1' deploy/update-from-github.sh
+          python -m pytest -q tests/test_sg_gateway_02205_optional_warp_install.py tests/test_sg_gateway_02205_update_wsgi_isolation.py
+
+      - name: Verify proven R10 client-detail state
+        run: |
+          grep -q 'SG_SUBSCRIPTION_DUAL_UI_V1' app/web/templates/client_detail.html
+          test "$(grep -c 'SG_SUBSCRIPTION_DUAL_UI_V1' app/web/templates/client_detail.html)" -eq 1
+          grep -q 'Legacy SUB устройства' app/web/templates/client_detail.html
+          grep -q '^DEV-02205-SGPANEL-XMUX-WARP-UPDATER-R1$' BUILD-ID
 
       - name: Install test dependencies
         run: |
@@ -43,11 +47,8 @@ jobs:
           bash -n deploy/update-from-github.sh
           python -B -c "from pathlib import Path; files=list(Path('app').rglob('*.py'))+list(Path('hostd').rglob('*.py'))+list(Path('deploy').rglob('*.py'))+list(Path('tests').rglob('*.py')); [compile(p.read_text(encoding='utf-8'), str(p), 'exec') for p in files]; print(f'syntax ok: {len(files)} files')"
 
-      - name: Run new recovery regression tests
-        run: |
-          python -m pytest -q tests/test_sg_gateway_02205_xmux_sgpanel_contract.py
-          python -m pytest -q tests/test_sg_gateway_02205_optional_warp_install.py
-          python -m pytest -q tests/test_sg_gateway_02205_update_wsgi_isolation.py
+      - name: Run SG-Panel XMUX regression tests
+        run: python -m pytest -q tests/test_sg_gateway_02205_xmux_sgpanel_contract.py
 
       - name: Run preserved 022.05 regression suites
         run: |
@@ -55,14 +56,5 @@ jobs:
           python -m pytest -q tests/test_sg_gateway_02205_full_backup_verify.py tests/test_sg_gateway_02205_full_backup_verify_ui.py tests/test_sg_gateway_02205_full_backup_verify_mux.py
           python -m pytest -q tests/test_preview42_template_endpoints.py
 
-      - name: Commit only after all checks pass
-        run: |
-          git config user.name "sg-gateway-recovery-ci"
-          git config user.email "actions@users.noreply.github.com"
-          git add install.sh deploy/update-from-github.sh app/web/templates/client_detail.html BUILD-ID
-          if git diff --cached --quiet; then
-            echo "No port changes to commit"
-            exit 0
-          fi
-          git commit -m "Recovery 022.05: port optional WARP and isolated updater safety [recovery-port-applied]"
-          git push origin HEAD:recovery-02205-vless-xmux-warp-updater
+      - name: Run complete repository test suite
+        run: python -m pytest -q
