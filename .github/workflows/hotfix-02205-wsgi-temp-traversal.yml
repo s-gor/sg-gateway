@@ -38,11 +38,12 @@ jobs:
           sudo -u nobody test -d "$d/wsgi-validation/data"
           chmod 0700 "$d"
           sudo rm -rf "$d"
+      - name: Remove temporary hotfix scaffolding from final tree
+        run: git rm -f deploy/hotfix_02205_wsgi_temp_traversal.py .github/workflows/hotfix-02205-wsgi-temp-traversal.yml
       - name: Full repository suite
         run: python -m pytest -q
       - name: Commit only verified code
         run: |
-          rm -f deploy/hotfix_02205_wsgi_temp_traversal.py .github/workflows/hotfix-02205-wsgi-temp-traversal.yml
           git config user.name "sg-gateway-hotfix-ci"
           git config user.email "actions@users.noreply.github.com"
           git add -A
