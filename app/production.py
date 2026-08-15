@@ -1,4 +1,4 @@
-"""Production WSGI entrypoint for SG-Gateway 0.1.0-022.05+."""
+"""Production WSGI entrypoint for SG-Gateway 0.1.0-022.06 development."""
 from __future__ import annotations
 
 from app.main import app

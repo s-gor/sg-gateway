@@ -1,3 +1,11 @@
+# SG-Gateway 0.1.0-022.06 — DEVELOPMENT
+
+- Development branch: `dev-02206`.
+- Base publication: `a0c2537b6c55d1fd974afe3aab586a7d41777cd8` / tree `044d3c166015f8250a1d800584c898ca927da33f`.
+- Live-validated runtime base: `9fbf42aea2bde80a99229de5661a93b6dce4f6c1` / tree `c482dc4f158dc1d61c2ba1d683a14e96d24dac68`.
+- Initial 022.06 commit changes development identity/channel/CI only; no new VPN/runtime behavior is introduced.
+- Frozen 022.05 updater channel remains `dev-02205`.
+
 # SG-Gateway 0.1.0-022.05 — LIVE
 
 - Live-validated baseline: `9fbf42aea2bde80a99229de5661a93b6dce4f6c1` / tree `c482dc4f158dc1d61c2ba1d683a14e96d24dac68`.

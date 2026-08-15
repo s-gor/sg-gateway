@@ -9,9 +9,9 @@ def _function_block(body: str, name: str) -> str:
     return body[start:] if next_def < 0 else body[start:next_def]
 
 
-def test_panel_update_overview_uses_02205_channel_not_main() -> None:
+def test_panel_update_overview_uses_current_development_channel_not_main() -> None:
     body = (ROOT / "app/maintenance/panel_updates.py").read_text(encoding="utf-8")
-    assert 'GITHUB_BRANCH = os.getenv("SG_GATEWAY_UPDATE_BRANCH", "dev-02205")' in body
+    assert 'GITHUB_BRANCH = os.getenv("SG_GATEWAY_UPDATE_BRANCH", "dev-02206")' in body
     latest = _function_block(body, "_latest_channel")
     assert 'commits/{GITHUB_BRANCH}' in latest
     assert 'commits/main' not in latest
