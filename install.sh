@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-VERSION="0.1.0-022.02"
-INSTALLER_BUILD="02202-dual-awg"
+VERSION="0.1.0-022.05"
+INSTALLER_BUILD="02205-sgpanel-xmux-warp-updater-r1"
 SOURCE_DIR="${SG_GATEWAY_SOURCE_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
 PREFIX="/opt/sg-gateway"
 CONFIG_DIR="/etc/sg-gateway"
 DATA_DIR="/var/lib/sg-gateway"
 LOG_DIR="/var/log/sg-gateway"
-INSTALL_LOG="/var/log/sg-gateway-installer-02202.log"
+INSTALL_LOG="/var/log/sg-gateway-installer-02205.log"
 BACKUP_ROOT="/root/sg-gateway-backups"
-RESUME_FILE="/root/sg-gateway-02202-installer-resume.env"
+RESUME_FILE="/root/sg-gateway-02205-installer-resume.env"
 MIHOMO_VERSION="v1.19.29"
 SING_BOX_VERSION="1.13.14"
 WGCF_CLI_VERSION="v0.3.6"
@@ -22,7 +22,7 @@ PANEL_GROUP="sg-gateway"
 XRAY_REQUIRED_VERSION="v26.6.27"
 XRAY_MINIMUM_VERSION="v26.6.27"
 
-# SG-Gateway 021 vendor bundle. Clean installation does not download these
+# SG-Gateway 022 vendor bundle. Clean installation does not download these
 # runtimes from upstream projects. The files are committed with the source.
 VENDOR_CORES_DIR="${SG_GATEWAY_VENDOR_CORES_DIR:-$SOURCE_DIR/vendor/cores}"
 VENDOR_CORES_MANIFEST="$VENDOR_CORES_DIR/SHA256SUMS"
@@ -466,8 +466,12 @@ run_stage() {
   local label="$2"
   local function_name="$3"
   CURRENT_STAGE="$number"
-  CURRENT_LABEL="[${number}/${TOTAL_STAGES}] ${label}"
-  run_quiet "$CURRENT_LABEL" "$function_name"
+  CURRENT_LABEL="Этап ${number}/${TOTAL_STAGES} · ${label}"
+  if [[ "$number" == "1" ]]; then
+    run_live "$CURRENT_LABEL" "$function_name"
+  else
+    run_quiet "$CURRENT_LABEL" "$function_name"
+  fi
 }
 
 stage10_start_and_verify() {

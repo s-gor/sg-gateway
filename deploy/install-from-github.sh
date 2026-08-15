@@ -26,12 +26,14 @@ trap cleanup EXIT INT TERM
 
 [[ "$(id -u)" -eq 0 ]] || fail "run this installer through sudo"
 
+# SG_GATEWAY_02112_INSTALL_UPDATE_SPLIT
 # The clean-install command must never mutate an existing SG-Gateway.
 if [[ -f /opt/sg-gateway/VERSION && -f /etc/sg-gateway/runtime.env && -f /etc/sg-gateway/sg-gateway.env ]]; then
   installed_version="$(tr -d '\r\n' < /opt/sg-gateway/VERSION 2>/dev/null || true)"
   printf '[SG-Gateway] SG-Gateway %s is already installed.\n' "${installed_version:-unknown}"
   printf '[SG-Gateway] Clean Install is blocked on an existing server.\n'
   printf '[SG-Gateway] Use the dedicated Update command.\n'
+  printf '[SG-Gateway] Updater: /opt/sg-gateway/deploy/update-from-github.sh\n'
   exit 2
 fi
 
