@@ -1,0 +1,246 @@
+name: Recovery 022.05 port and verify
+
+on:
+  push:
+    branches: [recovery-02205-vless-xmux-warp-updater]
+
+permissions:
+  contents: write
+
+jobs:
+  port-and-test:
+    if: ${{ !contains(github.event.head_commit.message, '[recovery-port-applied]') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout recovery branch
+        uses: actions/checkout@v4
+        with:
+          ref: recovery-02205-vless-xmux-warp-updater
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Port optional WARP and isolated WSGI updater safety
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str, label: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one anchor, found {count}")
+              file.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+              print(f"[PASS] {label}")
+
+          install = "install.sh"
+          old_final = '''  run_hidden "Этап 9/9 · 1/5 · Запуск sg-hostd" stage9_start_hostd
+            run_hidden "Этап 9/9 · 2/5 · Проверка команд hostd" stage9_verify_hostd
+            run_hidden "Этап 9/9 · 3/6 · Сохранение/применение Xray runtime" stage9_apply_runtime
+            run_hidden "Этап 9/9 · 4/6 · Создание и активация WARP" stage9_ensure_warp
+            run_hidden "Этап 9/9 · 5/6 · Запуск панели" stage9_start_panel
+            run_hidden "Этап 9/9 · 6/6 · Проверка Nginx и служб" stage9_verify_nginx
+          '''.replace("          ", "")
+          new_final = '''  run_hidden "Этап 9/9 · 1/5 · Запуск sg-hostd" stage9_start_hostd
+            run_hidden "Этап 9/9 · 2/5 · Проверка команд hostd" stage9_verify_hostd
+            run_hidden "Этап 9/9 · 3/5 · Сохранение/применение Xray runtime" stage9_apply_runtime
+            run_hidden "Этап 9/9 · 4/5 · Запуск панели" stage9_start_panel
+            run_hidden "Этап 9/9 · 5/5 · Проверка Nginx и служб" stage9_verify_nginx
+          '''.replace("          ", "")
+          replace_once(install, old_final, new_final, "remove automatic WARP from 9/9 final stage")
+
+          replace_once(
+              install,
+              '  run_quiet "Этап 10/10 · Создание и активация WARP" stage9_ensure_warp\n',
+              '',
+              "remove automatic WARP from 10/10 final stage",
+          )
+
+          replace_once(
+              install,
+              "  print_sg_admin_status\n  printf '[SG-Gateway] WARP:         создан и активен\\n'\n",
+              """  print_sg_admin_status
+            if [[ -s \"$DATA_DIR/warp/wgcf.xray.json\" || -s \"$DATA_DIR/warp/wgcf-profile.conf\" ]]; then
+              printf '[SG-Gateway] WARP:         существующий профиль сохранён\\n'
+            else
+              printf '[SG-Gateway] WARP:         helper установлен; создаётся при необходимости в Outbounds\\n'
+            fi
+          """.replace("          ", ""),
+              "report optional WARP without auto registration",
+          )
+
+          updater = Path("deploy/update-from-github.sh")
+          body = updater.read_text(encoding="utf-8")
+          marker = "# SG_GATEWAY_02205_WSGI_ISOLATED_VALIDATION_V1"
+          if marker in body:
+              raise SystemExit("updater WSGI isolation marker already present")
+
+          anchor = "preflight() {\n"
+          if body.count(anchor) != 1:
+              raise SystemExit(f"updater preflight anchor count={body.count(anchor)}")
+
+          wsgi_block = r'''# SG_GATEWAY_02205_WSGI_ISOLATED_VALIDATION_V1
+          panel_wsgi_target() {
+            local raw
+            raw="$(systemctl show -p ExecStart --value "$PANEL_SERVICE" 2>/dev/null || true)"
+            python3 - "$raw" <<'PYWSGITARGET'
+          import re
+          import sys
+
+          raw = sys.argv[1]
+          items = re.findall(
+              r"(?<![A-Za-z0-9_.])([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*:[A-Za-z_]\w*)(?![A-Za-z0-9_])",
+              raw,
+          )
+          print(items[-1] if items else "app.main:app")
+          PYWSGITARGET
+          }
+
+          validate_candidate_wsgi_target() {
+            local source="$1" target module
+            target="$(panel_wsgi_target)"
+            module="${target%%:*}"
+            "$PREFIX/.venv/bin/python" -B - "$source" "$module" "$target" <<'PYCANDIDATEWSGI'
+          import sys
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+          module = sys.argv[2]
+          target = sys.argv[3]
+          module_path = root.joinpath(*module.split("."))
+          present = module_path.with_suffix(".py").is_file() or (module_path / "__init__.py").is_file()
+          if not present:
+              raise SystemExit(
+                  f"candidate source does not provide installed panel WSGI target {target}"
+              )
+          print(f"Candidate WSGI target: {target} -> module present")
+          PYCANDIDATEWSGI
+          }
+
+          validate_deployed_panel() {
+            runuser -u sg-gateway -- "$PREFIX/.venv/bin/python" -B -c \
+              'from pathlib import Path; from jinja2 import Environment; env=Environment(); [env.parse(p.read_text(encoding="utf-8")) for p in Path("/opt/sg-gateway/app/web/templates").rglob("*.html")]; print("Templates: OK")'
+
+            local target validation_root
+            target="$(panel_wsgi_target)"
+            validation_root="$TEMP_DIR/wsgi-validation"
+            rm -rf "$validation_root"
+            install -d -m 0750 -o sg-gateway -g sg-gateway \
+              "$validation_root" "$validation_root/data" "$validation_root/log"
+
+            runuser -u sg-gateway -- "$PREFIX/.venv/bin/python" -B - \
+              "$PREFIX" "$CONFIG_DIR/sg-gateway.env" "$target" "$validation_root" <<'PYDEPLOYEDWSGI'
+          import importlib
+          import os
+          import shlex
+          import sys
+          from pathlib import Path
+
+          prefix = Path(sys.argv[1])
+          env_file = Path(sys.argv[2])
+          target = sys.argv[3]
+          validation_root = Path(sys.argv[4])
+
+          for raw in env_file.read_text(encoding="utf-8").splitlines():
+              line = raw.strip()
+              if not line or line.startswith("#") or "=" not in line:
+                  continue
+              name, value = line.split("=", 1)
+              name = name.strip()
+              value = value.strip()
+              if value[:1] in {'"', "'"}:
+                  try:
+                      parsed = shlex.split(value, posix=True)
+                      value = parsed[0] if parsed else ""
+                  except ValueError:
+                      value = value[1:-1] if len(value) >= 2 else ""
+              os.environ[name] = value
+
+          # Import validation must never initialize or migrate the production DB.
+          os.environ["SG_GATEWAY_DATA_DIR"] = str(validation_root / "data")
+          os.environ["SG_GATEWAY_LOG_DIR"] = str(validation_root / "log")
+
+          os.chdir(prefix)
+          sys.path.insert(0, str(prefix))
+          module_name, object_name = target.split(":", 1)
+          module = importlib.import_module(module_name)
+          getattr(module, object_name)
+          print(f"Panel WSGI import: OK ({target}) with isolated data/log")
+          PYDEPLOYEDWSGI
+          }
+
+          '''.replace("          ", "")
+          body = body.replace(anchor, wsgi_block + anchor, 1)
+
+          prepare_anchor = '''print("Python syntax: OK")
+          PYCHECK
+
+          }
+          '''.replace("          ", "")
+          prepare_new = '''print("Python syntax: OK")
+          PYCHECK
+
+            validate_candidate_wsgi_target "$SOURCE_DIR"
+          }
+          '''.replace("          ", "")
+          if body.count(prepare_anchor) != 1:
+              raise SystemExit(f"prepare_source validation anchor count={body.count(prepare_anchor)}")
+          body = body.replace(prepare_anchor, prepare_new, 1)
+
+          old_stage4 = '''  run_stage 4 "Python/UI проверка без изменения runtime" \\
+              runuser -u sg-gateway -- "$PREFIX/.venv/bin/python" -B -c \\
+                'from pathlib import Path; from jinja2 import Environment; env=Environment(); [env.parse(p.read_text(encoding="utf-8")) for p in Path("/opt/sg-gateway/app/web/templates").rglob("*.html")]; print("Templates: OK")'
+          '''.replace("          ", "")
+          new_stage4 = '  run_stage 4 "Python/UI проверка без изменения runtime" validate_deployed_panel\n'
+          if body.count(old_stage4) != 1:
+              raise SystemExit(f"stage4 validation anchor count={body.count(old_stage4)}")
+          body = body.replace(old_stage4, new_stage4, 1)
+
+          updater.write_text(body, encoding="utf-8", newline="\n")
+          print("[PASS] updater WSGI validation is path-only before backup and isolated after deploy")
+          PY
+
+      - name: Integrate the proven R10 client-detail normalizer
+        run: |
+          SG_GATEWAY_ROOT="$GITHUB_WORKSPACE" bash deploy/sg-gateway-sg-subscription-native-ui.sh
+          printf '%s\n' 'DEV-02205-SGPANEL-XMUX-WARP-UPDATER-R1' > BUILD-ID
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Check source syntax
+        run: |
+          bash -n install.sh
+          bash -n deploy/update-from-github.sh
+          python -B -c "from pathlib import Path; files=list(Path('app').rglob('*.py'))+list(Path('hostd').rglob('*.py'))+list(Path('deploy').rglob('*.py'))+list(Path('tests').rglob('*.py')); [compile(p.read_text(encoding='utf-8'), str(p), 'exec') for p in files]; print(f'syntax ok: {len(files)} files')"
+
+      - name: Run new recovery regression tests
+        run: |
+          python -m pytest -q tests/test_sg_gateway_02205_xmux_sgpanel_contract.py
+          python -m pytest -q tests/test_sg_gateway_02205_optional_warp_install.py
+          python -m pytest -q tests/test_sg_gateway_02205_update_wsgi_isolation.py
+
+      - name: Run preserved 022.05 regression suites
+        run: |
+          python -m pytest -q tests/test_sg_subscription_v1_*_02205.py
+          python -m pytest -q tests/test_sg_gateway_02205_full_backup_verify.py tests/test_sg_gateway_02205_full_backup_verify_ui.py tests/test_sg_gateway_02205_full_backup_verify_mux.py
+          python -m pytest -q tests/test_preview42_template_endpoints.py
+
+      - name: Commit only after all checks pass
+        run: |
+          git config user.name "sg-gateway-recovery-ci"
+          git config user.email "actions@users.noreply.github.com"
+          git add install.sh deploy/update-from-github.sh app/web/templates/client_detail.html BUILD-ID
+          if git diff --cached --quiet; then
+            echo "No port changes to commit"
+            exit 0
+          fi
+          git commit -m "Recovery 022.05: port optional WARP and isolated updater safety [recovery-port-applied]"
+          git push origin HEAD:recovery-02205-vless-xmux-warp-updater
