@@ -39,11 +39,12 @@ jobs:
           bash -n deploy/install-from-github.sh
           bash -n deploy/update-from-github.sh
 
-      - name: Remove CI scaffolding
+      - name: Remove CI scaffolding and stage final candidate paths
         run: |
           git rm .github/workflows/fix-02205-publication-build-r1.yml
           git rm .github/scripts/fix-02205-publication-build-r1.py
           rm -f data/system-activity.json
+          git add -A
 
       - name: Rebuild strict source checksum inventory
         run: |
@@ -66,12 +67,12 @@ jobs:
           Path('SOURCE-SHA256SUMS').write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
           print(f'SOURCE-SHA256SUMS entries={len(lines)}')
           PY
+          git add SOURCE-SHA256SUMS
 
       - name: Commit exact candidate tree for git-archive build
         run: |
           git config user.name 'sg-gateway-publication-ci'
           git config user.email 'actions@users.noreply.github.com'
-          git add -A
           git commit -m 'Publish SG-Gateway 0.1.0-022.05 LIVE'
 
       - name: Focused publication regressions
@@ -97,7 +98,7 @@ jobs:
           test -s /tmp/SG-Gateway-0.1.0-022.05-FULL-SHA256.txt
           test -s /tmp/SG-Gateway-0.1.0-022.05-FULL-TRANSFER.zip
           unzip -t /tmp/SG-Gateway-0.1.0-022.05-FULL-TRANSFER.zip
-          sha256sum -c /tmp/SG-Gateway-0.1.0-022.05-FULL-SHA256.txt --ignore-missing
+          (cd /tmp && sha256sum -c SG-Gateway-0.1.0-022.05-FULL-SHA256.txt)
 
       - name: Verify final publication diff scope
         run: |
