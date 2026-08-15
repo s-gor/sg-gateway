@@ -7,40 +7,50 @@ from app.connections.settings import get_connection_settings, update_connection_
 
 
 XMUX_MODE_STANDARD = "auto"
-XMUX_MODE_REDUCED = "reduced"
+# Keep the stored value "reduced" for compatibility with existing 022.05/022.06 databases.
+XMUX_MODE_RF2026 = "reduced"
+XMUX_MODE_REDUCED = XMUX_MODE_RF2026
 XMUX_MODE_EXPERT = "expert"
-XMUX_MODES = (XMUX_MODE_STANDARD, XMUX_MODE_REDUCED, XMUX_MODE_EXPERT)
+XMUX_MODES = (XMUX_MODE_STANDARD, XMUX_MODE_RF2026, XMUX_MODE_EXPERT)
 
-# Keep the internal mode names identical to SG-Panel for compatibility:
-#   auto    -> Standard preset
-#   reduced -> Для РФ — уменьшенный
+# 022.06 XMUX policy:
+#   auto    -> explicit current Xray upstream default (v26.7.28+)
+#   reduced -> experimental RF 2026 field-test profile, stored under the legacy value
 #   expert  -> manual Client Extra JSON
+#
+# The upstream v26.7.28 default reduced maxConnections from 6 to 3 for anti-TSPU.
+# We emit the values explicitly so client behaviour does not depend on which Xray build
+# a compatible client bundles. The RF profile follows the July 2026 Russia LTE/Wi-Fi
+# field-test proposal after resolving the maxConnections/maxConcurrency conflict.
 XMUX_STANDARD_PRESET: dict[str, object] = {
-    "maxConnections": "2-4",
-    "cMaxReuseTimes": "300-600",
-    "hMaxRequestTimes": "1000-2000",
-    "hMaxReusableSecs": "1200-2400",
-    "hKeepAlivePeriod": 600,
-}
-XMUX_REDUCED_PRESET: dict[str, object] = {
     "maxConcurrency": 0,
-    "maxConnections": "6",
+    "maxConnections": 3,
     "cMaxReuseTimes": 0,
     "hMaxRequestTimes": "600-900",
     "hMaxReusableSecs": "1800-3000",
     "hKeepAlivePeriod": 0,
 }
+XMUX_RF2026_PRESET: dict[str, object] = {
+    "maxConcurrency": 5,
+    "maxConnections": 0,
+    "cMaxReuseTimes": 0,
+    "hMaxRequestTimes": "300-600",
+    "hMaxReusableSecs": "900-1800",
+    "hKeepAlivePeriod": 0,
+}
+# Compatibility alias for code/tests that still refer to the old semantic name.
+XMUX_REDUCED_PRESET = XMUX_RF2026_PRESET
 
 XMUX_MODE_OPTIONS = (
     {
         "value": XMUX_MODE_STANDARD,
-        "title": "Стандартный",
-        "note": "Рекомендуемый пресет SG-Panel для обычных сетей.",
+        "title": "Стандартный · Xray upstream",
+        "note": "Актуальный upstream default: maxConnections 3, более длинная ротация.",
     },
     {
-        "value": XMUX_MODE_REDUCED,
-        "title": "Для РФ — уменьшенный",
-        "note": "Уменьшенное число соединений; maxConcurrency остаётся 0.",
+        "value": XMUX_MODE_RF2026,
+        "title": "Для РФ · эксперимент 2026",
+        "note": "Полевой профиль LTE/Wi-Fi: maxConcurrency 5 и более ранняя ротация соединений.",
     },
     {
         "value": XMUX_MODE_EXPERT,
@@ -125,7 +135,7 @@ def effective_client_extra(config: Mapping[str, Any]) -> dict[str, Any]:
     result = dict(extra)
     result.pop("xmux", None)
     result["xmux"] = dict(
-        XMUX_STANDARD_PRESET if mode == XMUX_MODE_STANDARD else XMUX_REDUCED_PRESET
+        XMUX_STANDARD_PRESET if mode == XMUX_MODE_STANDARD else XMUX_RF2026_PRESET
     )
     validate_xmux_conflicts(result)
     return result
@@ -157,7 +167,8 @@ def state_from_config(config: Mapping[str, Any]) -> dict[str, Any]:
         "effective": effective,
         "effective_json": json.dumps(effective, ensure_ascii=False, indent=2, sort_keys=True),
         "standard": dict(XMUX_STANDARD_PRESET),
-        "reduced": dict(XMUX_REDUCED_PRESET),
+        "reduced": dict(XMUX_RF2026_PRESET),
+        "rf2026": dict(XMUX_RF2026_PRESET),
         "error": error,
         "reality_client_mode": "stream-one",
         "tls_client_mode": str(config.get("xhttp_tls_mode") or "auto"),
@@ -183,7 +194,7 @@ def update_from_form(form: Any) -> dict[str, Any]:
     candidate = dict(config)
     candidate["xhttp_xmux_mode"] = mode
     candidate["xhttp_extra_client_json"] = extra
-    # SG-Panel contract: Reality XHTTP server is auto and client is fixed stream-one.
+    # SG-Panel VLESS contract retained: Reality XHTTP server is auto and client is stream-one.
     candidate["xhttp_reality_mode"] = "stream-one"
 
     # Validate the exact Client Extra that will be exported before saving.
