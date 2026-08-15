@@ -29,7 +29,7 @@ jobs:
           python -m pip install -r requirements-dev.txt
 
       - name: Apply Full Backup product fix
-        run: python .github/scripts/fix-02206-full-backup-verify-unlimited-r4.py
+        run: python .github/scripts/fix-02206-full-backup-verify-unlimited-r5.py
 
       - name: Check syntax before candidate commit
         run: |
@@ -47,6 +47,7 @@ jobs:
           git rm .github/scripts/fix-02206-full-backup-verify-unlimited-r2.py
           git rm .github/scripts/fix-02206-full-backup-verify-unlimited-r3.py
           git rm .github/scripts/fix-02206-full-backup-verify-unlimited-r4.py
+          git rm .github/scripts/fix-02206-full-backup-verify-unlimited-r5.py
           rm -f data/system-activity.json
           git add -A
 
