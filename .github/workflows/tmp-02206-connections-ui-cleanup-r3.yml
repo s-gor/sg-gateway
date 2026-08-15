@@ -28,203 +28,66 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
-      - name: Apply Connections UI cleanup R3
+      - name: Unify Connections action button geometry
         run: |
-          python - <<'PY'
-          from pathlib import Path
+          if ! grep -q 'Connections action sizing R3' app/web/static/sg-controls-final-v1.css; then
+            cat >> app/web/static/sg-controls-final-v1.css <<'CSS'
 
-          template_path = Path('app/web/templates/_xray_xmux_settings.html')
-          template = template_path.read_text(encoding='utf-8')
+          /* SG-Gateway 022.06 · Connections action sizing R3. */
+          .sg-body.page-connections :is(
+            .cnv1-heading-actions,
+            .xps2-top-actions,
+            .xps2-actions,
+            .xmux1-actions,
+            .cnv1-form-actions,
+            .mhv2-actions,
+            .mhv2-service-tools,
+            .cnv1-note-panel
+          ) .button {
+            width: 180px !important;
+            min-width: 180px !important;
+            min-height: 42px !important;
+            box-sizing: border-box !important;
+            padding: 9px 16px !important;
+          }
 
-          contract = '''      <div class="xmux1-contract">
-        <div>
-          <span>VLESS XHTTP Reality</span>
-          <strong>Client mode: stream-one</strong>
-          <small>Серверный mode остаётся auto.</small>
-        </div>
-        <div>
-          <span>VLESS XHTTP TLS</span>
-          <strong>Client mode: из карточки профиля</strong>
-          <small>Выбранный mode синхронизирован с сервером по VLESS parity.</small>
-        </div>
-        <div>
-          <span>Scope</span>
-          <strong>Только клиент</strong>
-          <small>extra.xmux не добавляется в server inbound.</small>
-        </div>
-      </div>
+          .sg-body.page-connections :is(
+            .cnv1-heading-actions,
+            .xps2-actions > div,
+            .mhv2-actions
+          ) {
+            flex-wrap: wrap !important;
+            gap: 10px !important;
+          }
 
-'''
-          if contract not in template:
-              raise SystemExit('expected XMUX contract cards block not found')
-          template = template.replace(contract, '', 1)
-          template = template.replace(
-              'Полевой LTE/Wi-Fi профиль: maxConcurrency 5 · maxConnections 0 · reuse 0 · requests 300-600 · lifetime 900-1800 · keepalive 0. Это экспериментальный профиль, не upstream default.',
-              'Полевой LTE/Wi-Fi профиль: maxConcurrency 5 · maxConnections 0 · requests 300-600 · lifetime 900-1800.'
-          )
-          template = template.replace('>Сохранить XMUX</button>', '>Сохранить</button>', 1)
-          template_path.write_text(template, encoding='utf-8')
-
-          xmux_path = Path('app/web/static/sg-xmux-settings-v1.css')
-          xmux = xmux_path.read_text(encoding='utf-8')
-          xmux = xmux.replace(''' .xmux1-mode small,\n.xmux1-contract small,\n.xmux1-extra small {'''.lstrip(), '''.xmux1-mode small,\n.xmux1-extra small {''')
-
-          dead = '''.xmux1-contract {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.xmux1-contract > div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 5px;
-  padding: 13px 14px;
-  border: 1px solid var(--sg-line, rgba(120, 145, 135, .28));
-  border-radius: 10px;
-}
-
-.xmux1-contract span {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  opacity: .72;
-}
-
-'''
-          if dead not in xmux:
-              raise SystemExit('expected XMUX contract CSS block not found')
-          xmux = xmux.replace(dead, '', 1)
-          xmux = xmux.replace('''  .xmux1-modes,
-  .xmux1-contract {
-    grid-template-columns: 1fr;
-  }''', '''  .xmux1-modes {
-    grid-template-columns: 1fr;
-  }''', 1)
-          xmux = xmux.replace('''.xmux1-mode {
-  display: block;
-  cursor: pointer;
-}''', '''.xmux1-mode {
-  display: flex;
-  min-width: 0;
-  cursor: pointer;
-}''', 1)
-          xmux = xmux.replace('''  display: flex;
-  min-height: 116px;
-  flex-direction: column;''', '''  display: flex;
-  width: 100%;
-  height: 100%;
-  min-height: 116px;
-  box-sizing: border-box;
-  flex-direction: column;''', 1)
-          xmux += '''
-
-/* SG-Gateway 022.06 · XMUX card geometry R3. */
-.xmux1-modes {
-  align-items: stretch;
-}
-'''
-          xmux_path.write_text(xmux, encoding='utf-8')
-
-          controls_path = Path('app/web/static/sg-controls-final-v1.css')
-          controls = controls_path.read_text(encoding='utf-8')
-          controls += '''
-
-/* SG-Gateway 022.06 · Connections action sizing R3. */
-.page-connections :is(
-  .cnv1-heading-actions,
-  .xps2-top-actions,
-  .xps2-actions,
-  .xmux1-actions,
-  .cnv1-form-actions,
-  .mhv2-actions,
-  .mhv2-service-tools,
-  .cnv1-note-panel
-) .button {
-  min-width: 148px !important;
-  min-height: 40px !important;
-  padding-inline: 16px !important;
-}
-
-.page-connections :is(.xps2-actions > div, .mhv2-actions) {
-  gap: 10px !important;
-}
-
-.page-connections .mhv2-actions .button {
-  flex: 0 0 auto !important;
-}
-
-/* Secret/inline helpers are utility controls, not primary page actions. */
-.page-connections :is(.xps2-salamander-buttons, .mhv2-tls-warning-compact) .button {
-  min-width: 0 !important;
-}
-
-@media (max-width: 680px) {
-  .page-connections :is(
-    .cnv1-heading-actions,
-    .xps2-top-actions,
-    .xps2-actions,
-    .xmux1-actions,
-    .cnv1-form-actions,
-    .mhv2-actions,
-    .cnv1-note-panel
-  ) .button {
-    width: 100% !important;
-  }
-}
-'''
-          controls_path.write_text(controls, encoding='utf-8')
-
-          test_path = Path('tests/test_sg_gateway_02206_connections_ui_cleanup_r3.py')
-          test_path.write_text('''from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-TEMPLATE = (ROOT / "app/web/templates/_xray_xmux_settings.html").read_text(encoding="utf-8")
-XMUX_CSS = (ROOT / "app/web/static/sg-xmux-settings-v1.css").read_text(encoding="utf-8")
-CONTROLS = (ROOT / "app/web/static/sg-controls-final-v1.css").read_text(encoding="utf-8")
-
-
-def test_xmux_contract_info_cards_are_removed_from_main_form():
-    assert 'class="xmux1-contract"' not in TEMPLATE
-    assert 'Client mode: stream-one' not in TEMPLATE
-    assert '<strong>Только клиент</strong>' not in TEMPLATE
-    assert '>Сохранить</button>' in TEMPLATE
-    assert 'не upstream default' not in TEMPLATE
-
-
-def test_xmux_mode_cards_share_equal_geometry():
-    assert 'XMUX card geometry R3' in XMUX_CSS
-    assert '.xmux1-mode {' in XMUX_CSS
-    assert 'display: flex' in XMUX_CSS
-    assert 'height: 100%' in XMUX_CSS
-    assert 'box-sizing: border-box' in XMUX_CSS
-    assert '.xmux1-contract' not in XMUX_CSS
-
-
-def test_connections_action_buttons_use_one_size_contract():
-    assert 'Connections action sizing R3' in CONTROLS
-    assert '.page-connections :is(' in CONTROLS
-    assert 'min-width: 148px !important' in CONTROLS
-    assert 'min-height: 40px !important' in CONTROLS
-    assert 'padding-inline: 16px !important' in CONTROLS
-    assert '.mhv2-service-tools' in CONTROLS
-    assert '.xps2-salamander-buttons' in CONTROLS
-''', encoding='utf-8')
-          PY
+          @media (max-width: 680px) {
+            .sg-body.page-connections :is(
+              .cnv1-heading-actions,
+              .xps2-top-actions,
+              .xps2-actions,
+              .xmux1-actions,
+              .cnv1-form-actions,
+              .mhv2-actions,
+              .mhv2-service-tools,
+              .cnv1-note-panel
+            ) .button {
+              width: 100% !important;
+              min-width: 0 !important;
+            }
+          }
+          CSS
+          fi
 
       - name: Remove temporary workflow
         run: git rm .github/workflows/tmp-02206-connections-ui-cleanup-r3.yml
 
       - name: Verify exact UI-only scope before tests
         run: |
-          git add -N tests/test_sg_gateway_02206_connections_ui_cleanup_r3.py
           git diff --name-only 34d2512b9739cf4e7efd8043cf0ed249d1b9dfd7 -- | sort > /tmp/changed.txt
           cat /tmp/changed.txt
           python - <<'PY'
           from pathlib import Path
-          changed = {x.strip() for x in Path('/tmp/changed.txt').read_text().splitlines() if x.strip()}
+          changed = {line.strip() for line in Path('/tmp/changed.txt').read_text().splitlines() if line.strip()}
           allowed = {
               'app/web/static/sg-controls-final-v1.css',
               'app/web/static/sg-xmux-settings-v1.css',
@@ -234,7 +97,7 @@ def test_connections_action_buttons_use_one_size_contract():
           assert changed == allowed, (changed, allowed)
           PY
 
-      - name: Run focused Connections and XMUX UI tests
+      - name: Run focused Connections UI tests
         run: |
           python -m pytest -q \
             tests/test_sg_gateway_02206_connections_ui_cleanup_r3.py \
@@ -251,13 +114,9 @@ def test_connections_action_buttons_use_one_size_contract():
           from pathlib import Path
           import hashlib
           import subprocess
-
           raw = subprocess.check_output(['git', 'ls-files', '-co', '--exclude-standard', '-z'])
-          files = sorted(x.decode() for x in raw.split(b'\0') if x and x.decode() != 'SOURCE-SHA256SUMS')
-          Path('SOURCE-SHA256SUMS').write_text(
-              ''.join(f"{hashlib.sha256(Path(name).read_bytes()).hexdigest()}  {name}\n" for name in files),
-              encoding='utf-8',
-          )
+          names = sorted(item.decode() for item in raw.split(b'\0') if item and item.decode() != 'SOURCE-SHA256SUMS')
+          Path('SOURCE-SHA256SUMS').write_text(''.join(f"{hashlib.sha256(Path(name).read_bytes()).hexdigest()}  {name}\n" for name in names), encoding='utf-8')
           PY
           sha256sum -c SOURCE-SHA256SUMS >/dev/null
 
@@ -272,24 +131,19 @@ def test_connections_action_buttons_use_one_size_contract():
           from pathlib import Path
           import hashlib
           import subprocess
-
           raw = subprocess.check_output(['git', 'ls-files', '-co', '--exclude-standard', '-z'])
-          files = sorted(x.decode() for x in raw.split(b'\0') if x and x.decode() != 'SOURCE-SHA256SUMS')
-          Path('SOURCE-SHA256SUMS').write_text(
-              ''.join(f"{hashlib.sha256(Path(name).read_bytes()).hexdigest()}  {name}\n" for name in files),
-              encoding='utf-8',
-          )
+          names = sorted(item.decode() for item in raw.split(b'\0') if item and item.decode() != 'SOURCE-SHA256SUMS')
+          Path('SOURCE-SHA256SUMS').write_text(''.join(f"{hashlib.sha256(Path(name).read_bytes()).hexdigest()}  {name}\n" for name in names), encoding='utf-8')
           PY
           sha256sum -c SOURCE-SHA256SUMS >/dev/null
 
       - name: Verify final UI-only diff scope
         run: |
-          git add -N tests/test_sg_gateway_02206_connections_ui_cleanup_r3.py
           git diff --name-only 34d2512b9739cf4e7efd8043cf0ed249d1b9dfd7 -- | sort > /tmp/final-changed.txt
           cat /tmp/final-changed.txt
           python - <<'PY'
           from pathlib import Path
-          changed = {x.strip() for x in Path('/tmp/final-changed.txt').read_text().splitlines() if x.strip()}
+          changed = {line.strip() for line in Path('/tmp/final-changed.txt').read_text().splitlines() if line.strip()}
           allowed = {
               'SOURCE-SHA256SUMS',
               'app/web/static/sg-controls-final-v1.css',
@@ -306,11 +160,10 @@ def test_connections_action_buttons_use_one_size_contract():
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git diff --cached --check
-          git commit -m 'Clean up Connections XMUX UI and action sizing'
-          test ! -e .github/workflows/tmp-02206-connections-ui-cleanup-r3.yml
+          git commit -m 'Clean up Connections XMUX UI and button sizing'
           sha256sum -c SOURCE-SHA256SUMS >/dev/null
 
-      - name: Build and verify FULL package from finalized HEAD
+      - name: Build and verify FULL package
         run: |
           OUT=/tmp/SG-Gateway-0.1.0-022.06-CONNECTIONS-UI-CLEANUP-R3.run
           bash build-run.sh "$OUT"
