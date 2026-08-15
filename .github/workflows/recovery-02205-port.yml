@@ -24,6 +24,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
       - name: Verify port is already integrated
         run: |
           grep -q 'SG_GATEWAY_02205_WSGI_ISOLATED_VALIDATION_V1' deploy/update-from-github.sh
@@ -35,11 +40,6 @@ jobs:
           test "$(grep -c 'SG_SUBSCRIPTION_DUAL_UI_V1' app/web/templates/client_detail.html)" -eq 1
           grep -q 'Legacy SUB устройства' app/web/templates/client_detail.html
           grep -q '^DEV-02205-SGPANEL-XMUX-WARP-UPDATER-R1$' BUILD-ID
-
-      - name: Install test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements-dev.txt
 
       - name: Check source syntax
         run: |
