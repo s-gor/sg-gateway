@@ -687,27 +687,18 @@ def _restore_payload(payload_root: Path, preserve_machine_env: bool = True) -> N
     _normalize_xray_full_access()
 
 
-def _ensure_full_restore_upload_nginx() -> None:
-    # SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX2
-    path = Path("/etc/nginx/sites-available/sg-gateway")
-    if not path.is_file():
-        return
-    body = path.read_text(encoding="utf-8")
+def _normalize_full_backup_upload_nginx_text(body: str) -> str:
+    # SG_GATEWAY_FULL_BACKUP_UPLOAD_UNLIMITED_V1
     restore_path = "/maintenance/full-backups/restore"
     verify_path = "/maintenance/full-backups/verify"
-    restore_marker = f"location = {restore_path} {{"
-    verify_marker = f"location = {verify_path} {{"
 
-    if restore_marker in body and verify_marker in body:
-        return
+    def location_pattern(endpoint: str) -> re.Pattern[str]:
+        return re.compile(
+            rf"(?ms)^    location = {re.escape(endpoint)} \{{\n.*?^    \}}\n"
+        )
 
     def existing_block(endpoint: str) -> str | None:
-        pattern = re.compile(
-            rf"(?ms)^    location = {re.escape(endpoint)} \{{\n"
-            r"        client_max_body_size 1024m;\n"
-            r".*?^    \}\n"
-        )
-        match = pattern.search(body)
+        match = location_pattern(endpoint).search(body)
         return match.group(0) if match else None
 
     restore_block = existing_block(restore_path)
@@ -734,7 +725,7 @@ def _ensure_full_restore_upload_nginx() -> None:
         def make_block(endpoint: str) -> str:
             return (
                 f"    location = {endpoint} {{\n"
-                "        client_max_body_size 1024m;\n"
+                "        client_max_body_size 0;\n"
                 f"        proxy_pass http://127.0.0.1:{port};\n"
                 "        proxy_http_version 1.1;\n"
                 "        proxy_set_header Host $host;\n"
@@ -747,15 +738,41 @@ def _ensure_full_restore_upload_nginx() -> None:
             )
 
         block = (
-            "    # SG_GATEWAY_FULL_BACKUP_UPLOAD_FIX2\n"
+            "    # SG_GATEWAY_FULL_BACKUP_UPLOAD_UNLIMITED_V1\n"
             + make_block(restore_path)
             + make_block(verify_path)
         )
         body = body[:match.start()] + block + body[match.start():]
-    else:
-        raise RuntimeError("Nginx Full Backup upload locations are malformed")
 
-    path.write_text(body, encoding="utf-8", newline="\n")
+    for endpoint in (restore_path, verify_path):
+        pattern = location_pattern(endpoint)
+        match = pattern.search(body)
+        if match is None:
+            raise RuntimeError(f"Nginx Full Backup upload location is missing: {endpoint}")
+        block = match.group(0)
+        directive = re.compile(r"(?m)^(?P<indent>\s*)client_max_body_size\s+[^;]+;\s*$")
+        if directive.search(block):
+            normalized = directive.sub(
+                lambda item: f"{item.group('indent')}client_max_body_size 0;",
+                block,
+                count=1,
+            )
+        else:
+            first_line_end = block.find("\n") + 1
+            normalized = block[:first_line_end] + "        client_max_body_size 0;\n" + block[first_line_end:]
+        body = body[:match.start()] + normalized + body[match.end():]
+
+    return body
+
+
+def _ensure_full_restore_upload_nginx() -> None:
+    path = Path("/etc/nginx/sites-available/sg-gateway")
+    if not path.is_file():
+        return
+    body = path.read_text(encoding="utf-8")
+    normalized = _normalize_full_backup_upload_nginx_text(body)
+    if normalized != body:
+        path.write_text(normalized, encoding="utf-8", newline="\n")
 
 def _probe(
     command: list[str],

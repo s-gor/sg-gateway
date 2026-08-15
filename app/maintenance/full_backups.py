@@ -11,7 +11,6 @@ from app.config import load_config
 FULL_BACKUP_SUFFIX = ".sgbackup"
 RESTORE_UPLOAD_NAME = "restore-upload.sgbackup"
 VERIFY_UPLOAD_NAME = "verify-upload.sgbackup"
-MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 _TRANSIENT_UPLOAD_NAMES = {RESTORE_UPLOAD_NAME, VERIFY_UPLOAD_NAME}
 
 
@@ -82,10 +81,6 @@ def _stage_uploaded_full_backup(file_storage, destination_name: str) -> Path:
             if not chunk:
                 break
             total += len(chunk)
-            if total > MAX_UPLOAD_BYTES:
-                handle.close()
-                temporary.unlink(missing_ok=True)
-                raise ValueError("Полный backup больше допустимых 512 MiB")
             handle.write(chunk)
         handle.flush()
         os.fsync(handle.fileno())

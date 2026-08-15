@@ -1,5 +1,5 @@
 {
-  "build": "DEV-02206-CI-HYGIENE-R1",
+  "build": "DEV-02206-FULL-BACKUP-VERIFY-UNLIMITED-R1",
   "status": "DEVELOPMENT",
   "next_development_line": "0.1.0-022.07",
   "safe_update": {
@@ -322,13 +322,14 @@
     "includes_https_certificates": true,
     "includes_private_keys": true,
     "local_https_refresh_after_restore": true,
-    "max_upload_mib": 1024,
     "nested_https_backup_history_excluded": true,
     "restore_live_terminal": true,
     "single_file": true,
     "sqlite_panel_user_validation": true,
     "xray_full_access_after_restore": "0777-recursive",
-    "xray_required_active_before_success": true
+    "xray_required_active_before_success": true,
+    "upload_size_limit": "unlimited",
+    "verify_button_integrated": true
   },
   "public_endpoint_policy": {
     "applies_to": [
@@ -583,5 +584,12 @@
       "deploy/patch_full_backup_upload_routes.py"
     ],
     "preserves_frozen_branch": "dev-02205"
+  },
+  "development_fix": {
+    "id": "full-backup-verify-unlimited-r1",
+    "verify_button": "integrated-in-maintenance-template",
+    "upload_size_limit": "unlimited",
+    "legacy_upload_limit_migration": true,
+    "panel_update_migration_scope": "full-backup-upload-contract-only"
   }
 }

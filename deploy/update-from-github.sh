@@ -301,6 +301,15 @@ create_safety_backup() {
     /etc/nginx/stream-conf.d/sg-gateway-443.conf \
     > "$BACKUP_DIR/nginx-before.sha256"
 
+  fingerprint_paths \
+    /etc/nginx/nginx.conf \
+    /etc/nginx/sites-enabled/sg-gateway \
+    /etc/nginx/stream-conf.d/sg-gateway-443.conf \
+    > "$BACKUP_DIR/nginx-static-before.sha256"
+  if [[ -f /etc/nginx/sites-available/sg-gateway ]]; then
+    cp -a /etc/nginx/sites-available/sg-gateway "$BACKUP_DIR/nginx-site-before.conf"
+  fi
+
   local existing=() relative
   for relative in \
     opt/sg-gateway \
@@ -739,6 +748,17 @@ deploy_source() {
   runuser -u sg-gateway -- test -x "$PREFIX/.venv/bin/python"
   runuser -u sg-gateway -- "$PREFIX/.venv/bin/python" -c \
     'import flask, jinja2, waitress; print("Python runtime: OK")'
+
+  # 022.06: remove the old Full Backup upload cap using the deployed,
+  # unit-tested normalizer. This is the only server config migration allowed
+  # by the panel-only updater in this release.
+  PYTHONPATH="$PREFIX/hostd" "$PREFIX/.venv/bin/python" -B - <<'PYFULLBACKUPUPLOAD'
+from sg_hostd.full_backup_runtime import _ensure_full_restore_upload_nginx
+_ensure_full_restore_upload_nginx()
+print("Full Backup upload contract: unlimited")
+PYFULLBACKUPUPLOAD
+  nginx -t >/dev/null
+  systemctl reload nginx.service
 }
 
 restart_panel() {
@@ -769,13 +789,29 @@ verify_final() {
   after="$(fingerprint_paths /etc/letsencrypt)"
   [[ "$before" == "$after" ]] || fail "/etc/letsencrypt changed during Update"
 
-  before="$(cat "$BACKUP_DIR/nginx-before.sha256")"
+  before="$(cat "$BACKUP_DIR/nginx-static-before.sha256")"
   after="$(fingerprint_paths \
     /etc/nginx/nginx.conf \
-    /etc/nginx/sites-available/sg-gateway \
     /etc/nginx/sites-enabled/sg-gateway \
     /etc/nginx/stream-conf.d/sg-gateway-443.conf)"
-  [[ "$before" == "$after" ]] || fail "Nginx configuration changed during Update"
+  [[ "$before" == "$after" ]] || fail "Nginx static configuration changed during Update"
+
+  if [[ -f "$BACKUP_DIR/nginx-site-before.conf" ]]; then
+    PYTHONPATH="$PREFIX/hostd" "$PREFIX/.venv/bin/python" -B - \
+      "$BACKUP_DIR/nginx-site-before.conf" /etc/nginx/sites-available/sg-gateway <<'PYVERIFYUPLOADCONTRACT'
+import sys
+from pathlib import Path
+from sg_hostd.full_backup_runtime import _normalize_full_backup_upload_nginx_text
+
+before_path = Path(sys.argv[1])
+after_path = Path(sys.argv[2])
+expected = _normalize_full_backup_upload_nginx_text(before_path.read_text(encoding="utf-8"))
+actual = after_path.read_text(encoding="utf-8")
+if actual != expected:
+    raise SystemExit("Full Backup upload contract changed outside the expected normalization")
+print("Full Backup upload contract migration: OK")
+PYVERIFYUPLOADCONTRACT
+  fi
 
   verify_runtime_states_unchanged "$BACKUP_DIR/service-state.tsv"
   nginx -t >/dev/null
@@ -876,7 +912,7 @@ main() {
   printf '%s[SG-Gateway Update] SG-Gateway safely updated.%s\n' "$GREEN" "$RESET"
   printf '[SG-Gateway Update] VERSION: %s\n' "$new_version"
   printf '[SG-Gateway Update] Safety Backup: %s\n' "$BACKUP_DIR"
-  printf '[SG-Gateway Update] Nginx/Certbot/Let'\''s Encrypt/cores were not modified.\n'
+  printf '[SG-Gateway Update] Full Backup upload-size contract normalized; certificates/cores were not modified.\n'
   printf '[SG-Gateway Update] ============================================================\n'
 }
 
