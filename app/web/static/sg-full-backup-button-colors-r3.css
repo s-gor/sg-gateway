@@ -1,0 +1,74 @@
+/* SG-Gateway 0.1.0-022.06 · Full Backup semantic button colors R3
+   Loaded LAST on Maintenance. Uses dedicated semantic colours so Luxury Jade
+   cannot remap Verify blue into jade, and both light/dark themes stay distinct. */
+
+html[data-theme="light"] body.page-maintenance {
+  --sg-full-verify-line: #6f9bc7;
+  --sg-full-verify-top: #edf5fd;
+  --sg-full-verify-bottom: #d8e9f8;
+  --sg-full-verify-text: #2f669b;
+  --sg-full-verify-shadow: 0 8px 18px rgba(47, 102, 155, .14);
+  --sg-full-restore-line: #b78343;
+  --sg-full-restore-top: #9d6b3b;
+  --sg-full-restore-bottom: #744a24;
+  --sg-full-restore-text: #fff5df;
+  --sg-full-restore-shadow: 0 8px 18px rgba(79, 50, 29, .24);
+}
+
+html[data-theme="dark"] body.page-maintenance {
+  --sg-full-verify-line: #5f91c2;
+  --sg-full-verify-top: #294f76;
+  --sg-full-verify-bottom: #1d3b5a;
+  --sg-full-verify-text: #e3f1ff;
+  --sg-full-verify-shadow: 0 8px 18px rgba(4, 15, 28, .34);
+  --sg-full-restore-line: #bf8b48;
+  --sg-full-restore-top: #7a522b;
+  --sg-full-restore-bottom: #57391f;
+  --sg-full-restore-text: #fff1d7;
+  --sg-full-restore-shadow: 0 8px 18px rgba(0, 0, 0, .30);
+}
+
+body.page-maintenance .sg-full-restore-actions .button.sg-full-verify-button {
+  border-color: var(--sg-full-verify-line) !important;
+  background: linear-gradient(180deg,
+    var(--sg-full-verify-top),
+    var(--sg-full-verify-bottom)) !important;
+  color: var(--sg-full-verify-text) !important;
+  box-shadow: var(--sg-full-verify-shadow) !important;
+}
+
+body.page-maintenance .sg-full-restore-actions .button.sg-full-verify-button:not(:disabled):hover {
+  border-color: var(--sg-full-verify-line) !important;
+  background: linear-gradient(180deg,
+    var(--sg-full-verify-top),
+    var(--sg-full-verify-bottom)) !important;
+  color: var(--sg-full-verify-text) !important;
+  filter: brightness(1.07) !important;
+}
+
+body.page-maintenance .sg-full-restore-actions .button[data-sg-full-restore-button] {
+  border-color: var(--sg-full-restore-line) !important;
+  background: linear-gradient(180deg,
+    var(--sg-full-restore-top),
+    var(--sg-full-restore-bottom)) !important;
+  color: var(--sg-full-restore-text) !important;
+  box-shadow: var(--sg-full-restore-shadow) !important;
+}
+
+body.page-maintenance .sg-full-restore-actions .button[data-sg-full-restore-button]:not(:disabled):hover {
+  border-color: var(--sg-full-restore-line) !important;
+  background: linear-gradient(180deg,
+    var(--sg-full-restore-top),
+    var(--sg-full-restore-bottom)) !important;
+  color: var(--sg-full-restore-text) !important;
+  filter: brightness(1.08) !important;
+}
+
+/* Keep disabled controls visibly semantic without making them look actionable. */
+body.page-maintenance .sg-full-restore-actions .button.sg-full-restore-button:disabled {
+  opacity: .62 !important;
+  filter: saturate(.72) brightness(.96) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
