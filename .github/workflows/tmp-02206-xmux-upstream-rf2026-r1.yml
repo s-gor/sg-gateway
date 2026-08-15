@@ -93,6 +93,7 @@ jobs:
       - name: Clean test runtime state and rebuild final source inventory
         run: |
           rm -f data/system-activity.json
+          git clean -fdX
           find . -type f \
             ! -path './.git/*' \
             ! -path './SOURCE-SHA256SUMS' \
