@@ -28,7 +28,7 @@ jobs:
       - name: Verify 022.06 identity and source integrity
         run: |
           test "$(tr -d '[:space:]' < VERSION)" = "0.1.0-022.06"
-          test "$(tr -d '\r\n' < BUILD-ID)" = "DEV-02206-BASE-R1"
+          test "$(tr -d '\r\n' < BUILD-ID)" = "DEV-02206-CONNECTIONS-POLISH-R1"
           bash -n install.sh
           bash -n build-run.sh
           bash -n build-run-vendored.sh

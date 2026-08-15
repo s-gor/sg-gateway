@@ -5,6 +5,7 @@
 - Live-validated runtime base: `9fbf42aea2bde80a99229de5661a93b6dce4f6c1` / tree `c482dc4f158dc1d61c2ba1d683a14e96d24dac68`.
 - Initial 022.06 commit changes development identity/channel/CI only; no new VPN/runtime behavior is introduced.
 - Frozen 022.05 updater channel remains `dev-02205`.
+- Connections polish R1 restores the previously CI-verified balanced AmneziaWG/Mihomo layout and compact XHTTP rows as a UI-only change; Gecko, SG-Panel XMUX and VPN runtime are preserved.
 
 # SG-Gateway 0.1.0-022.05 — LIVE
 
