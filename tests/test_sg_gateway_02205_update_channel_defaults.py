@@ -1,25 +1,4 @@
-from __future__ import annotations
-
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[2]
-OLD = 'BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-main}"'
-NEW = 'BRANCH="${SG_GATEWAY_GITHUB_BRANCH:-${SG_GATEWAY_UPDATE_BRANCH:-dev-02205}}"'
-
-for relative in ("deploy/update-from-github.sh", "deploy/install-from-github.sh"):
-    path = ROOT / relative
-    body = path.read_text(encoding="utf-8")
-    count = body.count(OLD)
-    if count != 1:
-        raise RuntimeError(f"{relative}: expected one implicit-main branch default, got {count}")
-    body = body.replace(OLD, NEW)
-    path.write_text(body, encoding="utf-8", newline="\n")
-
-# Current regression: all active 022.05 panel/bootstrap paths must share the same
-# explicit update channel and must never silently fall back to main.
-test = ROOT / "tests/test_sg_gateway_02205_update_channel_defaults.py"
-test.write_text(
-    '''from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,9 +27,3 @@ def test_release_manifest_declares_02205_update_channel() -> None:
     manifest = json.loads((ROOT / "release-manifest.json").read_text(encoding="utf-8"))
     assert manifest["channel"] == "dev-02205"
     assert manifest["maintenance_updates"]["panel"]["channel"] == "dev-02205"
-''',
-    encoding="utf-8",
-    newline="\n",
-)
-
-print("022.05 update-channel defaults patch: applied")
