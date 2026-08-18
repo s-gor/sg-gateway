@@ -83,6 +83,8 @@ DELETE SG-GATEWAY
 
 SG-Gateway 0.1.0-021.12 — целевая рабочая версия без Traffic/statistics и без новых экспериментальных функций.
 
+> **Важно:** 021.12 находится в frozen-ветке `stable-02112`. Команды этого раздела специально закреплены на ней и не используют текущий `main`.
+
 Главное изменение этой линии — SG-Gateway теперь можно не только установить и настроить, но и **перенести на новый чистый Ubuntu-сервер либо восстановить после серьёзной аварии как целую систему**.
 
 ### Две разные команды: Clean Install и Update
@@ -92,7 +94,7 @@ SG-Gateway 0.1.0-021.12 — целевая рабочая версия без Tr
 #### CLEAN INSTALL — только новый сервер
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash
 ```
 
 Clean Install предназначен только для новой Ubuntu. Он устанавливает системные пакеты, Nginx, Certbot, Xray, AmneziaWG, Mihomo, sing-box, WARP helper, systemd-службы и первоначальный runtime.
@@ -102,7 +104,7 @@ Clean Install предназначен только для новой Ubuntu. О
 #### UPDATE — только существующий SG-Gateway
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update-from-github.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash
 ```
 
 Update больше не является повторным полным installer.
@@ -451,10 +453,10 @@ Mieru JSON использует фактический адрес и порт с
 
 В версии 021.8 для чистой установки и обновления действительно использовалась одна команда. **Начиная с 021.12 эта схема больше не применяется:** Clean Install и Update разделены.
 
-Актуальная команда Update:
+Команда перехода на frozen-линию 021.12:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update-from-github.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash
 ```
 
 Clean Install предназначен только для нового сервера. На уже установленном SG-Gateway он останавливается до изменений.
