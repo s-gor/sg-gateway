@@ -32,7 +32,7 @@ SG-Gateway устанавливается на **один самостоятел
 Для чистой Ubuntu:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash
 ```
 
 Если SG-Gateway уже установлен, Clean Install останавливается до изменений и предлагает отдельную команду Update.
@@ -40,7 +40,7 @@ curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/instal
 ### Update — существующий SG-Gateway
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update-from-github.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash
 ```
 
 Update не запускает полный installer и не переустанавливает Nginx, Certbot, Xray, AmneziaWG, Mihomo, sing-box или WARP helper. Перед переключением кода создаётся safety backup, а после обновления проверяются HTTPS, Clients, Nginx и runtime.
@@ -48,7 +48,7 @@ Update не запускает полный installer и не переустан
 ### Full Uninstall — полное удаление SG-Gateway
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/full-uninstall-ubuntu.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/full-uninstall-ubuntu.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash
 ```
 
 Подтверждение:
@@ -77,7 +77,7 @@ SG-Gateway 0.1.0-021.12 — целевая рабочая версия без Tr
 #### CLEAN INSTALL — только новый сервер
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash
 ```
 
 Clean Install предназначен только для новой Ubuntu. Он устанавливает системные пакеты, Nginx, Certbot, Xray, AmneziaWG, Mihomo, sing-box, WARP helper, systemd-службы и первоначальный runtime.
@@ -87,7 +87,7 @@ Clean Install предназначен только для новой Ubuntu. О
 #### UPDATE — только существующий SG-Gateway
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update-from-github.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash
 ```
 
 Update больше не является повторным полным installer.
@@ -273,7 +273,7 @@ Full Restore рассчитан и на ошибочный сценарий.
 
 ```text
 чистая Ubuntu
-→ Clean Install из GitHub main
+→ Clean Install из GitHub stable-02112
 → загрузка .sgbackup
 → Full Restore
 → восстановление HTTPS
@@ -439,7 +439,7 @@ Mieru JSON использует фактический адрес и порт с
 Актуальная команда Update:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update-from-github.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash
 ```
 
 Clean Install предназначен только для нового сервера. На уже установленном SG-Gateway он останавливается до изменений.
@@ -654,7 +654,7 @@ SG-Gateway не является уменьшенной копией всей SG
 Используйте чистую Ubuntu EC2/VPS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash
 ```
 
 После установки панель доступна по адресу, показанному установщиком. Начальная настройка может выполняться по HTTP и IP; домен и HTTPS добавляются позднее из раздела `Security`.
@@ -674,7 +674,7 @@ curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/instal
 Для уже установленного SG-Gateway используется **отдельная команда Update**:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update-from-github.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash
 ```
 
 Clean Install для обновления существующего сервера больше не используется.
@@ -686,7 +686,7 @@ Update не запускает полный `install.sh`, не выполняе�
 ## Полное удаление
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/full-uninstall-ubuntu.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/full-uninstall-ubuntu.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash
 ```
 
 Подтверждение:
