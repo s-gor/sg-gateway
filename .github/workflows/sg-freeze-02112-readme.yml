@@ -1,0 +1,47 @@
+name: Freeze 021.12 public commands
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sg-freeze-02112-readme.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  freeze-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Pin 021.12 public commands to stable branch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('README.md')
+          s = p.read_text(encoding='utf-8')
+          replacements = {
+              'curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/install-from-github.sh | sudo bash':
+              'curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/install-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash',
+              'curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/update-from-github.sh | sudo bash':
+              'curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/update-from-github.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash',
+              'curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/full-uninstall-ubuntu.sh | sudo bash':
+              'curl -fsSL https://raw.githubusercontent.com/s-gor/sg-gateway/stable-02112/deploy/full-uninstall-ubuntu.sh | sudo env SG_GATEWAY_GITHUB_BRANCH=stable-02112 bash',
+              'Clean Install из GitHub main': 'Clean Install из GitHub stable-02112',
+          }
+          for old, new in replacements.items():
+              s = s.replace(old, new)
+          if 'raw.githubusercontent.com/s-gor/sg-gateway/main/deploy/' in s:
+              raise SystemExit('un-pinned main/deploy command remains in README')
+          p.write_text(s, encoding='utf-8')
+          PY
+          rm -f .github/workflows/sg-freeze-02112-readme.yml
+          git config user.name 'SG-Gateway release bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add README.md .github/workflows/sg-freeze-02112-readme.yml
+          git diff --cached --check
+          git commit -m 'Docs: pin 021.12 commands to stable-02112'
+          git push origin HEAD:main
